@@ -34,11 +34,32 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
   await pool.query(
     `INSERT INTO athlete_profiles
        (user_id, name, gender, age, height_cm, weight_kg, level, goal,
-        days_per_week, equipment, injuries, coach_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        days_per_week, equipment, injuries, coach_id,
+        phone, plan_interest, training_mode, commitment, exercise_minutes,
+        days_specific, referral_source, sport_focus)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+             $13,$14,$15,$16,$17,$18,$19,$20)`,
     [userId, p.name, p.gender, p.age, p.height_cm, p.weight_kg,
-     p.level, p.goal, p.days_per_week, p.equipment, p.injuries, coachId],
+     p.level, p.goal, p.days_per_week, p.equipment, p.injuries, coachId,
+     p.phone, p.plan_interest, p.training_mode, p.commitment, p.exercise_minutes,
+     p.days_specific, p.referral_source, p.sport_focus ?? null],
   );
+
+  // Insert measurements if any non-null value provided
+  if (p.measurements) {
+    const m = p.measurements;
+    const hasAny = m.chest_cm != null || m.waist_cm != null || m.hip_cm != null
+      || m.thigh_cm != null || m.calf_cm != null || m.bicep_cm != null;
+    if (hasAny) {
+      await pool.query(
+        `INSERT INTO athlete_measurements
+           (athlete_id, chest_cm, waist_cm, hip_cm, thigh_cm, calf_cm, bicep_cm, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'onboarding')`,
+        [userId, m.chest_cm ?? null, m.waist_cm ?? null, m.hip_cm ?? null,
+         m.thigh_cm ?? null, m.calf_cm ?? null, m.bicep_cm ?? null],
+      );
+    }
+  }
 
   const profileR = await pool.query(
     `SELECT * FROM athlete_profiles WHERE user_id = $1`, [userId],
@@ -59,7 +80,15 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     return res.status(201).json({ skeletonId, status: 'pending_review' });
   } catch (e) {
     logger.error({ err: e, athleteId: userId }, 'skeleton generation failed');
-    // Rollback profile insert so user can retry without 409 lockout
+    // Rollback: delete measurements (FK is on users, not profile) + profile, allow retry
+    await pool
+      .query(
+        `DELETE FROM athlete_measurements WHERE athlete_id = $1 AND source = 'onboarding'`,
+        [userId],
+      )
+      .catch((delErr) =>
+        logger.error({ err: delErr, athleteId: userId }, 'measurements rollback failed'),
+      );
     await pool
       .query(`DELETE FROM athlete_profiles WHERE user_id = $1`, [userId])
       .catch((delErr) =>

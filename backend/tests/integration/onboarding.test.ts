@@ -167,3 +167,70 @@ it('returns 502 when skeleton generation fails', async () => {
     .set('Authorization', `Bearer ${tok}`).send(validPayload);
   expect(r.status).toBe(502);
 });
+
+it('persists new fields and measurements', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  await createCoach();
+  const ex = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
+  );
+  const pid = ex.rows[0].id;
+  openaiMod.__mockCreate.mockResolvedValue({
+    choices: [{ message: { content: JSON.stringify({
+      rationale: 'ok',
+      days: [1, 2, 3, 4].map((d) => ({
+        day_index: d, focus: 'full',
+        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal' }],
+      })),
+    }) } }],
+  });
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, sport_focus: 'futbol',
+            measurements: { chest_cm: 100, waist_cm: 80 } });
+  expect(r.status).toBe(201);
+  const prof = await pool.query(
+    `SELECT phone, plan_interest, days_specific, sport_focus
+       FROM athlete_profiles WHERE user_id=$1`, [u],
+  );
+  expect(prof.rows[0].phone).toBe('+5491111111111');
+  expect(prof.rows[0].days_specific).toEqual(['lun','mar','jue','sab']);
+  expect(prof.rows[0].sport_focus).toBe('futbol');
+  const m = await pool.query(
+    `SELECT chest_cm, waist_cm, source
+       FROM athlete_measurements WHERE athlete_id=$1`, [u],
+  );
+  expect(m.rowCount).toBe(1);
+  expect(Number(m.rows[0].chest_cm)).toBe(100);
+  expect(m.rows[0].source).toBe('onboarding');
+});
+
+it('skips measurements INSERT when all values null', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  await createCoach();
+  const ex = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
+  );
+  const pid = ex.rows[0].id;
+  openaiMod.__mockCreate.mockResolvedValue({
+    choices: [{ message: { content: JSON.stringify({
+      rationale: 'ok',
+      days: [1, 2, 3, 4].map((d) => ({
+        day_index: d, focus: 'f',
+        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal' }],
+      })),
+    }) } }],
+  });
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send(validPayload);
+  expect(r.status).toBe(201);
+  const m = await pool.query(
+    `SELECT 1 FROM athlete_measurements WHERE athlete_id=$1`, [u],
+  );
+  expect(m.rowCount).toBe(0);
+});
