@@ -22,6 +22,9 @@ Reglas estrictas:
 - Sólo podés usar exercise_id que aparezcan en el catálogo provisto.
 - No usar ejercicios contraindicados para las lesiones del atleta.
 - Distribuir grupos musculares para evitar repetir el mismo en días consecutivos.
+- Adaptar volumen según commitment (suave=menos series, exigente=más).
+- Adaptar cantidad ejercicios según exercise_minutes (30-45 min → 4 ej, 60 min → 5-6 ej, 75-90 min → 6-7 ej).
+- Si training_mode='casa', priorizá ejercicios con equipment compatible (bw, mancuerna, elastico).
 - Devolver SIEMPRE JSON parseable que cumpla el schema.`;
 
 export async function generateSkeleton(
@@ -35,6 +38,9 @@ export async function generateSkeleton(
       weight_kg: profile.weight_kg, level: profile.level, goal: profile.goal,
       days_per_week: profile.days_per_week, equipment: profile.equipment,
       injuries: profile.injuries,
+      training_mode: profile.training_mode,
+      commitment: profile.commitment,
+      exercise_minutes: profile.exercise_minutes,
     },
     constraints: {
       days: profile.days_per_week,

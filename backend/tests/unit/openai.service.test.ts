@@ -117,3 +117,41 @@ it('rejects when day count !== days_per_week', async () => {
   });
   await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
 });
+
+it('includes commitment + training_mode + exercise_minutes in user prompt', async () => {
+  openaiMod.__mockCreate.mockResolvedValueOnce({
+    choices: [{ message: { content: JSON.stringify({
+      rationale: 'r',
+      days: [{ day_index: 1, focus: 'f',
+        slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' }] }],
+    }) } }],
+  });
+
+  const enrichedProfile = {
+    user_id: 'u', name: 'A', gender: 'male', age: 30, height_cm: 175,
+    weight_kg: 75, level: 'medio', goal: 'hipertrofia', days_per_week: 1,
+    equipment: 'gym_completo', injuries: [], coach_id: null,
+    onboarded_at: '2026-05-11T00:00:00Z',
+    phone: '+5491111111111', plan_interest: 'full',
+    training_mode: 'casa', commitment: 'exigente',
+    exercise_minutes: 45, days_specific: ['lun'],
+    referral_source: 'google', sport_focus: null,
+  } as never;
+
+  const minimalExercises = [{ id: 1, name: 'X', muscle_group: 'g', equipment: 'barra',
+                       movement_pattern: 'squat', is_principal: true,
+                       is_unilateral: false, level_min: 'principiante',
+                       contraindicated_for: [], default_increment_kg: 2.5,
+                       alternatives_ids: [], video_url: null,
+                       illustration_url: null }] as never;
+
+  await generateSkeleton({ profile: enrichedProfile, exercises: minimalExercises });
+
+  const calls = openaiMod.__mockCreate.mock.calls as unknown as Array<
+    Array<{ messages: Array<{ role: string; content: string }> }>
+  >;
+  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
+  expect(userMsg).toContain('"training_mode":"casa"');
+  expect(userMsg).toContain('"commitment":"exigente"');
+  expect(userMsg).toContain('"exercise_minutes":45');
+});
