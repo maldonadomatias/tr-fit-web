@@ -19,4 +19,5 @@ export default {
   ],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   testTimeout: 15000,
+  maxWorkers: 1,
 };
