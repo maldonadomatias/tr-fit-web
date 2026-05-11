@@ -79,6 +79,29 @@ export interface SkeletonDetail {
   };
 }
 
+export interface AthleteMeasurement {
+  id: string;
+  athlete_id: string;
+  measured_at: string;
+  chest_cm: string | null;
+  waist_cm: string | null;
+  hip_cm: string | null;
+  thigh_cm: string | null;
+  calf_cm: string | null;
+  bicep_cm: string | null;
+  source: 'onboarding' | 'manual' | 'coach';
+  created_at: string;
+}
+
+export interface AthleteDetailResponse {
+  profile: Record<string, unknown>;
+  programState: unknown;
+  activeSkeleton: { skeleton: unknown; slots: unknown[] } | null;
+  recentSessions: unknown[];
+  alertsCount: number;
+  measurements: AthleteMeasurement[];
+}
+
 export interface CoachAlert {
   id: string;
   type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting';
