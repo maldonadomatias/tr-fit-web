@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { alertPayload } from '../domain/schemas.js';
 import {
   createPainAlert, createMachineAlert, AlertError,
@@ -15,7 +15,10 @@ const alertLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `alert:${req.user?.id ?? 'anon'}`,
+  keyGenerator: (req) => {
+    const uid = req.user?.id;
+    return uid ? `alert:${uid}` : `alert:${ipKeyGenerator(req.ip ?? '')}`;
+  },
 });
 
 router.post('/', alertLimiter, async (req: Request, res: Response) => {

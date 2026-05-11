@@ -1,12 +1,14 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import type { Request, Response, RequestHandler } from 'express';
 
 function json429(_req: Request, res: Response): void {
   const retryAfter = res.getHeader('Retry-After');
   res.status(429).json({
     error: 'rate_limited',
-    retryAfter: typeof retryAfter === 'string' || typeof retryAfter === 'number'
-      ? Number(retryAfter) : undefined,
+    retryAfter:
+      typeof retryAfter === 'string' || typeof retryAfter === 'number'
+        ? Number(retryAfter)
+        : undefined,
   });
 }
 
@@ -27,14 +29,16 @@ export const signupLimiter = rateLimit({
 });
 
 // Forgot-password: keyed by email (request body), not IP.
+// Falls back to ipKeyGenerator() for IPv6 safety when email missing.
 export const forgotPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: Request) => {
-    const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase() : '';
-    return `forgot:${email || req.ip || 'anon'}`;
+  keyGenerator: (req: Request, res: Response) => {
+    const email =
+      typeof req.body?.email === 'string' ? req.body.email.toLowerCase() : '';
+    return email ? `forgot:${email}` : `forgot:${ipKeyGenerator(req.ip ?? '')}`;
   },
   handler: json429,
 });
@@ -44,7 +48,12 @@ export const resendVerifyLimiter = rateLimit({
   max: 1,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req: Request) => `resend-verify:${req.user?.id ?? req.ip ?? 'anon'}`,
+  keyGenerator: (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    return userId
+      ? `resend-verify:${userId}`
+      : `resend-verify:${ipKeyGenerator(req.ip ?? '')}`;
+  },
   handler: json429,
 });
 
