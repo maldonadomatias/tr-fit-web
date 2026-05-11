@@ -1,9 +1,10 @@
-import { expect, afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import * as matchers from '@testing-library/jest-dom/matchers';
+import '@testing-library/jest-dom';
+import { afterAll, afterEach, beforeAll } from 'vitest';
+import { setupServer } from 'msw/node';
+import { handlers } from './mocks/handlers';
 
-expect.extend(matchers);
+export const server = setupServer(...handlers);
 
-afterEach(() => {
-  cleanup();
-});
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
