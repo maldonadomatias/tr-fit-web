@@ -94,6 +94,41 @@ it('creates profile + skeleton + slots on success', async () => {
 
   const slots = await pool.query(`SELECT count(*)::int AS n FROM skeleton_slots`);
   expect(slots.rows[0].n).toBe(8);
+
+  const prof = await pool.query<{ coach_id: string | null }>(
+    `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`, [u],
+  );
+  expect(prof.rows[0].coach_id).toBeTruthy();
+});
+
+it('onboarded athlete is visible in coach pending inbox', async () => {
+  const coachId = await createCoach();
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const ex = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
+  );
+  openaiMod.__mockCreate.mockResolvedValue({
+    choices: [{ message: { content: JSON.stringify({
+      rationale: 'r',
+      days: [1, 2, 3, 4].map((d) => ({
+        day_index: d, focus: 'd',
+        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal' }],
+      })),
+    }) } }],
+  });
+  const onboardR = await request(app).post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`).send(validPayload);
+  expect(onboardR.status).toBe(201);
+
+  // Coach should see it
+  const coachTok = signToken({ id: coachId, role: 'coach' });
+  const inbox = await request(app)
+    .get('/api/coach/skeletons/pending')
+    .set('Authorization', `Bearer ${coachTok}`);
+  expect(inbox.status).toBe(200);
+  expect(inbox.body).toHaveLength(1);
+  expect(inbox.body[0].athlete_id).toBe(u);
 });
 
 it('returns 409 on duplicate onboarding', async () => {

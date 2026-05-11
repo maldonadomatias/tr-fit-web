@@ -25,13 +25,19 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     return res.status(409).json({ error: 'profile_already_exists' });
   }
 
+  // Auto-assign first coach (Fase 1: single-coach model per spec Open Q #1)
+  const coachR = await pool.query<{ id: string }>(
+    `SELECT id FROM users WHERE role = 'coach' ORDER BY created_at ASC LIMIT 1`,
+  );
+  const coachId = coachR.rows[0]?.id ?? null;
+
   await pool.query(
     `INSERT INTO athlete_profiles
        (user_id, name, gender, age, height_cm, weight_kg, level, goal,
-        days_per_week, equipment, injuries)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        days_per_week, equipment, injuries, coach_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     [userId, p.name, p.gender, p.age, p.height_cm, p.weight_kg,
-     p.level, p.goal, p.days_per_week, p.equipment, p.injuries],
+     p.level, p.goal, p.days_per_week, p.equipment, p.injuries, coachId],
   );
 
   const profileR = await pool.query(
