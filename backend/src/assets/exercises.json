@@ -1,0 +1,694 @@
+[
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla con Barra Plana"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla Bulgara con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla Frontal con Barra"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla en maquina Smith"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla piernas Juntas en Smith"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadillas Barra Hexagonal"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla Hack"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadillas con Salto"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Zancadas con Salto"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Prensa"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Extension Cuadriceps Sentado en maquina"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Estocada con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Peso Muerto con Barra"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Peso Muerto Rumano con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Peso Muerto a una pierna con Mancuerna"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Peso Muerto Sumo con Barra"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Sentadilla Sumo con Pesa Rusa en Steps"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Curl Femoral Acostado en maquina"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Curl Femoral Sentado en maquina"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Curl Nordico Femoral"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Hip Thrust"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Patada Gluteos polea media - baja"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Step Up con Mancuerna"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Caminata Lateral con elastico encima de rodillas"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Caminata Lateral con elastico en tobillos"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Desplante con Barra"
+  },
+  {
+    "Grupo Muscular": "Piernas - Abductores",
+    "Ejercicios": "Abductores en Maquina"
+  },
+  {
+    "Grupo Muscular": "Piernas - Abductores",
+    "Ejercicios": "Abductores en Polea Baja"
+  },
+  {
+    "Grupo Muscular": "Piernas - Aductores",
+    "Ejercicios": "Aductores en Polea Baja"
+  },
+  {
+    "Grupo Muscular": "Piernas - Aductores",
+    "Ejercicios": "Aductores en Maquina"
+  },
+  {
+    "Grupo Muscular": "Piernas - Pantorrillas",
+    "Ejercicios": "Pantorrillas en Maquina Smith Talones afuera con Step"
+  },
+  {
+    "Grupo Muscular": "Piernas - Pantorrillas",
+    "Ejercicios": "Pantorrilas en Maquina Smith Talones medio con Step"
+  },
+  {
+    "Grupo Muscular": "Piernas - Pantorrillas",
+    "Ejercicios": "Pantorrillas en Maquina Sentado"
+  },
+  {
+    "Grupo Muscular": "Piernas - Pantorrillas",
+    "Ejercicios": "Pantorrillas en Prensa"
+  },
+  {
+    "Grupo Muscular": "Piernas - Pantorrillas",
+    "Ejercicios": "Pantorrillas en Maquina Parado"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Salto al Cajon Piernas juntas"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Press Plano con Barra"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Press Plano con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Pecho - Superior",
+    "Ejercicios": "Press Inclinado con Barra"
+  },
+  {
+    "Grupo Muscular": "Pecho - Superior",
+    "Ejercicios": "Press Inclinado con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Apertura Plana con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Pecho Sentado en Mariposa"
+  },
+  {
+    "Grupo Muscular": "Pecho - Inferior",
+    "Ejercicios": "Pecho Declinado con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Pecho - Inferior",
+    "Ejercicios": "Pecho Declinado con Barra"
+  },
+  {
+    "Grupo Muscular": "Pecho - Inferior",
+    "Ejercicios": "Cruces en Polea Alta"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Apertura Pectoral en Polea Media"
+  },
+  {
+    "Grupo Muscular": "Pecho - Superior",
+    "Ejercicios": "Cruces en Polea Baja"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Svend Press con Disco acostado"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Fondos de Pecho en Paralelas"
+  },
+  {
+    "Grupo Muscular": "Pecho - Mayor",
+    "Ejercicios": "Flexiones de Brazos"
+  },
+  {
+    "Grupo Muscular": "Pecho - Superior",
+    "Ejercicios": "Flexiones de Brazos Declinadas"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Jalon al Pecho agarre Neutro"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Jalon al Pecho agarre Cerrado Neutro"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Jalon unilateral en Polea Alta en estocada"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo con Barra Plana"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo en Polea Baja agarre Neutro Sentado"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo en Polea Baja agarre Cerrado Neutro Sentado"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo en Polea Baja con Soga"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo con Mancuernas en banco Plano"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo con Mancuernas en 45º"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo en Maquina Sentado"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Remo Inclinado en banco con Manc. agarre Prono"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Pullover Acostado con Mancuerna"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Pullover en Polea alta parado"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Pullover en Banco Inclinado en Polea baja"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Trapecios con Barra Plana parado"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Encogimientos Trapecios con Mancuerna"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Face Pull parado con Soga"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Flexiones Australianas"
+  },
+  {
+    "Grupo Muscular": "Espalda",
+    "Ejercicios": "Dominadas"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Press Militar con Mancuernas Sentado"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Press Militar con Barra parado"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Vuelos Laterales con Mancuerna"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Vuelos Frontales con Mancuerna"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Vuelo Lateral Unilateral en polea altura Rodilla"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Cruce Deltoides en Polea alta"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Vuelos Posteriores Sentado con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Posteriores en Maquina Mariposa"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Press Arnold en banco 85º"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Elevaciones Frontales con Soga en Polea Baja"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps Unilateral Invertido Polea Alta agarre Supino"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps Unilateral Invertido Polea alta agarre Prono"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Flexiones de Triceps Diamante"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps con Soga en Polea Alta"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps en Banco Plano con barra Agarre Cerrado"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps Fondo de Banco"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Press Frances banco Inclinado barra W"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Press Frances Mancuerna Sentado"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Press Frances con Mancuerna Acostado Banco Plano"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Extension de Triceps en Banco Plano Tronco Inclinado"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Press Frances en Polea alta con Soga"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Curl de Biceps con Barra Plana"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Curl de Biceps con Barra W"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps Scott con Barra W"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps Araña en Banco Inclinado agarre Supino"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps Martillo con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Curl de Biceps Arrastre con Barra Plana"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps Braquial en Scott barra W agarre Prono"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Curl con Barra Plana pequena en Polea Baja"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Curl Biceps con Mancuerna en Banco Inclinado"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Curl Biceps Concentrado con Mancuernas Sentado"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps Cristo en Polea alta"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps Martillo con Mancuernas en Scott"
+  },
+  {
+    "Grupo Muscular": "Antebrazos",
+    "Ejercicios": "Extension de Muñecas con Mancuernas agarre Supino"
+  },
+  {
+    "Grupo Muscular": "Antebrazos",
+    "Ejercicios": "Extension de Muñecas con Mancuernas agarre Prono"
+  },
+  {
+    "Grupo Muscular": "Antebrazos",
+    "Ejercicios": "Extension de Muñecas con Barra agarre Supino"
+  },
+  {
+    "Grupo Muscular": "Antebrazos",
+    "Ejercicios": "Extension de Muñecas con Barra agarre Prono"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Abdomen Crunch en Polea con Soga"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Rueda Abdominal"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Elevaciones de Pierna Colgado"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Plancha Lateral en Pelota o Plataforma Inestable"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Plancha"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Oblicuos en Plancha Lateral con movimiento al Piso"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Abdominales Cortos + Largos"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Abdominales Bicicleta"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Press Pallof"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Movimiento Articular con y sin elastico"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Bicicleta fija"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Movimientos Articulares completos Piernas"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Sentadillas profundas sin peso"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Flexiones de Brazos"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Dominadas sin Peso"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Elevacion de Cadera espalda en el piso"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Elevacion de Cadera pies en Cajon"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Jalon al Pecho"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Eliptica"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Salto al Cajon"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Sentadilla Isometrica apoyado en pared"
+  },
+  {
+    "Grupo Muscular": "Cardio",
+    "Ejercicios": "Cinta con elevacion"
+  },
+  {
+    "Grupo Muscular": "Cardio",
+    "Ejercicios": "Bicicleta Fija"
+  },
+  {
+    "Grupo Muscular": "Cardio",
+    "Ejercicios": "Eliptica"
+  },
+  {
+    "Grupo Muscular": "Cardio",
+    "Ejercicios": "HIIT (burpees, sentadilla con salto, salto estrella)"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps en Polea alta con barra plana corta"
+  },
+  {
+    "Grupo Muscular": "Hombros",
+    "Ejercicios": "Vuelos Frontales con soga en Polea Baja"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Sentadilla de Gluteos en Smith"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Cruces de Polea para triceps"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps Frances con mancuerna en banco declinado"
+  },
+  {
+    "Grupo Muscular": "Cardio",
+    "Ejercicios": "HIIT (Repiqueteo, angelito, burpees, sprint, saltos soga)"
+  },
+  {
+    "Grupo Muscular": "Calentamiento",
+    "Ejercicios": "Plancha y Plancha Lateral"
+  },
+  {
+    "Grupo Muscular": "Abdomen",
+    "Ejercicios": "Abdominales en Banco Declinado con Disco"
+  },
+  {
+    "Grupo Muscular": "Pecho - Superior",
+    "Ejercicios": "Pecho en Maquina inclinada"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Gluteos en maquina Hack"
+  },
+  {
+    "Grupo Muscular": "Piernas - Gluteos",
+    "Ejercicios": "Step Up en Smith"
+  },
+  {
+    "Grupo Muscular": "Triceps",
+    "Ejercicios": "Triceps Frances Unilatreral en polea media"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Sentadilla Goblet Squat - Runners"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Step Up al Banco (Rodilla 90 grados) - Runners"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Zancadas Caminando con mancuernas - Runners"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Saltos al Cajon (Bajo) - Runners"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Drop Jumps (Caida desde cajon) - Runners"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Skater Jumps (Saltos de lado a una pierna) - Runners"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Hang Power Clean con Barra"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Power Snatch con Mancuernas"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Pecho Plano con barra + Flexiones de brazos"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Maquina Mariposa + Cruce de Cables o Empuje Pect."
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Remo con barra + Jalon al Pecho agarre Cerrado"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Dorsales Unilat. en maquina + Flexiones Australianas"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Press Militar con Manc. + Vuelos Laterales"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Triceps Franc. acostado Plano + Triceps Unilat. polea"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Curl con Manc. banco inclinado + Curl Concentrado"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Sentad. Sissy en Smith + Sentadilla Isometrica Pared"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Hip Thrust + Abductores en Maquina o Polea"
+  },
+  {
+    "Grupo Muscular": "Rest-Pause",
+    "Ejercicios": "Plano con barra - 6 reps + 15 seg desc. + 2 a 3 reps"
+  },
+  {
+    "Grupo Muscular": "Rest-Pause",
+    "Ejercicios": "Jalon al Pecho - 6 reps + 15 seg desc. + 2 a 3 reps"
+  },
+  {
+    "Grupo Muscular": "Rest-Pause",
+    "Ejercicios": "Sentadilla - 6 reps + 15 seg desc. + 2 a 3 reps"
+  },
+  {
+    "Grupo Muscular": "Rest-Pause",
+    "Ejercicios": "Cuadriceps Maq. - 6 reps + 15 seg desc. + 2 a 3 reps"
+  },
+  {
+    "Grupo Muscular": "Rest-Pause",
+    "Ejercicios": "Hip Thrust - 6 reps + 15 seg desc. + 2 a 3 reps"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Desplante Lateral con Disco"
+  },
+  {
+    "Grupo Muscular": "Piernas - Cuadriceps",
+    "Ejercicios": "Trineo con Disco"
+  },
+  {
+    "Grupo Muscular": "Superserie",
+    "Ejercicios": "Correr 10 m. + Frenado en 3 pasos + Giro 180 + Correr"
+  },
+  {
+    "Grupo Muscular": "Pecho - Superior",
+    "Ejercicios": "Pecho Inclinado en Smith"
+  },
+  {
+    "Grupo Muscular": "Biceps",
+    "Ejercicios": "Biceps en Maquina Sentado"
+  },
+  {
+    "Grupo Muscular": "Piernas - Femorales",
+    "Ejercicios": "Peso Muerto en Smith"
+  }
+]
