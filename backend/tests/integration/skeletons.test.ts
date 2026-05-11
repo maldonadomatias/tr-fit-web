@@ -112,3 +112,50 @@ it('findActiveByAthlete returns null when no state', async () => {
   expect(r.state).toBeNull();
   expect(r.skeleton).toBeNull();
 });
+
+import request from 'supertest';
+import app from '../../src/app.js';
+import { signToken } from '../../src/middleware/auth.js';
+
+describe('coach HTTP endpoints', () => {
+  it('GET /api/coach/skeletons/pending lists own athletes only', async () => {
+    const coachA = await createCoach();
+    const ath = await createAthlete(coachA);
+    await createPendingSkeleton(
+      { athleteId: ath, generationPrompt: {}, generationRationale: 'r' }, aiOut,
+    );
+    const tok = signToken({ id: coachA, role: 'coach' });
+    const r = await request(app)
+      .get('/api/coach/skeletons/pending')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(r.body).toHaveLength(1);
+  });
+
+  it('athlete cannot access /api/coach/*', async () => {
+    const coach = await createCoach();
+    const ath = await createAthlete(coach);
+    const tok = signToken({ id: ath, role: 'athlete' });
+    const r = await request(app)
+      .get('/api/coach/skeletons/pending')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(403);
+  });
+
+  it('approve via HTTP works end-to-end', async () => {
+    const coach = await createCoach();
+    const ath = await createAthlete(coach);
+    const { skeletonId } = await createPendingSkeleton(
+      { athleteId: ath, generationPrompt: {}, generationRationale: '' }, aiOut,
+    );
+    const tok = signToken({ id: coach, role: 'coach' });
+    const r = await request(app)
+      .post(`/api/coach/skeletons/${skeletonId}/approve`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(204);
+    const s = await pool.query(
+      `SELECT status FROM athlete_skeletons WHERE id = $1`, [skeletonId],
+    );
+    expect(s.rows[0].status).toBe('approved');
+  });
+});
