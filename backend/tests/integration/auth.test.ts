@@ -162,6 +162,29 @@ it('reset-password changes password and revokes all refresh tokens', async () =>
   expect(okNew.status).toBe(200);
 });
 
+it('rate-limit kicks in on 11th login attempt within window', async () => {
+  process.env.RATE_LIMIT_TEST = 'on';
+  // Re-import app after enabling rate limit
+  const fresh = await import('../../src/app.js?rateLimitFresh' + Date.now());
+  const appWithLimit = (fresh as { default: typeof app }).default;
+  try {
+    const u = await verifiedAthleteUser('limit@test.local');
+    // Burn 10 attempts (any pattern; mix of correct and incorrect doesn't matter)
+    for (let i = 0; i < 10; i++) {
+      await request(appWithLimit)
+        .post('/api/auth/login')
+        .send({ email: u.email, password: 'wrong-pass-xx' });
+    }
+    const r = await request(appWithLimit)
+      .post('/api/auth/login')
+      .send({ email: u.email, password: u.password });
+    expect(r.status).toBe(429);
+    expect(r.body.error).toBe('rate_limited');
+  } finally {
+    delete process.env.RATE_LIMIT_TEST;
+  }
+});
+
 it('E2E happy path: signup → verify → login → /api/athlete/me', async () => {
   const r1 = await request(app).post('/api/auth/signup').send({
     email: 'e2e@test.local', password: 'pwd-test-1234',

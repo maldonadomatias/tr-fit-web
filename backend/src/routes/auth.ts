@@ -123,6 +123,8 @@ router.post('/forgot-password', skipInTests(forgotPasswordLimiter), async (req: 
   return res.status(200).json({ message: 'if email exists, link sent' });
 });
 
+// Note: this is the JSON API endpoint. The HTML form fallback for email link
+// recipients lives at top-level POST /reset-password in app.ts.
 router.post('/reset-password', async (req: Request, res: Response) => {
   const parsed = resetPasswordPayload.safeParse(req.body);
   const wantsHtml = req.header('accept')?.includes('text/html') ||

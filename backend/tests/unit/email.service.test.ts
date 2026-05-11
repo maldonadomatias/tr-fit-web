@@ -48,3 +48,11 @@ it('propagates Resend errors', async () => {
   resendMod.__mockSend.mockRejectedValue(new Error('resend down'));
   await expect(sendVerifyEmail('x@y.z', 't')).rejects.toThrow('resend down');
 });
+
+it('throws when Resend returns error object (no rejection)', async () => {
+  resendMod.__mockSend.mockResolvedValue({
+    data: null,
+    error: { name: 'missing_api_key', message: 'API key is missing' },
+  } as unknown as { id: string });
+  await expect(sendVerifyEmail('x@y.z', 't')).rejects.toThrow(/api key/i);
+});

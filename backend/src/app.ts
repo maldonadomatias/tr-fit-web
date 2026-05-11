@@ -10,6 +10,12 @@ const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 
+// Trust first proxy hop in non-dev (load balancer, CDN, reverse proxy)
+// Needed for req.ip + express-rate-limit to work behind a proxy
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // CORS configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',

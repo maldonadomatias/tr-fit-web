@@ -111,7 +111,12 @@ export async function login(
     [email],
   );
   const user = r.rows[0];
-  if (!user) throw new LoginError('invalid_credentials');
+  if (!user) {
+    // Run a dummy compare so non-existent users take same time as wrong-password users
+    // (timing-attack mitigation against email enumeration)
+    await comparePassword(password, '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalid');
+    throw new LoginError('invalid_credentials');
+  }
   const ok = await comparePassword(password, user.password_hash);
   if (!ok) throw new LoginError('invalid_credentials');
   if (!user.email_verified) throw new LoginError('email_not_verified');
@@ -278,13 +283,16 @@ export async function verifyEmail(token: string): Promise<{ userId: string }> {
   }
 }
 
-export async function resendVerification(userId: string): Promise<{ emailSendFailed: boolean }> {
+export async function resendVerification(userId: string): Promise<{
+  emailSendFailed: boolean;
+  alreadyVerified?: boolean;
+}> {
   const u = await pool.query<{ email: string; email_verified: boolean }>(
     `SELECT email, email_verified FROM users WHERE id = $1`, [userId],
   );
   const user = u.rows[0];
   if (!user) throw new VerifyError('invalid');
-  if (user.email_verified) return { emailSendFailed: false };
+  if (user.email_verified) return { emailSendFailed: false, alreadyVerified: true };
 
   const client = await pool.connect();
   try {

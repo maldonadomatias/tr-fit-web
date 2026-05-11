@@ -7,12 +7,20 @@ const resend = new Resend(env.RESEND_API_KEY);
 
 async function send(opts: { to: string; subject: string; html: string }): Promise<void> {
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: env.EMAIL_FROM,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
     });
+    // Resend v6 returns { data, error } discriminated union — check error
+    if (result && 'error' in result && result.error) {
+      const err = new Error(
+        (result.error as { message?: string }).message ?? 'resend send failed',
+      );
+      logger.error({ err: result.error, to: opts.to }, 'resend send failed');
+      throw err;
+    }
   } catch (e) {
     logger.error({ err: e, to: opts.to }, 'resend send failed');
     throw e;
