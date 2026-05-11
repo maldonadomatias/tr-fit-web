@@ -20,10 +20,13 @@ const { generateSkeleton } = await import('../../src/services/openai.service.js'
 
 const profile = {
   user_id: 'u1', name: 'Test', gender: 'male' as const, age: 30,
-  height_cm: 175, weight_kg: 75, level: 'intermedio' as const,
+  height_cm: 175, weight_kg: 75, level: 'medio' as const,
   goal: 'hipertrofia' as const, days_per_week: 4,
   equipment: 'gym_completo' as const, injuries: [],
   coach_id: null, onboarded_at: '2026-05-08',
+  phone: null, plan_interest: null, training_mode: null,
+  commitment: null, exercise_minutes: null, days_specific: null,
+  referral_source: null, sport_focus: null,
 };
 
 const exercises = [

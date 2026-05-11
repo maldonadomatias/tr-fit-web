@@ -41,8 +41,12 @@ async function makeAthleteUser() {
 
 const validPayload = {
   name: 'Mati', gender: 'male', age: 30, height_cm: 175, weight_kg: 75,
-  level: 'intermedio', goal: 'hipertrofia', days_per_week: 4,
+  level: 'medio', goal: 'hipertrofia', days_per_week: 4,
   equipment: 'gym_completo', injuries: [],
+  phone: '+5491111111111', plan_interest: 'full',
+  training_mode: 'gym', commitment: 'normal', exercise_minutes: 60,
+  days_specific: ['lun', 'mar', 'jue', 'sab'],
+  referral_source: 'google',
 };
 
 it('rejects unauthenticated', async () => {
