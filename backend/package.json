@@ -12,6 +12,7 @@
     "test:coverage": "jest --coverage",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed:exercises": "tsx src/seeds/enrich-exercises.ts && psql $DATABASE_URL -f src/seeds/exercises.sql",
+    "db:seed:periodization": "tsx src/seeds/port-periodization.ts && psql $DATABASE_URL -f src/seeds/periodization_config.sql",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
   },
