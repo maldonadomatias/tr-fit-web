@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { errorHandler } from './utils/errorHandler.js';
 import onboardingRoutes from './routes/onboarding.js';
+import athleteRoutes from './routes/athlete.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +49,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/athlete', athleteRoutes);
 
 // Error handler (must be last)
 app.use(errorHandler);
