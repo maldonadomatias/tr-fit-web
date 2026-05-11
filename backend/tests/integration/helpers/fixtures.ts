@@ -1,6 +1,9 @@
 import bcrypt from 'bcrypt';
 import pool from '../../../src/db/connect.js';
 import type { AthleteProfile } from '../../../src/domain/types.js';
+import {
+  generateToken, hashToken, expiresIn, VERIFY_TOKEN_TTL_MS,
+} from '../../../src/services/verification.service.js';
 
 export async function createCoach(): Promise<string> {
   const hash = await bcrypt.hash('test-pass', 4);
@@ -44,4 +47,34 @@ export async function createAthlete(
     ],
   );
   return id;
+}
+
+export async function signupUserInDb(
+  email: string,
+  password: string,
+  verified: boolean = false,
+): Promise<{ id: string; verifyToken: string }> {
+  const hash = await bcrypt.hash(password, 4);
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role, email_verified, email_verified_at)
+     VALUES ($1, $2, 'athlete', $3, $4) RETURNING id`,
+    [email, hash, verified, verified ? new Date() : null],
+  );
+  const id = rows[0].id;
+
+  const token = generateToken();
+  await pool.query(
+    `INSERT INTO email_verifications (user_id, token_hash, expires_at)
+     VALUES ($1, $2, $3)`,
+    [id, hashToken(token), expiresIn(VERIFY_TOKEN_TTL_MS)],
+  );
+  return { id, verifyToken: token };
+}
+
+export async function verifiedAthleteUser(
+  email: string = `vuser-${Date.now()}-${Math.random()}@test.local`,
+): Promise<{ id: string; email: string; password: string }> {
+  const password = 'test-pass-1234';
+  const { id } = await signupUserInDb(email, password, true);
+  return { id, email, password };
 }
