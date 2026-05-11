@@ -150,3 +150,20 @@ export type SetLogPayload = z.infer<typeof setLogPayload>;
 export type SyncPayload = z.infer<typeof syncPayload>;
 export type FinishSessionPayload = z.infer<typeof finishSessionPayload>;
 export type AlertPayload = z.infer<typeof alertPayload>;
+
+export const pushRegisterPayload = z.object({
+  token: z.string().min(20).max(500),
+  platform: z.enum(['ios', 'android', 'web']),
+});
+
+export const notificationPrefsPayload = z.object({
+  session_reminder: z.boolean().optional(),
+  session_missed: z.boolean().optional(),
+  week_start: z.boolean().optional(),
+  skeleton_approved: z.boolean().optional(),
+  sos_resolved: z.boolean().optional(),
+  rm_test_week: z.boolean().optional(),
+}).strict();
+
+export type PushRegisterPayload = z.infer<typeof pushRegisterPayload>;
+export type NotificationPrefsPayload = z.infer<typeof notificationPrefsPayload>;

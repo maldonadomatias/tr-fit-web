@@ -221,3 +221,31 @@ export interface AthleteMeasurement {
 }
 
 export type { MeasurementPayload } from './schemas.js';
+
+export type NotificationType =
+  | 'session_reminder'
+  | 'session_missed'
+  | 'week_start'
+  | 'skeleton_approved'
+  | 'sos_resolved'
+  | 'rm_test_week';
+
+export type NotificationPrefs = Record<NotificationType, boolean>;
+
+export interface PushToken {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+  last_seen_at: string;
+  created_at: string;
+}
+
+export interface NotificationLogRow {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  sent_at: string;
+  payload: Record<string, unknown> | null;
+  delivery_status: 'sent' | 'failed' | 'token_invalid';
+}
