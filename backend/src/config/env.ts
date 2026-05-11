@@ -16,6 +16,10 @@ const schema = z.object({
   EMAIL_FROM: z.string().email().default('onboarding@resend.dev'),
   APP_URL: z.string().url().default('http://localhost:5001'),
   APP_DEEP_LINK_SCHEME: z.string().default('trfit'),
+  FIREBASE_SERVICE_ACCOUNT_JSON: z
+    .string()
+    .optional()
+    .default('{"type":"service_account","project_id":"test","private_key":"-----BEGIN PRIVATE KEY-----\\nfake\\n-----END PRIVATE KEY-----\\n","client_email":"test@test.iam.gserviceaccount.com"}'),
 });
 
 export const env = schema.parse(process.env);
