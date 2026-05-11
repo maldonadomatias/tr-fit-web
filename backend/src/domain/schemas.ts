@@ -44,3 +44,36 @@ export const aiSkeletonOutput = z.object({
 export type AiSkeletonOutput = z.infer<typeof aiSkeletonOutput>;
 export type OnboardingPayload = z.infer<typeof onboardingPayload>;
 export type RmPayload = z.infer<typeof rmPayload>;
+
+export const signupPayload = z.object({
+  email: z.string().email().toLowerCase(),
+  password: z.string().min(8).max(200),
+});
+
+export const loginPayload = z.object({
+  email: z.string().email().toLowerCase(),
+  password: z.string().min(1),
+});
+
+export const refreshPayload = z.object({
+  refreshToken: z.string().min(32),
+});
+
+export const logoutPayload = z.object({
+  refreshToken: z.string().min(32),
+});
+
+export const forgotPasswordPayload = z.object({
+  email: z.string().email().toLowerCase(),
+});
+
+export const resetPasswordPayload = z.object({
+  token: z.string().min(32),
+  newPassword: z.string().min(8).max(200),
+});
+
+export type SignupPayload = z.infer<typeof signupPayload>;
+export type LoginPayload = z.infer<typeof loginPayload>;
+export type RefreshPayload = z.infer<typeof refreshPayload>;
+export type ForgotPasswordPayload = z.infer<typeof forgotPasswordPayload>;
+export type ResetPasswordPayload = z.infer<typeof resetPasswordPayload>;

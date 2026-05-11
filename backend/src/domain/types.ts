@@ -94,3 +94,41 @@ export interface SessionItem {
   descanso: string;
   flag?: 'rm_test' | 'missing_rm';
 }
+
+export interface RefreshToken {
+  id: string;
+  user_id: string;
+  family_id: string;
+  token_hash: string;
+  expires_at: string;
+  revoked_at: string | null;
+  replaced_by: string | null;
+  created_at: string;
+  user_agent: string | null;
+  ip_address: string | null;
+}
+
+export interface EmailVerification {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+}
+
+export interface PasswordReset {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+  requested_ip: string | null;
+}
+
+export interface AuthLoginResult {
+  accessToken: string;
+  refreshToken: string;
+  user: { id: string; email: string; role: 'athlete' | 'coach' | 'admin' };
+}
