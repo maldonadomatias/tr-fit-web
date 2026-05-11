@@ -132,3 +132,61 @@ export interface AuthLoginResult {
   refreshToken: string;
   user: { id: string; email: string; role: 'athlete' | 'coach' | 'admin' };
 }
+
+export interface SessionLog {
+  id: string;
+  athlete_id: string;
+  skeleton_id: string;
+  program_week: number;
+  day_of_week: number;
+  started_at: string;
+  finished_at: string | null;
+  fatigue_rating: 'suave' | 'normal' | 'exigente' | null;
+  total_sets_target: number | null;
+  total_sets_completed: number | null;
+  compliance_pct: number | null;
+  total_volume_kg: number | null;
+  duration_seconds: number | null;
+  client_id: string | null;
+}
+
+export interface SetLog {
+  id: string;
+  athlete_id: string;
+  exercise_id: number;
+  week: number;
+  day_of_week: number;
+  set_index: number;
+  weight_kg: number | null;
+  reps: number | null;
+  completed: boolean;
+  logged_at: string;
+  session_log_id: string | null;
+  client_id: string | null;
+  client_ts: string | null;
+  rpe: number | null;
+  synced_at: string;
+}
+
+export interface CoachAlert {
+  id: string;
+  athlete_id: string;
+  coach_id: string;
+  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting';
+  severity: 'red' | 'yellow' | 'info';
+  exercise_id: number | null;
+  session_log_id: string | null;
+  payload: unknown;
+  read_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export interface SessionSummary {
+  totalVolumeKg: number;
+  setsCompleted: number;
+  setsTarget: number;
+  compliancePct: number;
+  durationSeconds: number;
+  newPRs: Array<{ exerciseId: number; name: string; kg: number; reps: number }>;
+}

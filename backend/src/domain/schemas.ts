@@ -77,3 +77,48 @@ export type LoginPayload = z.infer<typeof loginPayload>;
 export type RefreshPayload = z.infer<typeof refreshPayload>;
 export type ForgotPasswordPayload = z.infer<typeof forgotPasswordPayload>;
 export type ResetPasswordPayload = z.infer<typeof resetPasswordPayload>;
+
+export const startSessionPayload = z.object({
+  day_of_week: z.number().int().min(1).max(7),
+  client_id: z.string().uuid(),
+});
+
+export const setLogPayload = z.object({
+  exercise_id: z.number().int().positive(),
+  set_index: z.number().int().min(1).max(20),
+  weight_kg: z.number().min(0).max(500).nullable(),
+  reps: z.number().int().min(0).max(100).nullable(),
+  completed: z.boolean(),
+  rpe: z.number().min(1).max(10).nullable().optional(),
+  client_id: z.string().uuid(),
+  client_ts: z.string().datetime(),
+});
+
+export const syncPayload = z.object({
+  sets: z.array(setLogPayload).min(1).max(200),
+});
+
+export const finishSessionPayload = z.object({
+  fatigue_rating: z.enum(['suave', 'normal', 'exigente']),
+});
+
+export const alertPayload = z.object({
+  type: z.enum(['sos_pain', 'sos_machine']),
+  exercise_id: z.number().int().positive().optional(),
+  session_log_id: z.string().uuid().optional(),
+  payload: z.union([
+    z.object({
+      zone: z.enum(['lumbar','rodilla','hombro','cervical','cadera','otro']),
+      intensity: z.number().int().min(1).max(10),
+    }),
+    z.object({
+      switched_to_exercise_id: z.number().int().positive(),
+    }),
+  ]),
+});
+
+export type StartSessionPayload = z.infer<typeof startSessionPayload>;
+export type SetLogPayload = z.infer<typeof setLogPayload>;
+export type SyncPayload = z.infer<typeof syncPayload>;
+export type FinishSessionPayload = z.infer<typeof finishSessionPayload>;
+export type AlertPayload = z.infer<typeof alertPayload>;
