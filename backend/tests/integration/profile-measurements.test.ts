@@ -64,3 +64,34 @@ it('GET /profile/measurements scoped per user', async () => {
     .set('Authorization', `Bearer ${tok}`);
   expect(r.body.length).toBe(0);
 });
+
+it('GET /profile/status returns has_profile=false for new athlete', async () => {
+  const u = await makeAthlete();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const r = await request(app)
+    .get('/api/profile/status')
+    .set('Authorization', `Bearer ${tok}`);
+  expect(r.status).toBe(200);
+  expect(r.body.has_profile).toBe(false);
+});
+
+it('GET /profile/status returns has_profile=true after onboarding', async () => {
+  const u = await makeAthlete();
+  await pool.query(
+    `INSERT INTO athlete_profiles
+       (user_id, name, gender, age, height_cm, weight_kg, level, goal,
+        days_per_week, equipment, injuries,
+        phone, plan_interest, training_mode, commitment, exercise_minutes,
+        days_specific, referral_source)
+     VALUES ($1,'A','male',30,175,75,'medio','hipertrofia',
+             4,'gym_completo','{}','+5491111111111','full',
+             'gym','normal',60,'{lun,mar,jue,sab}','google')`,
+    [u],
+  );
+  const tok = signToken({ id: u, role: 'athlete' });
+  const r = await request(app)
+    .get('/api/profile/status')
+    .set('Authorization', `Bearer ${tok}`);
+  expect(r.status).toBe(200);
+  expect(r.body.has_profile).toBe(true);
+});
