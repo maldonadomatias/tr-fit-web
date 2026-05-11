@@ -20,7 +20,7 @@ describe('roundToNearest25', () => {
     [86.2, 85],
     [86.3, 87.5],
     [200, 200],
-    [201.4, 200],
+    [201.4, 202.5],
   ])('rounds %f to %f', (input, expected) => {
     expect(roundToNearest25(input)).toBe(expected);
   });

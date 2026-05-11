@@ -54,10 +54,10 @@ export const GRUPOS_EXCLUIDOS = [
 // ─── Helpers ──────────────────────────────────────────
 export function roundToNearest25(value: number): number {
   // Mirror of Apps Script `redondearAlPesoMasCercano`:
-  // round to nearest 2.5 in [2.5, 200]. Ties go to lower (closest by abs diff,
+  // round to nearest 2.5 in [2.5, 300]. Ties go to lower (closest by abs diff,
   // first match wins via reduce).
   const candidates: number[] = [];
-  for (let v = 2.5; v <= 200; v += 2.5) candidates.push(v);
+  for (let v = 2.5; v <= 300; v += 2.5) candidates.push(v);
   return candidates.reduce((best, cur) =>
     Math.abs(cur - value) < Math.abs(best - value) ? cur : best
   , candidates[0]);
