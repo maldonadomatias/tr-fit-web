@@ -53,6 +53,12 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     return res.status(201).json({ skeletonId, status: 'pending_review' });
   } catch (e) {
     logger.error({ err: e, athleteId: userId }, 'skeleton generation failed');
+    // Rollback profile insert so user can retry without 409 lockout
+    await pool
+      .query(`DELETE FROM athlete_profiles WHERE user_id = $1`, [userId])
+      .catch((delErr) =>
+        logger.error({ err: delErr, athleteId: userId }, 'profile rollback failed'),
+      );
     return res.status(502).json({ error: 'skeleton_generation_failed' });
   }
 });
