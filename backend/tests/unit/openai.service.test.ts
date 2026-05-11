@@ -11,7 +11,11 @@ jest.unstable_mockModule('openai', () => {
   };
 });
 
-const openaiMod = (await import('openai')) as unknown as { __mockCreate: jest.Mock };
+type MockCreate = jest.Mock<
+  () => Promise<{ choices: Array<{ message: { content: string } }> }>
+>;
+
+const openaiMod = (await import('openai')) as unknown as { __mockCreate: MockCreate };
 const { generateSkeleton } = await import('../../src/services/openai.service.js');
 
 const profile = {

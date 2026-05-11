@@ -5,13 +5,7 @@ export default {
   setupFiles: ['<rootDir>/tests/jest.setup.ts'],
   moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
   transform: {
-    '^.+\\.tsx?$': [
-      'ts-jest',
-      {
-        useESM: true,
-        diagnostics: false,
-      },
-    ],
+    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
   },
   testMatch: [
     '<rootDir>/tests/**/*.test.ts',
