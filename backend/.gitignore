@@ -1,0 +1,5 @@
+# Compiled test artifacts (tests are TS only, ts-jest handles them in-memory)
+tests/**/*.js
+tests/**/*.d.ts
+tests/**/*.js.map
+tests/**/*.d.ts.map
