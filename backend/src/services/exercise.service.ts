@@ -12,7 +12,11 @@ const equipmentMatrix: Record<AthleteProfile['equipment'], ExerciseEquipment[]> 
 };
 
 const levelOrder: Record<Level, number> = {
-  principiante: 1, intermedio: 2, avanzado: 3,
+  nunca: 1,
+  bajo: 1,
+  medio: 2,
+  avanzado: 3,
+  muy_avanzado: 3,
 };
 
 export async function listExercises(): Promise<Exercise[]> {

@@ -1,6 +1,11 @@
 export type Gender = 'male' | 'female' | 'other';
-export type Level = 'principiante' | 'intermedio' | 'avanzado';
-export type Goal = 'hipertrofia' | 'fuerza' | 'recomp';
+export type Level = 'nunca' | 'bajo' | 'medio' | 'avanzado' | 'muy_avanzado';
+export type Goal = 'hipertrofia' | 'fuerza' | 'recomp' | 'perdida_grasa';
+export type PlanInterest = 'basico' | 'full' | 'premium';
+export type TrainingMode = 'gym' | 'casa' | 'mixto';
+export type Commitment = 'suave' | 'normal' | 'exigente';
+export type Weekday = 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom';
+export type ReferralSource = 'instagram' | 'facebook' | 'google' | 'amigo' | 'otro';
 export type Equipment =
   | 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
 export type ExerciseEquipment =
@@ -27,6 +32,14 @@ export interface AthleteProfile {
   injuries: string[];
   coach_id: string | null;
   onboarded_at: string;
+  phone: string | null;
+  plan_interest: PlanInterest | null;
+  training_mode: TrainingMode | null;
+  commitment: Commitment | null;
+  exercise_minutes: number | null;
+  days_specific: Weekday[] | null;
+  referral_source: ReferralSource | null;
+  sport_focus: string | null;
 }
 
 export interface Exercise {
@@ -190,3 +203,19 @@ export interface SessionSummary {
   durationSeconds: number;
   newPRs: Array<{ exerciseId: number; name: string; kg: number; reps: number }>;
 }
+
+export interface AthleteMeasurement {
+  id: string;
+  athlete_id: string;
+  measured_at: string;
+  chest_cm: number | null;
+  waist_cm: number | null;
+  hip_cm: number | null;
+  thigh_cm: number | null;
+  calf_cm: number | null;
+  bicep_cm: number | null;
+  source: 'onboarding' | 'manual' | 'coach';
+  created_at: string;
+}
+
+export type { MeasurementPayload } from './schemas.js';

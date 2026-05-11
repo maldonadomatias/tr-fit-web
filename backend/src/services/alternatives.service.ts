@@ -1,7 +1,13 @@
 import pool from '../db/connect.js';
 import type { Exercise, AthleteProfile } from '../domain/types.js';
 
-const levelOrder = { principiante: 1, intermedio: 2, avanzado: 3 } as const;
+const levelOrder = {
+  nunca: 1,
+  bajo: 1,
+  medio: 2,
+  avanzado: 3,
+  muy_avanzado: 3,
+} as const;
 
 const equipmentMatrix: Record<AthleteProfile['equipment'], string[]> = {
   gym_completo: ['barra', 'mancuerna', 'maquina', 'polea', 'smith',

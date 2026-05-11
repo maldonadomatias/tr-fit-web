@@ -1,17 +1,42 @@
 import { z } from 'zod';
 
+export const measurementPayload = z.object({
+  chest_cm: z.number().min(30).max(200).optional(),
+  waist_cm: z.number().min(30).max(200).optional(),
+  hip_cm: z.number().min(30).max(200).optional(),
+  thigh_cm: z.number().min(20).max(120).optional(),
+  calf_cm: z.number().min(15).max(80).optional(),
+  bicep_cm: z.number().min(15).max(80).optional(),
+});
+
 export const onboardingPayload = z.object({
   name: z.string().min(1).max(100),
   gender: z.enum(['male', 'female', 'other']),
   age: z.number().int().min(12).max(100),
   height_cm: z.number().int().min(100).max(250),
   weight_kg: z.number().min(30).max(250),
-  level: z.enum(['principiante', 'intermedio', 'avanzado']),
-  goal: z.enum(['hipertrofia', 'fuerza', 'recomp']),
-  days_per_week: z.number().int().min(3).max(6),
+  level: z.enum(['nunca', 'bajo', 'medio', 'avanzado', 'muy_avanzado']),
+  goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
+  days_per_week: z.number().int().min(2).max(6),
   equipment: z.enum(['gym_completo', 'gym_basico', 'casa_basica', 'solo_bw']),
   injuries: z.array(z.string()).default([]),
+  phone: z.string().regex(/^\+\d{10,15}$/),
+  plan_interest: z.enum(['basico', 'full', 'premium']),
+  training_mode: z.enum(['gym', 'casa', 'mixto']),
+  commitment: z.enum(['suave', 'normal', 'exigente']),
+  exercise_minutes: z.union([
+    z.literal(30), z.literal(45), z.literal(60), z.literal(75), z.literal(90),
+  ]),
+  days_specific: z.array(z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'])),
+  referral_source: z.enum(['instagram', 'facebook', 'google', 'amigo', 'otro']),
+  sport_focus: z.string().max(80).optional(),
+  measurements: measurementPayload.optional(),
+}).refine((d) => d.days_specific.length === d.days_per_week, {
+  message: 'days_specific length must equal days_per_week',
+  path: ['days_specific'],
 });
+
+export type MeasurementPayload = z.infer<typeof measurementPayload>;
 
 export const rmPayload = z.object({
   exercise_id: z.number().int().positive(),
