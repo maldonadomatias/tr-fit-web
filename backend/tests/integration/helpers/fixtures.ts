@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import pool from '../../../src/db/connect.js';
-import type { AthleteProfile } from '../../../src/domain/types.js';
+import type { AthleteProfile, Weekday } from '../../../src/domain/types.js';
 import {
   generateToken, hashToken, expiresIn, VERIFY_TOKEN_TTL_MS,
 } from '../../../src/services/verification.service.js';
@@ -11,19 +11,18 @@ import {
  */
 export const profileExtras = {
   phone: '+5491111111111',
-  plan_interest: 'full' as const,
-  training_mode: 'gym' as const,
-  commitment: 'normal' as const,
+  plan_interest: 'full',
+  training_mode: 'gym',
+  commitment: 'normal',
   exercise_minutes: 60,
-  days_specific: ['lun', 'mar', 'jue', 'sab'] as const,
-  referral_source: 'google' as const,
-};
+  referral_source: 'google',
+} as const;
 
 /**
  * Distinct, valid weekday presets sized to match `days_per_week`.
  * Used so fixtures satisfy the CHECK constraint (cardinality + uniqueness).
  */
-export const DAY_PRESETS: Record<number, string[]> = {
+export const DAY_PRESETS: Record<2 | 3 | 4 | 5 | 6, Weekday[]> = {
   2: ['lun', 'jue'],
   3: ['lun', 'mie', 'vie'],
   4: ['lun', 'mar', 'jue', 'sab'],
@@ -57,7 +56,18 @@ export async function createAthlete(
   );
   const id = rows[0].id;
   const daysPerWeek = override.days_per_week ?? 4;
-  const days = DAY_PRESETS[daysPerWeek] ?? profileExtras.days_specific;
+  const preset = DAY_PRESETS[daysPerWeek as 2 | 3 | 4 | 5 | 6];
+  if (!preset) {
+    throw new Error(
+      `createAthlete: no DAY_PRESETS entry for days_per_week=${daysPerWeek}`,
+    );
+  }
+  const daysSpecific = override.days_specific ?? preset;
+  if (daysSpecific.length !== daysPerWeek) {
+    throw new Error(
+      `createAthlete: days_specific length ${daysSpecific.length} != days_per_week ${daysPerWeek}`,
+    );
+  }
   await pool.query(
     `INSERT INTO athlete_profiles
        (user_id, name, gender, age, height_cm, weight_kg, level, goal,
@@ -80,7 +90,7 @@ export async function createAthlete(
       override.training_mode ?? profileExtras.training_mode,
       override.commitment ?? profileExtras.commitment,
       override.exercise_minutes ?? profileExtras.exercise_minutes,
-      override.days_specific ?? days,
+      daysSpecific,
       override.referral_source ?? profileExtras.referral_source,
     ],
   );
