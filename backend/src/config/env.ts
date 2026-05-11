@@ -12,6 +12,10 @@ const schema = z.object({
   CRON_TZ: z.string().default('America/Argentina/Buenos_Aires'),
   PROGRESSION_CRON_SCHEDULE: z.string().default('0 23 * * 0'),
   COMPLIANCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
+  RESEND_API_KEY: z.string().min(8),
+  EMAIL_FROM: z.string().email().default('onboarding@resend.dev'),
+  APP_URL: z.string().url().default('http://localhost:5001'),
+  APP_DEEP_LINK_SCHEME: z.string().default('trfit'),
 });
 
 export const env = schema.parse(process.env);
