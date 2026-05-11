@@ -21,6 +21,15 @@ ALTER TABLE athlete_profiles DROP CONSTRAINT IF EXISTS athlete_profiles_days_per
 ALTER TABLE athlete_profiles ADD CONSTRAINT athlete_profiles_days_per_week_check
   CHECK (days_per_week BETWEEN 2 AND 6);
 
+-- Helper: count distinct elements in a text[] (IMMUTABLE so it works inside CHECK).
+CREATE OR REPLACE FUNCTION array_distinct_count(arr text[])
+RETURNS int
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT count(DISTINCT d)::int FROM unnest(arr) d
+$$;
+
 -- New columns (nullable for legacy compat)
 ALTER TABLE athlete_profiles
   ADD COLUMN phone text CHECK (phone ~ '^\+\d{10,15}$'),
@@ -31,7 +40,8 @@ ALTER TABLE athlete_profiles
   ADD COLUMN days_specific text[] CHECK (
     days_specific IS NULL
     OR (days_specific <@ ARRAY['lun','mar','mie','jue','vie','sab','dom']
-        AND cardinality(days_specific) = days_per_week)
+        AND cardinality(days_specific) = days_per_week
+        AND cardinality(days_specific) = array_distinct_count(days_specific))
   ),
   ADD COLUMN referral_source text CHECK (referral_source IN ('instagram','facebook','google','amigo','otro')),
   ADD COLUMN sport_focus text;

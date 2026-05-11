@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+export {};
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
@@ -21,7 +21,7 @@ it('athlete_profiles has new columns', async () => {
 });
 
 it('level enum accepts 5 values', async () => {
-  const { rows: u } = await pool.query<{ id: string }>(
+  const { rows: u1 } = await pool.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, role)
      VALUES ('x@t.local','x','athlete') RETURNING id`,
   );
@@ -33,12 +33,45 @@ it('level enum accepts 5 values', async () => {
      VALUES ($1,'A','male',30,175,75,'muy_avanzado','hipertrofia',
              4,'gym_completo','{}','+5491111111111','full',
              'gym','exigente',60,'{lun,mar,jue,sab}','google')`,
-    [u[0].id],
+    [u1[0].id],
+  );
+  const { rows: u2 } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ('n@t.local','x','athlete') RETURNING id`,
+  );
+  await pool.query(
+    `INSERT INTO athlete_profiles
+       (user_id,name,gender,age,height_cm,weight_kg,level,goal,
+        days_per_week,equipment,injuries,phone,plan_interest,
+        training_mode,commitment,exercise_minutes,days_specific,referral_source)
+     VALUES ($1,'N','female',25,165,60,'nunca','hipertrofia',
+             3,'gym_basico','{}','+5491111111118','basico',
+             'casa','suave',30,'{lun,mie,vie}','otro')`,
+    [u2[0].id],
   );
   const c = await pool.query<{ count: string }>(
-    `SELECT COUNT(*)::text AS count FROM athlete_profiles WHERE level='muy_avanzado'`,
+    `SELECT COUNT(*)::text AS count FROM athlete_profiles WHERE level IN ('muy_avanzado','nunca')`,
   );
-  expect(c.rows[0].count).toBe('1');
+  expect(c.rows[0].count).toBe('2');
+});
+
+it('rejects legacy level value principiante', async () => {
+  const { rows: u } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ('lp@t.local','x','athlete') RETURNING id`,
+  );
+  await expect(
+    pool.query(
+      `INSERT INTO athlete_profiles
+         (user_id,name,gender,age,height_cm,weight_kg,level,goal,
+          days_per_week,equipment,injuries,phone,plan_interest,
+          training_mode,commitment,exercise_minutes,days_specific,referral_source)
+       VALUES ($1,'P','male',30,175,75,'principiante','hipertrofia',
+               4,'gym_completo','{}','+5491111111119','full',
+               'gym','normal',60,'{lun,mar,jue,sab}','google')`,
+      [u[0].id],
+    ),
+  ).rejects.toThrow();
 });
 
 it('days_per_week accepts 2', async () => {
@@ -76,4 +109,82 @@ it('athlete_measurements table exists with constraints', async () => {
     [u[0].id],
   );
   expect(c.rows[0].count).toBe('1');
+});
+
+it('goal enum accepts perdida_grasa', async () => {
+  const { rows: u } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ('p@t.local','x','athlete') RETURNING id`,
+  );
+  await pool.query(
+    `INSERT INTO athlete_profiles
+       (user_id,name,gender,age,height_cm,weight_kg,level,goal,
+        days_per_week,equipment,injuries,phone,plan_interest,
+        training_mode,commitment,exercise_minutes,days_specific,referral_source)
+     VALUES ($1,'P','male',30,175,75,'medio','perdida_grasa',
+             4,'gym_completo','{}','+5491111111113','full',
+             'gym','normal',60,'{lun,mar,jue,sab}','google')`,
+    [u[0].id],
+  );
+  const c = await pool.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM athlete_profiles WHERE goal='perdida_grasa'`,
+  );
+  expect(c.rows[0].count).toBe('1');
+});
+
+it('days_specific rejects cardinality mismatch with days_per_week', async () => {
+  const { rows: u } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ('d1@t.local','x','athlete') RETURNING id`,
+  );
+  await expect(
+    pool.query(
+      `INSERT INTO athlete_profiles
+         (user_id,name,gender,age,height_cm,weight_kg,level,goal,
+          days_per_week,equipment,injuries,phone,plan_interest,
+          training_mode,commitment,exercise_minutes,days_specific,referral_source)
+       VALUES ($1,'D','male',30,175,75,'bajo','hipertrofia',
+               4,'gym_completo','{}','+5491111111114','basico',
+               'gym','suave',45,'{lun,mar}','instagram')`,
+      [u[0].id],
+    ),
+  ).rejects.toThrow();
+});
+
+it('days_specific rejects invalid weekday token', async () => {
+  const { rows: u } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ('d2@t.local','x','athlete') RETURNING id`,
+  );
+  await expect(
+    pool.query(
+      `INSERT INTO athlete_profiles
+         (user_id,name,gender,age,height_cm,weight_kg,level,goal,
+          days_per_week,equipment,injuries,phone,plan_interest,
+          training_mode,commitment,exercise_minutes,days_specific,referral_source)
+       VALUES ($1,'D','male',30,175,75,'bajo','hipertrofia',
+               3,'gym_completo','{}','+5491111111115','basico',
+               'gym','suave',45,'{lun,mar,xyz}','instagram')`,
+      [u[0].id],
+    ),
+  ).rejects.toThrow();
+});
+
+it('days_specific rejects duplicate weekdays', async () => {
+  const { rows: u } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ('d3@t.local','x','athlete') RETURNING id`,
+  );
+  await expect(
+    pool.query(
+      `INSERT INTO athlete_profiles
+         (user_id,name,gender,age,height_cm,weight_kg,level,goal,
+          days_per_week,equipment,injuries,phone,plan_interest,
+          training_mode,commitment,exercise_minutes,days_specific,referral_source)
+       VALUES ($1,'D','male',30,175,75,'bajo','hipertrofia',
+               4,'gym_completo','{}','+5491111111116','basico',
+               'gym','suave',45,'{lun,lun,mar,mar}','instagram')`,
+      [u[0].id],
+    ),
+  ).rejects.toThrow();
 });
