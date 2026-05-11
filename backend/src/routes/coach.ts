@@ -9,6 +9,11 @@ import {
 import { listExercisesForAthlete } from '../services/exercise.service.js';
 import { generateSkeleton } from '../services/openai.service.js';
 import { listAlertsForCoach, markRead, markResolved, AlertError } from '../services/alert.service.js';
+import {
+  listAthletesForCoach,
+  getAthleteDetailForCoach,
+  CoachError,
+} from '../services/coach.service.js';
 import pool from '../db/connect.js';
 import logger from '../utils/logger.js';
 
@@ -91,6 +96,21 @@ router.patch('/alerts/:id/resolve', async (req: Request, res: Response) => {
     return res.status(204).end();
   } catch (e) {
     if (e instanceof AlertError) return res.status(404).json({ error: 'not_found' });
+    throw e;
+  }
+});
+
+router.get('/athletes', async (req: Request, res: Response) => {
+  const list = await listAthletesForCoach(req.user!.id);
+  return res.status(200).json(list);
+});
+
+router.get('/athletes/:id', async (req: Request, res: Response) => {
+  try {
+    const out = await getAthleteDetailForCoach(req.user!.id, req.params.id);
+    return res.status(200).json(out);
+  } catch (e) {
+    if (e instanceof CoachError) return res.status(404).json({ error: 'not_found' });
     throw e;
   }
 });
