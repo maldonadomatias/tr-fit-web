@@ -42,9 +42,20 @@ function arrayToSqlText(arr: string[]): string {
 
 function buildRow(name: string, muscleGroup: string): string {
   const ovr: Override = overrides[name] || {};
-  const equipment = ovr.equipment ?? inferEquipment(name);
-  const pattern = ovr.movement_pattern ??
-    MUSCLE_GROUP_DEFAULTS[muscleGroup] ?? 'isolation';
+
+  // Special muscle groups: not weighted; bypass inferEquipment fallback
+  const isCardioOrWarmup =
+    muscleGroup === 'Cardio' || muscleGroup === 'Calentamiento';
+  const isMethodGroup =
+    muscleGroup === 'Rest-Pause' || muscleGroup === 'Superserie';
+  const isSpecialGroup = isCardioOrWarmup || isMethodGroup;
+
+  const equipment = ovr.equipment
+    ?? (isSpecialGroup ? 'bw' : inferEquipment(name));
+  const pattern = ovr.movement_pattern
+    ?? (isCardioOrWarmup ? 'cardio'
+        : isMethodGroup ? 'isolation'
+        : MUSCLE_GROUP_DEFAULTS[muscleGroup] ?? 'isolation');
   const isPrincipal = ovr.is_principal ?? PRINCIPAL_NAMES.has(name);
   const isUnilateral = ovr.is_unilateral ??
     /unilateral|una pierna|a 1 pierna|a una mano/i.test(name);
