@@ -16,8 +16,8 @@ export interface CoachAthlete {
   id: string;
   name: string;
   email: string;
-  level: 'principiante' | 'intermedio' | 'avanzado';
-  goal: 'hipertrofia' | 'fuerza' | 'recomp';
+  level: 'nunca' | 'bajo' | 'medio' | 'avanzado' | 'muy_avanzado';
+  goal: 'hipertrofia' | 'fuerza' | 'recomp' | 'perdida_grasa';
   days_per_week: number;
   onboarded_at: string;
   current_week: number | null;
@@ -71,8 +71,8 @@ export interface SkeletonDetail {
     age: number;
     height_cm: number;
     weight_kg: number;
-    level: 'principiante' | 'intermedio' | 'avanzado';
-    goal: 'hipertrofia' | 'fuerza' | 'recomp';
+    level: 'nunca' | 'bajo' | 'medio' | 'avanzado' | 'muy_avanzado';
+    goal: 'hipertrofia' | 'fuerza' | 'recomp' | 'perdida_grasa';
     days_per_week: number;
     equipment: 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
     injuries: string[];
