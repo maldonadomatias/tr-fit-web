@@ -164,8 +164,18 @@ it('returns 502 when skeleton generation fails', async () => {
     choices: [{ message: { content: '{"bad": true}' } }],
   });
   const r = await request(app).post('/api/onboarding/complete')
-    .set('Authorization', `Bearer ${tok}`).send(validPayload);
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, measurements: { chest_cm: 100 } });
   expect(r.status).toBe(502);
+  // Verify rollback: profile + measurements rows were removed
+  const prof = await pool.query(
+    `SELECT 1 FROM athlete_profiles WHERE user_id = $1`, [u],
+  );
+  expect(prof.rowCount).toBe(0);
+  const m = await pool.query(
+    `SELECT 1 FROM athlete_measurements WHERE athlete_id = $1`, [u],
+  );
+  expect(m.rowCount).toBe(0);
 });
 
 it('persists new fields and measurements', async () => {
