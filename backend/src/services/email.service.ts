@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
-import { verifyTemplate, resetTemplate } from './email-templates.js';
+import { verifyTemplate, resetTemplate, painAlertTemplate } from './email-templates.js';
 
 const resend = new Resend(env.RESEND_API_KEY);
 
@@ -45,5 +45,27 @@ export async function sendPasswordResetEmail(
     to: email,
     subject: 'Restablecer contraseña — TR-FIT',
     html: resetTemplate(link),
+  });
+}
+
+export async function sendCoachPainAlert(opts: {
+  coachEmail: string;
+  athleteName: string;
+  exerciseName: string;
+  zone: string;
+  intensity: number;
+  alertId: string;
+}): Promise<void> {
+  const alertUrl = `${env.APP_URL}/coach/alerts/${opts.alertId}`;
+  await send({
+    to: opts.coachEmail,
+    subject: `🔴 SOS Dolor — ${opts.athleteName}`,
+    html: painAlertTemplate({
+      athleteName: opts.athleteName,
+      exerciseName: opts.exerciseName,
+      zone: opts.zone,
+      intensity: opts.intensity,
+      alertUrl,
+    }),
   });
 }
