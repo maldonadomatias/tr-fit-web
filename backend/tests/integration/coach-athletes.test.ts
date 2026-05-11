@@ -85,3 +85,25 @@ it('non-coach role forbidden', async () => {
     .set('Authorization', `Bearer ${tok}`);
   expect(r.status).toBe(403);
 });
+
+it('athlete detail includes measurements + new profile fields', async () => {
+  const coach = await createCoach();
+  const athleteId = await createAthlete(coach, {
+    level: 'medio',
+    goal: 'hipertrofia',
+  });
+  await pool.query(
+    `INSERT INTO athlete_measurements (athlete_id, chest_cm, source)
+     VALUES ($1, 100, 'onboarding')`,
+    [athleteId],
+  );
+  const tok = signToken({ id: coach, role: 'coach' });
+  const r = await request(app)
+    .get(`/api/coach/athletes/${athleteId}`)
+    .set('Authorization', `Bearer ${tok}`);
+  expect(r.status).toBe(200);
+  expect(r.body.measurements).toHaveLength(1);
+  expect(Number(r.body.measurements[0].chest_cm)).toBe(100);
+  expect(r.body.profile.phone).toBe('+5491111111111');
+  expect(r.body.profile.training_mode).toBe('gym');
+});

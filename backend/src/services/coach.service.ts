@@ -1,11 +1,12 @@
 import pool from '../db/connect.js';
+import type { Level, Goal } from '../domain/types.js';
 
 export interface CoachAthleteRow {
   id: string;
   name: string;
   email: string;
-  level: 'principiante' | 'intermedio' | 'avanzado';
-  goal: 'hipertrofia' | 'fuerza' | 'recomp';
+  level: Level;
+  goal: Goal;
   days_per_week: number;
   onboarded_at: string;
   current_week: number | null;
@@ -70,6 +71,7 @@ export async function getAthleteDetailForCoach(
   activeSkeleton: { skeleton: unknown; slots: unknown[] } | null;
   recentSessions: unknown[];
   alertsCount: number;
+  measurements: unknown[];
 }> {
   const profR = await pool.query(
     `SELECT * FROM athlete_profiles WHERE user_id = $1 AND coach_id = $2`,
@@ -120,11 +122,20 @@ export async function getAthleteDetailForCoach(
     [athleteId],
   );
 
+  const measR = await pool.query(
+    `SELECT * FROM athlete_measurements
+      WHERE athlete_id = $1
+      ORDER BY measured_at DESC
+      LIMIT 10`,
+    [athleteId],
+  );
+
   return {
     profile,
     programState,
     activeSkeleton,
     recentSessions: sessionsR.rows,
     alertsCount: alertsR.rows[0].n,
+    measurements: measR.rows,
   };
 }
