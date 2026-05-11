@@ -1,13 +1,11 @@
 import pool from '../db/connect.js';
 import type { Exercise, AthleteProfile } from '../domain/types.js';
+import { athleteLevelRank } from './level-helpers.js';
 
-const levelOrder = {
-  nunca: 1,
-  bajo: 1,
-  medio: 2,
-  avanzado: 3,
-  muy_avanzado: 3,
-} as const;
+// NOTE: this file ranks Exercise.level_min inline inside the SQL CASE
+// expression (principiante=1, intermedio=2, avanzado=3) — the equivalent
+// JS map lives in exercise.service.ts. Exercise enum (3-value) is distinct
+// from athlete level (5-value); see athleteLevelRank for the mapping.
 
 const equipmentMatrix: Record<AthleteProfile['equipment'], string[]> = {
   gym_completo: ['barra', 'mancuerna', 'maquina', 'polea', 'smith',
@@ -34,7 +32,7 @@ export async function findAlternative(
   if (!profile) return null;
 
   const allowedEquipment = equipmentMatrix[profile.equipment];
-  const athleteLevelOrd = levelOrder[profile.level];
+  const athleteLevelOrd = athleteLevelRank(profile.level);
 
   const r = await pool.query<Exercise>(
     `SELECT * FROM exercises

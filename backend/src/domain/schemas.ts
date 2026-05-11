@@ -34,6 +34,9 @@ export const onboardingPayload = z.object({
 }).refine((d) => d.days_specific.length === d.days_per_week, {
   message: 'days_specific length must equal days_per_week',
   path: ['days_specific'],
+}).refine((d) => new Set(d.days_specific).size === d.days_specific.length, {
+  message: 'days_specific must not contain duplicates',
+  path: ['days_specific'],
 });
 
 export type MeasurementPayload = z.infer<typeof measurementPayload>;

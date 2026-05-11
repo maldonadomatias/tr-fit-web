@@ -42,6 +42,8 @@ export interface AthleteProfile {
   sport_focus: string | null;
 }
 
+export type ExerciseLevel = 'principiante' | 'intermedio' | 'avanzado';
+
 export interface Exercise {
   id: number;
   name: string;
@@ -50,7 +52,7 @@ export interface Exercise {
   movement_pattern: MovementPattern;
   is_principal: boolean;
   is_unilateral: boolean;
-  level_min: Level;
+  level_min: ExerciseLevel;
   contraindicated_for: string[];
   default_increment_kg: number;
   alternatives_ids: number[];
@@ -208,12 +210,12 @@ export interface AthleteMeasurement {
   id: string;
   athlete_id: string;
   measured_at: string;
-  chest_cm: number | null;
-  waist_cm: number | null;
-  hip_cm: number | null;
-  thigh_cm: number | null;
-  calf_cm: number | null;
-  bicep_cm: number | null;
+  chest_cm: string | null;
+  waist_cm: string | null;
+  hip_cm: string | null;
+  thigh_cm: string | null;
+  calf_cm: string | null;
+  bicep_cm: string | null;
   source: 'onboarding' | 'manual' | 'coach';
   created_at: string;
 }

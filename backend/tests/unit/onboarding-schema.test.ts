@@ -10,47 +10,57 @@ const baseValid = {
   referral_source: 'google',
 };
 
-it('accepts valid full payload', () => {
-  expect(onboardingPayload.safeParse(baseValid).success).toBe(true);
-});
-
-it('rejects invalid phone format', () => {
-  const r = onboardingPayload.safeParse({ ...baseValid, phone: '11-1111-1111' });
-  expect(r.success).toBe(false);
-});
-
-it('rejects days_specific length != days_per_week', () => {
-  const r = onboardingPayload.safeParse({ ...baseValid, days_specific: ['lun', 'mar'] });
-  expect(r.success).toBe(false);
-});
-
-it('accepts new level values', () => {
-  expect(onboardingPayload.safeParse({ ...baseValid, level: 'nunca' }).success).toBe(true);
-  expect(onboardingPayload.safeParse({ ...baseValid, level: 'muy_avanzado' }).success).toBe(true);
-});
-
-it('rejects legacy level value principiante', () => {
-  expect(onboardingPayload.safeParse({ ...baseValid, level: 'principiante' }).success).toBe(false);
-});
-
-it('accepts goal=perdida_grasa', () => {
-  expect(onboardingPayload.safeParse({ ...baseValid, goal: 'perdida_grasa' }).success).toBe(true);
-});
-
-it('accepts days_per_week=2', () => {
-  expect(onboardingPayload.safeParse({
-    ...baseValid, days_per_week: 2, days_specific: ['lun', 'jue'],
-  }).success).toBe(true);
-});
-
-it('accepts optional sport_focus + measurements', () => {
-  const r = onboardingPayload.safeParse({
-    ...baseValid, sport_focus: 'futbol',
-    measurements: { chest_cm: 100, waist_cm: 80 },
+describe('onboardingPayload', () => {
+  it('accepts valid full payload', () => {
+    expect(onboardingPayload.safeParse(baseValid).success).toBe(true);
   });
-  expect(r.success).toBe(true);
+
+  it('rejects invalid phone format', () => {
+    const r = onboardingPayload.safeParse({ ...baseValid, phone: '11-1111-1111' });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects days_specific length != days_per_week', () => {
+    const r = onboardingPayload.safeParse({ ...baseValid, days_specific: ['lun', 'mar'] });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects days_specific with duplicates', () => {
+    expect(onboardingPayload.safeParse({
+      ...baseValid, days_per_week: 4, days_specific: ['lun', 'lun', 'mar', 'mar'],
+    }).success).toBe(false);
+  });
+
+  it('accepts new level values', () => {
+    expect(onboardingPayload.safeParse({ ...baseValid, level: 'nunca' }).success).toBe(true);
+    expect(onboardingPayload.safeParse({ ...baseValid, level: 'muy_avanzado' }).success).toBe(true);
+  });
+
+  it('rejects legacy level value principiante', () => {
+    expect(onboardingPayload.safeParse({ ...baseValid, level: 'principiante' }).success).toBe(false);
+  });
+
+  it('accepts goal=perdida_grasa', () => {
+    expect(onboardingPayload.safeParse({ ...baseValid, goal: 'perdida_grasa' }).success).toBe(true);
+  });
+
+  it('accepts days_per_week=2', () => {
+    expect(onboardingPayload.safeParse({
+      ...baseValid, days_per_week: 2, days_specific: ['lun', 'jue'],
+    }).success).toBe(true);
+  });
+
+  it('accepts optional sport_focus + measurements', () => {
+    const r = onboardingPayload.safeParse({
+      ...baseValid, sport_focus: 'futbol',
+      measurements: { chest_cm: 100, waist_cm: 80 },
+    });
+    expect(r.success).toBe(true);
+  });
 });
 
-it('measurementPayload accepts partial values', () => {
-  expect(measurementPayload.safeParse({ chest_cm: 100 }).success).toBe(true);
+describe('measurementPayload', () => {
+  it('accepts partial values', () => {
+    expect(measurementPayload.safeParse({ chest_cm: 100 }).success).toBe(true);
+  });
 });
