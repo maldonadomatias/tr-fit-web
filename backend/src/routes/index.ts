@@ -4,6 +4,8 @@ import athlete from './athlete.js';
 import coach from './coach.js';
 import auth from './auth.js';
 import sessions from './sessions.js';
+import alerts from './alerts.js';
+import exercises from './exercises.js';
 
 const router = Router();
 router.use('/auth', auth);
@@ -11,4 +13,6 @@ router.use('/onboarding', onboarding);
 router.use('/athlete', athlete);
 router.use('/coach', coach);
 router.use('/sessions', sessions);
+router.use('/alerts', alerts);
+router.use('/exercises', exercises);
 export default router;
