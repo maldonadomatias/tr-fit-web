@@ -17,6 +17,9 @@ describe('GET /api/athlete/me/tier', () => {
   it('returns null when no plan', async () => {
     const c = await createCoach();
     const a = await createAthlete(c);
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = NULL WHERE user_id = $1`, [a],
+    );
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/api/athlete/me/tier')
       .set('Authorization', `Bearer ${tok}`);

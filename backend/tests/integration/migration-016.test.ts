@@ -16,7 +16,7 @@ async function makeAthlete(email: string) {
     `INSERT INTO athlete_profiles
        (user_id, name, gender, age, height_cm, weight_kg, level, goal,
         days_per_week, equipment, injuries)
-     VALUES ($1,'T','male',30,175,75,'intermedio','hipertrofia',4,'gym_completo','{}')`,
+     VALUES ($1,'T','male',30,175,75,'medio','hipertrofia',4,'gym_completo','{}')`,
     [u[0].id],
   );
   return u[0].id;

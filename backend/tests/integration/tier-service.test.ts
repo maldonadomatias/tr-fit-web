@@ -25,19 +25,12 @@ describe('hasTier', () => {
   it('full does not satisfy premium', () => {
     expect(hasTier('full', 'premium')).toBe(false);
   });
-  it('null returns false for any min', () => {
-    expect(hasTier(null, 'basico')).toBe(false);
-  });
 });
 
 describe('getUserTier', () => {
-  it('returns plan_interest for athlete with tier set', async () => {
+  it('returns plan_interest for existing athlete', async () => {
     const coach = await createCoach();
     const athleteId = await createAthlete(coach);
-    await pool.query(
-      `UPDATE athlete_profiles SET plan_interest = 'full' WHERE user_id = $1`,
-      [athleteId],
-    );
     const tier = await getUserTier(athleteId);
     expect(tier).toBe('full');
   });
@@ -45,16 +38,20 @@ describe('getUserTier', () => {
   it('returns null when plan_interest is NULL', async () => {
     const coach = await createCoach();
     const athleteId = await createAthlete(coach);
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = NULL WHERE user_id = $1`,
+      [athleteId],
+    );
     const tier = await getUserTier(athleteId);
     expect(tier).toBeNull();
   });
 
   it('returns null for user without profile', async () => {
-    const { rows: u } = await pool.query<{ id: string }>(
+    const r = await pool.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role)
        VALUES ('np@t.local','x','athlete') RETURNING id`,
     );
-    const tier = await getUserTier(u[0].id);
+    const tier = await getUserTier(r.rows[0].id);
     expect(tier).toBeNull();
   });
 });

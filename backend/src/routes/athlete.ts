@@ -7,9 +7,28 @@ import { buildTodaySession, TodayBlockedError } from '../services/engine.service
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
 import { recordRm } from '../services/rm.service.js';
 import { getUserTier } from '../services/tier.service.js';
+import { regenerateSkeleton } from '../services/skeleton-regen.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
+
+router.get('/me/tier', async (req, res) => {
+  const tier = await getUserTier(req.user!.id);
+  res.json({ plan_interest: tier });
+});
+
+router.post('/skeleton/regenerate', async (req, res) => {
+  const result = await regenerateSkeleton(req.user!.id);
+  if (!result.ok) {
+    const status = result.error === 'tier_blocked' ? 403 : 429;
+    return res.status(status).json({
+      error: result.error, message: result.message,
+    });
+  }
+  res.status(201).json({
+    skeletonId: result.skeletonId, status: 'pending_review',
+  });
+});
 
 router.get('/me', async (req, res) => {
   const userId = req.user!.id;
@@ -70,11 +89,6 @@ router.post('/rm', async (req, res) => {
     week: parsed.data.week,
   });
   res.status(201).json(out);
-});
-
-router.get('/me/tier', async (req, res) => {
-  const tier = await getUserTier(req.user!.id);
-  res.json({ plan_interest: tier });
 });
 
 export default router;

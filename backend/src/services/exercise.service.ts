@@ -1,7 +1,8 @@
 import pool from '../db/connect.js';
 import type {
-  Exercise, AthleteProfile, ExerciseEquipment, Level,
+  Exercise, AthleteProfile, ExerciseEquipment, ExerciseLevel,
 } from '../domain/types.js';
+import { athleteLevelRank } from './level-helpers.js';
 
 const equipmentMatrix: Record<AthleteProfile['equipment'], ExerciseEquipment[]> = {
   gym_completo: ['barra', 'mancuerna', 'maquina', 'polea', 'smith',
@@ -11,8 +12,12 @@ const equipmentMatrix: Record<AthleteProfile['equipment'], ExerciseEquipment[]> 
   solo_bw:      ['bw', 'elastico'],
 };
 
-const levelOrder: Record<Level, number> = {
-  principiante: 1, intermedio: 2, avanzado: 3,
+// Exercise enum (3-value) — distinct from athlete level (5-value). Used to
+// rank Exercise.level_min for "can this athlete do this exercise" checks.
+const levelOrder: Record<ExerciseLevel, number> = {
+  principiante: 1,
+  intermedio: 2,
+  avanzado: 3,
 };
 
 export async function listExercises(): Promise<Exercise[]> {
@@ -31,7 +36,7 @@ export async function listExercisesForAthlete(
   profile: AthleteProfile,
 ): Promise<Exercise[]> {
   const allowedEquipment = equipmentMatrix[profile.equipment];
-  const athleteLevel = levelOrder[profile.level];
+  const athleteLevel = athleteLevelRank(profile.level);
   const all = await listExercises();
   return all.filter((ex) => {
     if (!allowedEquipment.includes(ex.equipment)) return false;

@@ -37,7 +37,7 @@ async function athleteWithEmail(coachId: string, suffix: string) {
     `INSERT INTO athlete_profiles
        (user_id, name, gender, age, height_cm, weight_kg, level, goal,
         days_per_week, equipment, injuries, coach_id)
-     VALUES ($1,'T','male',30,175,75,'intermedio','hipertrofia',4,'gym_completo','{}', $2)`,
+     VALUES ($1,'T','male',30,175,75,'medio','hipertrofia',4,'gym_completo','{}', $2)`,
     [id, coachId],
   );
   return { id, email: `sub-svc-${suffix}@t.local` };

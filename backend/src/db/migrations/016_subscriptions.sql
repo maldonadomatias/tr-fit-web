@@ -1,4 +1,4 @@
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   athlete_id          UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   tier                TEXT NOT NULL CHECK (tier IN ('basico', 'full', 'premium')),
@@ -10,9 +10,9 @@ CREATE TABLE subscriptions (
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_subscriptions_athlete ON subscriptions(athlete_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_athlete ON subscriptions(athlete_id);
 
-CREATE TABLE mp_webhook_log (
+CREATE TABLE IF NOT EXISTS mp_webhook_log (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id    TEXT UNIQUE,
   payload     JSONB NOT NULL,

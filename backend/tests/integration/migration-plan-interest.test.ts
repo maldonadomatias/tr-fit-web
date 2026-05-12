@@ -25,7 +25,7 @@ describe('migration 010 — plan_interest', () => {
       `INSERT INTO athlete_profiles
          (user_id, name, gender, age, height_cm, weight_kg, level, goal,
           days_per_week, equipment, injuries)
-       VALUES ($1,'T','male',30,175,75,'intermedio','hipertrofia',4,'gym_completo','{}')`,
+       VALUES ($1,'T','male',30,175,75,'medio','hipertrofia',4,'gym_completo','{}')`,
       [u[0].id],
     );
     const r = await pool.query<{ plan_interest: string | null }>(
@@ -45,7 +45,7 @@ describe('migration 010 — plan_interest', () => {
         `INSERT INTO athlete_profiles
            (user_id, name, gender, age, height_cm, weight_kg, level, goal,
             days_per_week, equipment, injuries, plan_interest)
-         VALUES ($1,'T','male',30,175,75,'intermedio','hipertrofia',4,'gym_completo','{}', $2)`,
+         VALUES ($1,'T','male',30,175,75,'medio','hipertrofia',4,'gym_completo','{}', $2)`,
         [u[0].id, tier],
       );
     }
@@ -65,7 +65,7 @@ describe('migration 010 — plan_interest', () => {
         `INSERT INTO athlete_profiles
            (user_id, name, gender, age, height_cm, weight_kg, level, goal,
             days_per_week, equipment, injuries, plan_interest)
-         VALUES ($1,'T','male',30,175,75,'intermedio','hipertrofia',4,'gym_completo','{}','bogus')`,
+         VALUES ($1,'T','male',30,175,75,'medio','hipertrofia',4,'gym_completo','{}','bogus')`,
         [u[0].id],
       ),
     ).rejects.toThrow();

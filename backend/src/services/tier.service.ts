@@ -1,10 +1,11 @@
-import pool from '../db/connect.js';
 import type { PlanInterest } from '../domain/types.js';
+import pool from '../db/connect.js';
 
-const RANK: Record<PlanInterest, number> = { basico: 0, full: 1, premium: 2 };
+const RANK: Record<PlanInterest, number> = {
+  basico: 0, full: 1, premium: 2,
+};
 
-export function hasTier(actual: PlanInterest | null, min: PlanInterest): boolean {
-  if (!actual) return false;
+export function hasTier(actual: PlanInterest, min: PlanInterest): boolean {
   return RANK[actual] >= RANK[min];
 }
 

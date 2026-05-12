@@ -11,6 +11,12 @@ const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 
+// Trust first proxy hop in non-dev (load balancer, CDN, reverse proxy)
+// Needed for req.ip + express-rate-limit to work behind a proxy
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // CORS configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -51,6 +57,34 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api', apiRoutes);
+
+// Server-side reset-password form (no /api prefix — links sent in emails)
+app.get('/reset-password', (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  import('./views/reset-password.html.js').then(({ resetPasswordPage }) => {
+    res.status(200).type('html').send(resetPasswordPage(token));
+  });
+});
+
+app.post('/reset-password', express.urlencoded({ extended: false }), async (req, res) => {
+  const { resetPasswordPayload } = await import('./domain/schemas.js');
+  const { resetPassword, ResetError } = await import('./services/auth.service.js');
+  const { resetPasswordPage, resetPasswordSuccessPage } = await import('./views/reset-password.html.js');
+  const parsed = resetPasswordPayload.safeParse(req.body);
+  if (!parsed.success) {
+    const token = typeof req.body?.token === 'string' ? req.body.token : '';
+    return res.status(400).type('html').send(resetPasswordPage(token, 'Password debe tener al menos 8 caracteres'));
+  }
+  try {
+    await resetPassword(parsed.data.token, parsed.data.newPassword);
+    return res.status(200).type('html').send(resetPasswordSuccessPage());
+  } catch (e) {
+    if (e instanceof ResetError) {
+      return res.status(400).type('html').send(resetPasswordPage(parsed.data.token, `Token ${e.reason}`));
+    }
+    throw e;
+  }
+});
 
 // Error handler (must be last)
 app.use(errorHandler);
