@@ -38,7 +38,7 @@ describe('coach push triggers', () => {
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBeLessThan(300);
     // Wait a tick for fire-and-forget
-    await new Promise((res) => setImmediate(res));
+    await new Promise((res) => setTimeout(res, 50));
     expect(mockNotify).toHaveBeenCalledWith(athleteId, 'skeleton_approved');
   });
 
