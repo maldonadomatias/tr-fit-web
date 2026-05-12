@@ -12,6 +12,13 @@ const schema = z.object({
   CRON_TZ: z.string().default('America/Argentina/Buenos_Aires'),
   PROGRESSION_CRON_SCHEDULE: z.string().default('0 23 * * 0'),
   COMPLIANCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
+  MP_ACCESS_TOKEN: z.string().min(1),
+  MP_WEBHOOK_SECRET: z.string().min(1),
+  MP_PLAN_ID_BASICO: z.string().min(1),
+  MP_PLAN_ID_FULL: z.string().min(1),
+  MP_PLAN_ID_PREMIUM: z.string().min(1),
+  MP_BACK_URL: z.string().default('trfit://upgrade/success'),
+  MP_NOTIFICATION_URL: z.string().default('http://localhost:5001/webhooks/mp'),
 });
 
 export const env = schema.parse(process.env);

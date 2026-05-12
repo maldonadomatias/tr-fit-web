@@ -1,3 +1,4 @@
+export type PlanInterest = 'basico' | 'full' | 'premium';
 export type Gender = 'male' | 'female' | 'other';
 export type Level = 'principiante' | 'intermedio' | 'avanzado';
 export type Goal = 'hipertrofia' | 'fuerza' | 'recomp';
