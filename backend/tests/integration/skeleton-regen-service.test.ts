@@ -131,3 +131,25 @@ describe('regenerateSkeleton', () => {
     expect(r.ok).toBe(true);
   });
 });
+
+describe('regenerateSkeleton concurrency', () => {
+  it('serializes concurrent calls — second call sees first one already used budget', async () => {
+    await ensureFirstExercise();
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    await setTier(a, 'basico');
+
+    // Fire two regens at once. With advisory lock, second waits for first to commit.
+    // After serialization: first succeeds (count=0 → approved_gen), second sees count=1 → tier_blocked.
+    const [r1, r2] = await Promise.all([
+      regenerateSkeleton(a),
+      regenerateSkeleton(a),
+    ]);
+
+    const okCount = [r1, r2].filter((r) => r.ok).length;
+    const blockedCount = [r1, r2].filter((r) => !r.ok && r.error === 'tier_blocked').length;
+    expect(okCount).toBe(1);
+    expect(blockedCount).toBe(1);
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+  });
+});
