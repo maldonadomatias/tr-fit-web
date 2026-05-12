@@ -36,6 +36,11 @@ describe('progress routes', () => {
   it('returns 200 with empty array for new athlete', async () => {
     const c = await createCoach();
     const a = await createAthlete(c);
+    // Upgrade to premium so tier-gated endpoints (/rms, /weight-vs-suggested) are accessible.
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = 'premium' WHERE user_id = $1`,
+      [a],
+    );
     const tok = signToken({ id: a, role: 'athlete' });
     for (const path of ENDPOINTS) {
       const r = await request(app).get(`/api/progress${path}`)
@@ -62,5 +67,60 @@ describe('progress routes', () => {
     const r = await request(app).get('/api/progress/compliance?weeks=abc')
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(400);
+  });
+});
+
+describe('progress routes tier gating', () => {
+  it('basico is blocked from /rms', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,
+      [a],
+    );
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).get('/api/progress/rms')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(403);
+    expect(r.body.error).toBe('tier_insufficient');
+  });
+
+  it('basico is blocked from /weight-vs-suggested', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,
+      [a],
+    );
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).get('/api/progress/weight-vs-suggested')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(403);
+  });
+
+  it('premium accesses /rms', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = 'premium' WHERE user_id = $1`,
+      [a],
+    );
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).get('/api/progress/rms')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+  });
+
+  it('basico accesses /compliance (no gate)', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    await pool.query(
+      `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,
+      [a],
+    );
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).get('/api/progress/compliance')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
   });
 });
