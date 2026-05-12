@@ -49,6 +49,10 @@ describe('migration 010 — plan_interest', () => {
         [u[0].id, tier],
       );
     }
+    const r = await pool.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM athlete_profiles WHERE plan_interest IN ('basico','full','premium')`,
+    );
+    expect(parseInt(r.rows[0].n, 10)).toBe(3);
   });
 
   it('rejects invalid tier value', async () => {
