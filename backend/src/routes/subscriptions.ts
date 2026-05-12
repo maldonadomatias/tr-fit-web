@@ -4,6 +4,9 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import { createSubscription, SubscriptionError } from '../services/subscription.service.js';
 import pool from '../db/connect.js';
+import logger from '../utils/logger.js';
+
+type SubscriptionRow = { tier: string; status: string; current_period_end: Date | null };
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -21,7 +24,10 @@ router.post('/create', async (req, res) => {
   const userR = await pool.query<{ email: string }>(
     `SELECT email FROM users WHERE id = $1`, [req.user!.id],
   );
-  const payerEmail = userR.rows[0]?.email ?? '';
+  if (!userR.rows[0]) {
+    return res.status(404).json({ error: 'user_not_found' });
+  }
+  const payerEmail = userR.rows[0].email;
 
   try {
     const { checkoutUrl, subscriptionId } = await createSubscription({
@@ -34,12 +40,13 @@ router.post('/create', async (req, res) => {
     if (e instanceof SubscriptionError) {
       return res.status(e.statusCode).json({ error: e.code });
     }
+    logger.error({ err: e }, 'payment provider error');
     return res.status(502).json({ error: 'payment_provider_error' });
   }
 });
 
 router.get('/me', async (req, res) => {
-  const r = await pool.query(
+  const r = await pool.query<SubscriptionRow>(
     `SELECT tier, status, current_period_end
      FROM subscriptions
      WHERE athlete_id = $1
