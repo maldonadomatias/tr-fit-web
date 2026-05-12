@@ -101,3 +101,100 @@ describe('listVolume', () => {
     expect(r).toEqual([]);
   });
 });
+
+const { listRpeHistogram, listWeightVsSuggested } =
+  await import('../../src/services/progress.service.js');
+
+describe('listRpeHistogram', () => {
+  it('returns rpe buckets ordered ascending', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    const sk = await pool.query<{ id: string }>(
+      `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
+       VALUES ($1, 'approved', '{}'::jsonb) RETURNING id`,
+      [a],
+    );
+    const sl = await pool.query<{ id: string }>(
+      `INSERT INTO session_logs (athlete_id, skeleton_id, program_week, day_of_week, finished_at)
+       VALUES ($1, $2, 1, 1, now()) RETURNING id`,
+      [a, sk.rows[0].id],
+    );
+    const ex = await pool.query<{ id: number }>(`SELECT id FROM exercises LIMIT 1`);
+    const exId = ex.rows[0].id;
+    await pool.query(
+      `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week,
+                             set_index, weight_kg, reps, completed, rpe, session_log_id)
+       VALUES
+         ($1, $2, 1, 1, 1, 50, 10, TRUE, 7, $3),
+         ($1, $2, 1, 1, 2, 50, 10, TRUE, 7, $3),
+         ($1, $2, 1, 1, 3, 50, 10, TRUE, 9, $3)`,
+      [a, exId, sl.rows[0].id],
+    );
+    const r = await listRpeHistogram(a, 8);
+    const map = new Map(r.map((b) => [b.rpe, b.count]));
+    expect(map.get(7)).toBe(2);
+    expect(map.get(9)).toBe(1);
+  });
+
+  it('skips rpe null', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    const sk = await pool.query<{ id: string }>(
+      `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
+       VALUES ($1, 'approved', '{}'::jsonb) RETURNING id`,
+      [a],
+    );
+    const sl = await pool.query<{ id: string }>(
+      `INSERT INTO session_logs (athlete_id, skeleton_id, program_week, day_of_week, finished_at)
+       VALUES ($1, $2, 1, 1, now()) RETURNING id`,
+      [a, sk.rows[0].id],
+    );
+    const ex = await pool.query<{ id: number }>(`SELECT id FROM exercises LIMIT 1`);
+    await pool.query(
+      `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week,
+                             set_index, weight_kg, reps, completed, rpe, session_log_id)
+       VALUES ($1, $2, 1, 1, 1, 50, 10, TRUE, NULL, $3)`,
+      [a, ex.rows[0].id, sl.rows[0].id],
+    );
+    const r = await listRpeHistogram(a, 8);
+    expect(r).toEqual([]);
+  });
+});
+
+describe('listWeightVsSuggested', () => {
+  it('returns delta_pct for exercises used vs suggested', async () => {
+    const c = await createCoach();
+    const a = await createAthlete(c);
+    const ex = await pool.query<{ id: number; name: string }>(
+      `SELECT id, name FROM exercises LIMIT 1`,
+    );
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_weight_kg, updated_by)
+       VALUES ($1, $2, 100, 'progression_cron')`,
+      [a, ex.rows[0].id],
+    );
+    const sk = await pool.query<{ id: string }>(
+      `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
+       VALUES ($1, 'approved', '{}'::jsonb) RETURNING id`,
+      [a],
+    );
+    const sl = await pool.query<{ id: string }>(
+      `INSERT INTO session_logs (athlete_id, skeleton_id, program_week, day_of_week, finished_at)
+       VALUES ($1, $2, 1, 1, now()) RETURNING id`,
+      [a, sk.rows[0].id],
+    );
+    await pool.query(
+      `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week,
+                             set_index, weight_kg, reps, completed, session_log_id)
+       VALUES ($1, $2, 1, 1, 1, 110, 10, TRUE, $3)`,
+      [a, ex.rows[0].id, sl.rows[0].id],
+    );
+    const r = await listWeightVsSuggested(a, 4);
+    expect(r).toHaveLength(1);
+    expect(r[0].exercise_id).toBe(ex.rows[0].id);
+    expect(Number(r[0].avg_used_kg)).toBeCloseTo(110, 0);
+    expect(Number(r[0].suggested_kg)).toBeCloseTo(100, 0);
+    expect(Number(r[0].delta_pct)).toBeCloseTo(10, 0);
+  });
+});

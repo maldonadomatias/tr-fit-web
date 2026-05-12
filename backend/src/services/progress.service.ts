@@ -100,3 +100,76 @@ export async function listVolume(
   );
   return r.rows;
 }
+
+export interface RpeBucket {
+  rpe: number;
+  count: number;
+}
+
+export async function listRpeHistogram(
+  athleteId: string,
+  weeks: number,
+): Promise<RpeBucket[]> {
+  const r = await pool.query<{ rpe: string; count: string }>(
+    `SELECT s.rpe::text AS rpe, COUNT(*)::text AS count
+       FROM set_logs s
+       JOIN session_logs sl ON sl.id = s.session_log_id
+      WHERE sl.athlete_id = $1
+        AND s.completed = TRUE
+        AND s.rpe IS NOT NULL
+        AND sl.started_at > now() - ($2 || ' weeks')::interval
+      GROUP BY s.rpe
+      ORDER BY s.rpe`,
+    [athleteId, String(weeks)],
+  );
+  return r.rows.map((row) => ({
+    rpe: Number(row.rpe),
+    count: parseInt(row.count, 10),
+  }));
+}
+
+export interface WeightVsSuggestedRow {
+  exercise_id: number;
+  exercise_name: string;
+  avg_used_kg: string;
+  suggested_kg: string | null;
+  delta_pct: string | null;
+}
+
+export async function listWeightVsSuggested(
+  athleteId: string,
+  weeks: number,
+): Promise<WeightVsSuggestedRow[]> {
+  const r = await pool.query<WeightVsSuggestedRow>(
+    `WITH used AS (
+       SELECT s.exercise_id, AVG(s.weight_kg) AS avg_used_kg
+         FROM set_logs s
+         JOIN session_logs sl ON sl.id = s.session_log_id
+        WHERE sl.athlete_id = $1
+          AND s.completed = TRUE
+          AND s.weight_kg IS NOT NULL
+          AND sl.started_at > now() - ($2 || ' weeks')::interval
+        GROUP BY s.exercise_id
+     ),
+     suggested AS (
+       SELECT exercise_id, current_weight_kg AS suggested_kg
+         FROM athlete_exercise_weights
+        WHERE athlete_id = $1
+     )
+     SELECT u.exercise_id,
+            e.name AS exercise_name,
+            u.avg_used_kg::text AS avg_used_kg,
+            sg.suggested_kg::text AS suggested_kg,
+            (CASE WHEN sg.suggested_kg IS NULL OR sg.suggested_kg = 0
+                  THEN NULL
+                  ELSE ((u.avg_used_kg - sg.suggested_kg) / sg.suggested_kg * 100)
+             END)::text AS delta_pct
+       FROM used u
+       JOIN exercises e ON e.id = u.exercise_id
+       LEFT JOIN suggested sg ON sg.exercise_id = u.exercise_id
+      ORDER BY ABS(COALESCE((u.avg_used_kg - sg.suggested_kg) / NULLIF(sg.suggested_kg, 0) * 100, 0)) DESC
+      LIMIT 10`,
+    [athleteId, String(weeks)],
+  );
+  return r.rows;
+}
