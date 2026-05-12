@@ -8,6 +8,7 @@ import alerts from './alerts.js';
 import exercises from './exercises.js';
 import profile from './profile.js';
 import pushRouter from './push.js';
+import progressRouter from './progress.js';
 
 const router = Router();
 router.use('/auth', auth);
@@ -19,4 +20,5 @@ router.use('/alerts', alerts);
 router.use('/exercises', exercises);
 router.use('/profile', profile);
 router.use('/push', pushRouter);
+router.use('/progress', progressRouter);
 export default router;
