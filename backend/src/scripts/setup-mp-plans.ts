@@ -27,7 +27,7 @@ async function createPlan(name: string, amount: number): Promise<string> {
         transaction_amount: amount,
         currency_id: 'ARS',
       },
-      back_url: process.env.MP_BACK_URL ?? 'trfit://upgrade/success',
+      back_url: process.env.APP_URL ?? 'http://localhost:5001',
     }),
   });
 
