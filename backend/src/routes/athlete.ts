@@ -6,6 +6,7 @@ import pool from '../db/connect.js';
 import { buildTodaySession, TodayBlockedError } from '../services/engine.service.js';
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
 import { recordRm } from '../services/rm.service.js';
+import { getUserTier } from '../services/tier.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -69,6 +70,11 @@ router.post('/rm', async (req, res) => {
     week: parsed.data.week,
   });
   res.status(201).json(out);
+});
+
+router.get('/me/tier', async (req, res) => {
+  const tier = await getUserTier(req.user!.id);
+  res.json({ plan_interest: tier });
 });
 
 export default router;
