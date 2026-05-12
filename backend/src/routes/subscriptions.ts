@@ -32,7 +32,7 @@ router.post('/create', async (req, res) => {
     res.status(201).json({ checkout_url: checkoutUrl, subscription_id: subscriptionId });
   } catch (e) {
     if (e instanceof SubscriptionError) {
-      return res.status(e.statusCode).json({ error: e.code, message: e.message });
+      return res.status(e.statusCode).json({ error: e.code });
     }
     return res.status(502).json({ error: 'payment_provider_error' });
   }
