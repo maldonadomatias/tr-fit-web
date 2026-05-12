@@ -9,8 +9,9 @@ export async function createMeasurement(
 ): Promise<AthleteMeasurement> {
   const r = await pool.query<AthleteMeasurement>(
     `INSERT INTO athlete_measurements
-       (athlete_id, chest_cm, waist_cm, hip_cm, thigh_cm, calf_cm, bicep_cm, source)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       (athlete_id, chest_cm, waist_cm, hip_cm, thigh_cm, calf_cm, bicep_cm,
+        body_weight_kg, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
     [
       athleteId,
@@ -20,6 +21,7 @@ export async function createMeasurement(
       payload.thigh_cm ?? null,
       payload.calf_cm ?? null,
       payload.bicep_cm ?? null,
+      payload.body_weight_kg ?? null,
       source,
     ],
   );

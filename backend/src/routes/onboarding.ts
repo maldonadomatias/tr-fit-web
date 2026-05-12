@@ -49,14 +49,17 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
   if (p.measurements) {
     const m = p.measurements;
     const hasAny = m.chest_cm != null || m.waist_cm != null || m.hip_cm != null
-      || m.thigh_cm != null || m.calf_cm != null || m.bicep_cm != null;
+      || m.thigh_cm != null || m.calf_cm != null || m.bicep_cm != null
+      || m.body_weight_kg != null;
     if (hasAny) {
       await pool.query(
         `INSERT INTO athlete_measurements
-           (athlete_id, chest_cm, waist_cm, hip_cm, thigh_cm, calf_cm, bicep_cm, source)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'onboarding')`,
+           (athlete_id, chest_cm, waist_cm, hip_cm, thigh_cm, calf_cm, bicep_cm,
+            body_weight_kg, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'onboarding')`,
         [userId, m.chest_cm ?? null, m.waist_cm ?? null, m.hip_cm ?? null,
-         m.thigh_cm ?? null, m.calf_cm ?? null, m.bicep_cm ?? null],
+         m.thigh_cm ?? null, m.calf_cm ?? null, m.bicep_cm ?? null,
+         m.body_weight_kg ?? null],
       );
     }
   }

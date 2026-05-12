@@ -7,6 +7,7 @@ export const measurementPayload = z.object({
   thigh_cm: z.number().min(20).max(120).optional(),
   calf_cm: z.number().min(15).max(80).optional(),
   bicep_cm: z.number().min(15).max(80).optional(),
+  body_weight_kg: z.number().min(30).max(300).optional(),
 });
 
 export const onboardingPayload = z.object({

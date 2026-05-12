@@ -216,6 +216,7 @@ export interface AthleteMeasurement {
   thigh_cm: string | null;
   calf_cm: string | null;
   bicep_cm: string | null;
+  body_weight_kg: string | null;
   source: 'onboarding' | 'manual' | 'coach';
   created_at: string;
 }
