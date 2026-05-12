@@ -4,6 +4,7 @@ import pool from '../../../src/db/connect.js';
 export async function resetDatabase(): Promise<void> {
   await pool.query(`
     TRUNCATE TABLE
+      skeleton_regen_log,
       notification_log,
       push_tokens,
       progression_runs,
