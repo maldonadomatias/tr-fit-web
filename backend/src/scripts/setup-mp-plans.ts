@@ -27,6 +27,7 @@ async function createPlan(name: string, amount: number): Promise<string> {
         transaction_amount: amount,
         currency_id: 'ARS',
       },
+      back_url: 'https://trfit.io',
     }),
   });
 
