@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import { measurementPayload } from '../domain/schemas.js';
+import { measurementPayload, notificationPrefsPayload } from '../domain/schemas.js';
 import { createMeasurement, listMeasurements } from '../services/measurement.service.js';
 
 const router = Router();
@@ -27,6 +27,19 @@ router.post('/measurements', requireAuth, requireRole('athlete'), async (req, re
   }
   const row = await createMeasurement(req.user!.id, parsed.data, 'manual');
   return res.status(201).json(row);
+});
+
+router.patch('/notification-prefs', requireAuth, requireRole('athlete'), async (req, res) => {
+  const parsed = notificationPrefsPayload.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'invalid_payload', issues: parsed.error.issues });
+  }
+  const r = await pool.query<{ notification_prefs: Record<string, boolean> }>(
+    `UPDATE users SET notification_prefs = notification_prefs || $1::jsonb
+      WHERE id = $2 RETURNING notification_prefs`,
+    [JSON.stringify(parsed.data), req.user!.id],
+  );
+  return res.json({ notification_prefs: r.rows[0].notification_prefs });
 });
 
 export default router;
