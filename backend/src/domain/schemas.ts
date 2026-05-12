@@ -30,7 +30,7 @@ export const onboardingPayload = z.object({
   ]),
   days_specific: z.array(z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'])),
   referral_source: z.enum(['instagram', 'facebook', 'google', 'amigo', 'otro']),
-  sport_focus: z.string().max(80).optional(),
+  sport_focus: z.string().max(200).optional(),
   measurements: measurementPayload.optional(),
 }).refine((d) => d.days_specific.length === d.days_per_week, {
   message: 'days_specific length must equal days_per_week',
