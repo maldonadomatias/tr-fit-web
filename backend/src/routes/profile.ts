@@ -29,6 +29,15 @@ router.post('/measurements', requireAuth, requireRole('athlete'), async (req, re
   return res.status(201).json(row);
 });
 
+router.get('/notification-prefs', requireAuth, requireRole('athlete'), async (req, res) => {
+  const r = await pool.query<{ notification_prefs: Record<string, boolean> }>(
+    `SELECT notification_prefs FROM users WHERE id = $1`,
+    [req.user!.id],
+  );
+  if (!r.rows[0]) return res.status(404).json({ error: 'not_found' });
+  res.json({ notification_prefs: r.rows[0].notification_prefs });
+});
+
 router.patch('/notification-prefs', requireAuth, requireRole('athlete'), async (req, res) => {
   const parsed = notificationPrefsPayload.safeParse(req.body);
   if (!parsed.success) {

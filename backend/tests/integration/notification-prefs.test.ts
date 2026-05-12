@@ -57,3 +57,29 @@ describe('PATCH /api/profile/notification-prefs', () => {
     expect(r.body.notification_prefs.week_start).toBe(false);
   });
 });
+
+describe('GET /api/profile/notification-prefs', () => {
+  it('returns default prefs', async () => {
+    const u = await makeAthlete();
+    const tok = signToken({ id: u, role: 'athlete' });
+    const r = await request(app)
+      .get('/api/profile/notification-prefs')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(r.body.notification_prefs.session_reminder).toBe(true);
+    expect(r.body.notification_prefs.week_start).toBe(true);
+  });
+
+  it('returns updated prefs after PATCH', async () => {
+    const u = await makeAthlete();
+    const tok = signToken({ id: u, role: 'athlete' });
+    await request(app)
+      .patch('/api/profile/notification-prefs')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ session_reminder: false });
+    const r = await request(app)
+      .get('/api/profile/notification-prefs')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.body.notification_prefs.session_reminder).toBe(false);
+  });
+});
