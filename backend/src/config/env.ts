@@ -27,6 +27,7 @@ const schema = z.object({
   MP_PLAN_ID_PREMIUM: z.string().min(1),
   MP_BACK_URL: z.string().default('trfit://upgrade/success'),
   MP_NOTIFICATION_URL: z.string().default('http://localhost:5001/webhooks/mp'),
+  OWNER_COACH_EMAIL: z.string().email(),
 });
 
 export const env = schema.parse(process.env);
