@@ -46,7 +46,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { computeStreak } = await import('../../src/services/dashboard.service.js');
+const { computeStreak, projectNextSessions } = await import('../../src/services/dashboard.service.js');
 
 beforeEach(() => {
   handlers.length = 0;
@@ -97,5 +97,50 @@ describe('computeStreak', () => {
       days.map((day) => ({ day })));
     const r = await computeStreak('athlete-1');
     expect(r).toBe(2);
+  });
+});
+
+describe('projectNextSessions', () => {
+  const FIXED_NOW = new Date('2026-05-13T12:00:00Z'); // Wed
+
+  it('returns 3 entries — mix of training days and rest days', () => {
+    // days_specific = lun, mie, vie. Today = Wed. Next 3: Thu(rest), Fri(train), Sat(rest).
+    const r = projectNextSessions({
+      now: FIXED_NOW,
+      daysSpecific: ['lun', 'mie', 'vie'],
+      slotsByDay: { 1: 5, 3: 6, 5: 4 },
+      focusByDay: { 1: 'Pecho', 3: 'Espalda', 5: 'Piernas' },
+      estimatedMin: 60,
+    });
+    expect(r).toHaveLength(3);
+    expect(r[0]?.rest).toBe(true);
+    expect(r[1]?.rest).toBe(false);
+    expect(r[1]?.focus).toBe('Piernas');
+    expect(r[1]?.exerciseCount).toBe(4);
+    expect(r[2]?.rest).toBe(true);
+  });
+
+  it('uses null focus when skeleton_days is missing for that day', () => {
+    const r = projectNextSessions({
+      now: FIXED_NOW,
+      daysSpecific: ['jue'],
+      slotsByDay: { 4: 5 },
+      focusByDay: {},
+      estimatedMin: 60,
+    });
+    expect(r[0]?.rest).toBe(false);
+    expect(r[0]?.focus).toBeNull();
+  });
+
+  it('formats date as "<Weekday> <DOM>" in Spanish (3 letter)', () => {
+    const r = projectNextSessions({
+      now: FIXED_NOW,
+      daysSpecific: ['jue'],
+      slotsByDay: { 4: 5 },
+      focusByDay: { 4: 'Brazos' },
+      estimatedMin: 60,
+    });
+    // Tomorrow from 2026-05-13 = 2026-05-14 = Thursday (Jue 14)
+    expect(r[0]?.date).toBe('Jue 14');
   });
 });

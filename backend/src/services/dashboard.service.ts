@@ -38,3 +38,71 @@ export async function computeStreak(athleteId: string): Promise<number> {
   }
   return streak;
 }
+
+const WEEKDAY_CODES = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'] as const;
+const WEEKDAY_LABELS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'] as const;
+
+function codeFromDate(d: Date): typeof WEEKDAY_CODES[number] {
+  return WEEKDAY_CODES[d.getUTCDay()];
+}
+
+function dayOfWeek1to7(d: Date): number {
+  // 1 = Mon … 7 = Sun, matching backend skeleton_slots.day_of_week.
+  return ((d.getUTCDay() + 6) % 7) + 1;
+}
+
+export interface NextSession {
+  date: string;
+  dayIndex: number | null;
+  focus: string | null;
+  exerciseCount: number;
+  estimatedMin: number;
+  rest: boolean;
+}
+
+export interface ProjectNextSessionsInput {
+  now: Date;
+  daysSpecific: string[];                 // ['lun','mar',…]
+  slotsByDay: Record<number, number>;     // dayOfWeek -> count
+  focusByDay: Record<number, string>;     // dayOfWeek -> focus
+  estimatedMin: number;
+}
+
+export function projectNextSessions(
+  input: ProjectNextSessionsInput,
+): NextSession[] {
+  const { now, daysSpecific, slotsByDay, focusByDay, estimatedMin } = input;
+  const set = new Set(daysSpecific.map((c) => c.toLowerCase()));
+  const out: NextSession[] = [];
+
+  for (let i = 1; i <= 7 && out.length < 3; i++) {
+    const d = new Date(now);
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() + i);
+    const code = codeFromDate(d);
+    const label = `${WEEKDAY_LABELS_ES[d.getUTCDay()]} ${d.getUTCDate()}`;
+    const rest = !set.has(code);
+    const dow = dayOfWeek1to7(d);
+
+    if (rest) {
+      out.push({
+        date: label, dayIndex: null, focus: null,
+        exerciseCount: 0, estimatedMin: 0, rest: true,
+      });
+    } else {
+      const sorted = Array.from(set).map((c) => {
+        return ((WEEKDAY_CODES.indexOf(c as typeof WEEKDAY_CODES[number]) + 6) % 7) + 1;
+      }).sort((a, b) => a - b);
+      const dayIndex = sorted.indexOf(dow) + 1;
+      out.push({
+        date: label,
+        dayIndex: dayIndex > 0 ? dayIndex : null,
+        focus: focusByDay[dow] ?? null,
+        exerciseCount: slotsByDay[dow] ?? 0,
+        estimatedMin,
+        rest: false,
+      });
+    }
+  }
+  return out;
+}
