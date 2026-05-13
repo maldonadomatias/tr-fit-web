@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod';
 import { env } from '../config/env.js';
 import { aiSkeletonOutput, type AiSkeletonOutput } from '../domain/schemas.js';
 import type { AthleteProfile, Exercise } from '../domain/types.js';
@@ -19,13 +20,14 @@ Reglas estrictas:
 - El campo "days" debe tener exactamente la cantidad indicada en "days_per_week".
 - Cada día tiene al menos 1 slot con role="principal" (compuesto pesado).
 - Cada día tiene entre 5 y 8 slots en total. slot_index empieza en 1.
+- El campo "role" SIEMPRE en español: usar exactamente "principal" o "accesorio". Nunca "accessory" ni "main".
 - Sólo podés usar exercise_id que aparezcan en el catálogo provisto.
 - No usar ejercicios contraindicados para las lesiones del atleta.
 - Distribuir grupos musculares para evitar repetir el mismo en días consecutivos.
 - Adaptar volumen según commitment (suave=menos series, exigente=más).
 - Adaptar cantidad ejercicios según exercise_minutes (30-45 min → 4 ej, 60 min → 5-6 ej, 75-90 min → 6-7 ej).
 - Si training_mode='casa', priorizá ejercicios con equipment compatible (bw, mancuerna, elastico).
-- Devolver SIEMPRE JSON parseable que cumpla el schema.`;
+- Devolver SIEMPRE el JSON con TODOS los campos del schema, incluido "rationale" (string no vacío).`;
 
 export async function generateSkeleton(
   input: GenerateSkeletonInput,
@@ -67,47 +69,41 @@ export async function generateSkeleton(
     if (lastError) {
       messages.push({
         role: 'user',
-        content: `Tu output anterior fue inválido: ${lastError}. Corregilo.`,
+        content: `Tu output anterior violó una restricción de negocio: ${lastError}. Corregilo respetando todas las reglas.`,
       });
     }
 
-    const completion = await client.chat.completions.create({
+    const completion = await client.chat.completions.parse({
       model: env.OPENAI_MODEL,
-      response_format: { type: 'json_object' },
       messages,
       temperature: 0.3,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      response_format: zodResponseFormat(aiSkeletonOutput as any, 'skeleton'),
     });
 
-    const content = completion.choices[0]?.message?.content ?? '';
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(content);
-    } catch {
-      lastError = 'JSON malformado';
-      logger.warn({ attempt, content }, 'openai: malformed JSON');
+    const choice = completion.choices[0];
+    if (choice?.message?.refusal) {
+      lastError = `model refusal: ${choice.message.refusal}`;
+      logger.warn({ attempt, refusal: choice.message.refusal }, 'openai: refusal');
       continue;
     }
 
-    const result = aiSkeletonOutput.safeParse(parsed);
-    if (!result.success) {
-      lastError = `schema violation: ${result.error.issues
-        .slice(0, 3)
-        .map((i) => `${i.path.join('.')}: ${i.message}`)
-        .join('; ')}`;
-      logger.warn({ attempt, error: lastError }, 'openai: schema violation');
+    const out = choice?.message?.parsed;
+    if (!out) {
+      lastError = 'no parsed output';
+      logger.warn({ attempt }, 'openai: no parsed output');
       continue;
     }
 
-    const out = result.data;
-
-    // Server-side constraints
+    // Server-side business constraints (Structured Outputs cannot enforce these)
     if (out.days.length !== profile.days_per_week) {
       lastError = `days.length=${out.days.length} debe ser ${profile.days_per_week}`;
+      logger.warn({ attempt, error: lastError }, 'openai: business constraint');
       continue;
     }
     let allValid = true;
     for (const day of out.days) {
-      if (!day.slots.some((s) => s.role === 'principal')) {
+      if (!day.slots.some((s: { role: string }) => s.role === 'principal')) {
         lastError = `day ${day.day_index} sin principal`;
         allValid = false; break;
       }
@@ -119,7 +115,10 @@ export async function generateSkeleton(
       }
       if (!allValid) break;
     }
-    if (!allValid) continue;
+    if (!allValid) {
+      logger.warn({ attempt, error: lastError }, 'openai: business constraint');
+      continue;
+    }
 
     return out;
   }

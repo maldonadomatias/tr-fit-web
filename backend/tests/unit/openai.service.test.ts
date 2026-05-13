@@ -2,20 +2,34 @@ import { jest } from '@jest/globals';
 
 // Mock the OpenAI SDK before importing the service
 jest.unstable_mockModule('openai', () => {
-  const create = jest.fn();
+  const parse = jest.fn();
   return {
     default: jest.fn().mockImplementation(() => ({
-      chat: { completions: { create } },
+      chat: { completions: { parse } },
     })),
-    __mockCreate: create,
+    __mockParse: parse,
   };
 });
 
-type MockCreate = jest.Mock<
-  () => Promise<{ choices: Array<{ message: { content: string } }> }>
+// zodResponseFormat is a thin schema helper — stub it to a no-op so the
+// service can call it without a real conversion taking place during tests.
+jest.unstable_mockModule('openai/helpers/zod', () => ({
+  zodResponseFormat: jest.fn(() => ({ type: 'json_schema' })),
+}));
+
+type ParsedShape = {
+  rationale?: string;
+  days?: unknown[];
+};
+type MockParse = jest.Mock<
+  () => Promise<{
+    choices: Array<{
+      message: { parsed: ParsedShape | null; refusal?: string | null };
+    }>;
+  }>
 >;
 
-const openaiMod = (await import('openai')) as unknown as { __mockCreate: MockCreate };
+const openaiMod = (await import('openai')) as unknown as { __mockParse: MockParse };
 const { generateSkeleton } = await import('../../src/services/openai.service.js');
 
 const profile = {
@@ -62,69 +76,77 @@ const validOutput = {
   ],
 };
 
-beforeEach(() => openaiMod.__mockCreate.mockReset());
+beforeEach(() => openaiMod.__mockParse.mockReset());
 
 it('returns parsed skeleton on first valid response', async () => {
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify(validOutput) } }],
+  openaiMod.__mockParse.mockResolvedValue({
+    choices: [{ message: { parsed: validOutput, refusal: null } }],
   });
   const out = await generateSkeleton({ profile, exercises });
   expect(out.days).toHaveLength(4);
   expect(out.rationale).toBe('split adecuado');
-  expect(openaiMod.__mockCreate).toHaveBeenCalledTimes(1);
+  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(1);
 });
 
-it('retries up to 2 times on schema violation', async () => {
-  openaiMod.__mockCreate
-    .mockResolvedValueOnce({ choices: [{ message: { content: '{"oops": true}' } }] })
-    .mockResolvedValueOnce({ choices: [{ message: { content: '{"days": []}' } }] })
-    .mockResolvedValueOnce({ choices: [{ message: { content: JSON.stringify(validOutput) } }] });
+it('retries up to 2 times when business constraints fail', async () => {
+  // First two attempts: valid schema but business constraint violations
+  // (day count mismatch). Third: valid output.
+  openaiMod.__mockParse
+    .mockResolvedValueOnce({
+      choices: [{ message: { parsed: { ...validOutput, days: [validOutput.days[0]!] }, refusal: null } }],
+    })
+    .mockResolvedValueOnce({
+      choices: [{ message: { parsed: { ...validOutput, days: validOutput.days.slice(0, 2) }, refusal: null } }],
+    })
+    .mockResolvedValueOnce({
+      choices: [{ message: { parsed: validOutput, refusal: null } }],
+    });
   const out = await generateSkeleton({ profile, exercises });
   expect(out.days).toHaveLength(4);
-  expect(openaiMod.__mockCreate).toHaveBeenCalledTimes(3);
+  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(3);
 });
 
 it('throws after 3 failed attempts', async () => {
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: '{"bad": "output"}' } }],
+  openaiMod.__mockParse.mockResolvedValue({
+    choices: [{ message: { parsed: null, refusal: null } }],
   });
   await expect(generateSkeleton({ profile, exercises })).rejects.toThrow(/skeleton.*invalid/i);
-  expect(openaiMod.__mockCreate).toHaveBeenCalledTimes(3);
+  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(3);
 });
 
 it('rejects when output uses unknown exercise_id', async () => {
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
+  openaiMod.__mockParse.mockResolvedValue({
+    choices: [{ message: { parsed: {
       rationale: 'r',
       days: Array.from({ length: 4 }, (_, i) => ({
         day_index: i + 1, focus: 'x',
         slots: [{ slot_index: 1, exercise_id: 999, role: 'principal' }],
       })),
-    }) } }],
+    }, refusal: null } }],
   });
   await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
 });
 
 it('rejects when day count !== days_per_week', async () => {
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
+  openaiMod.__mockParse.mockResolvedValue({
+    choices: [{ message: { parsed: {
       rationale: 'r',
       days: [
         { day_index: 1, focus: 'x',
           slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' }] },
       ],
-    }) } }],
+    }, refusal: null } }],
   });
   await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
 });
 
 it('includes commitment + training_mode + exercise_minutes in user prompt', async () => {
-  openaiMod.__mockCreate.mockResolvedValueOnce({
-    choices: [{ message: { content: JSON.stringify({
+  openaiMod.__mockParse.mockResolvedValueOnce({
+    choices: [{ message: { parsed: {
       rationale: 'r',
       days: [{ day_index: 1, focus: 'f',
         slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' }] }],
-    }) } }],
+    }, refusal: null } }],
   });
 
   const enrichedProfile = {
@@ -147,7 +169,7 @@ it('includes commitment + training_mode + exercise_minutes in user prompt', asyn
 
   await generateSkeleton({ profile: enrichedProfile, exercises: minimalExercises });
 
-  const calls = openaiMod.__mockCreate.mock.calls as unknown as Array<
+  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
     Array<{ messages: Array<{ role: string; content: string }> }>
   >;
   const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
