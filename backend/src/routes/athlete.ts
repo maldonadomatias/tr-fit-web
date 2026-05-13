@@ -9,6 +9,7 @@ import { recordRm } from '../services/rm.service.js';
 import { getUserTier } from '../services/tier.service.js';
 import { regenerateSkeleton } from '../services/skeleton-regen.service.js';
 import { buildDashboard } from '../services/dashboard.service.js';
+import { buildPlan } from '../services/plan.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -94,6 +95,11 @@ router.post('/rm', async (req, res) => {
 
 router.get('/dashboard', async (req, res) => {
   const payload = await buildDashboard(req.user!.id);
+  res.json(payload);
+});
+
+router.get('/plan', async (req, res) => {
+  const payload = await buildPlan(req.user!.id);
   res.json(payload);
 });
 
