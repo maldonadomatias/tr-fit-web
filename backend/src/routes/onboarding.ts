@@ -7,6 +7,7 @@ import { listExercisesForAthlete } from '../services/exercise.service.js';
 import { generateSkeleton } from '../services/openai.service.js';
 import { createPendingSkeleton } from '../services/skeleton.service.js';
 import logger from '../utils/logger.js';
+import { env } from '../config/env.js';
 
 const router = Router();
 
@@ -25,11 +26,19 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     return res.status(409).json({ error: 'profile_already_exists' });
   }
 
-  // Auto-assign first coach (Fase 1: single-coach model per spec Open Q #1)
+  // Single-coach owner model: route to the configured OWNER_COACH_EMAIL.
   const coachR = await pool.query<{ id: string }>(
-    `SELECT id FROM users WHERE role = 'coach' ORDER BY created_at ASC LIMIT 1`,
+    `SELECT id FROM users WHERE email = $1 AND role = 'coach'`,
+    [env.OWNER_COACH_EMAIL],
   );
-  const coachId = coachR.rows[0]?.id ?? null;
+  const coachId = coachR.rows[0]?.id;
+  if (!coachId) {
+    logger.error(
+      { ownerEmail: env.OWNER_COACH_EMAIL },
+      'owner coach missing — run src/scripts/setup-owner-coach.ts',
+    );
+    return res.status(500).json({ error: 'owner_coach_missing' });
+  }
 
   await pool.query(
     `INSERT INTO athlete_profiles
