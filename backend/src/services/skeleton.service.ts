@@ -44,6 +44,15 @@ export async function createPendingSkeleton(
       }
     }
 
+    for (const day of aiOutput.days) {
+      await client.query(
+        `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (skeleton_id, day_of_week) DO NOTHING`,
+        [skeletonId, day.day_index, day.focus],
+      );
+    }
+
     await client.query('COMMIT');
     return { skeletonId };
   } catch (e) {
