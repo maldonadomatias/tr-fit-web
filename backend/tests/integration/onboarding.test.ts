@@ -1,4 +1,7 @@
+process.env.OWNER_COACH_EMAIL = 'owner-test@example.local';
+
 import { jest } from '@jest/globals';
+import bcrypt from 'bcrypt';
 
 // Mock openai BEFORE importing the app
 jest.unstable_mockModule('openai', () => {
@@ -26,7 +29,34 @@ const request = requestMod.default;
 const appMod = await import('../../src/app.js');
 const app = appMod.default;
 
-beforeAll(async () => { await ensureMigrated(); });
+let ownerCoachId: string;
+
+beforeAll(async () => {
+  await ensureMigrated();
+  const hash = await bcrypt.hash('owner-test-pass', 4);
+  const userRes = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role, email_verified)
+     VALUES ($1, $2, 'coach', TRUE)
+     ON CONFLICT (email) DO NOTHING
+     RETURNING id`,
+    ['owner-test@example.local', hash],
+  );
+  let ownerId: string;
+  if (userRes.rows.length > 0) {
+    ownerId = userRes.rows[0].id;
+  } else {
+    const existing = await pool.query<{ id: string }>(
+      `SELECT id FROM users WHERE email = $1`,
+      ['owner-test@example.local'],
+    );
+    ownerId = existing.rows[0].id;
+  }
+  await pool.query(
+    `INSERT INTO coach_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
+    [ownerId],
+  );
+  ownerCoachId = ownerId;
+});
 beforeEach(async () => { await resetDatabase(); openaiMod.__mockCreate.mockReset(); });
 afterAll(async () => { await closePool(); });
 
@@ -102,7 +132,7 @@ it('creates profile + skeleton + slots on success', async () => {
   const prof = await pool.query<{ coach_id: string | null }>(
     `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`, [u],
   );
-  expect(prof.rows[0].coach_id).toBeTruthy();
+  expect(prof.rows[0].coach_id).toBe(ownerCoachId);
 });
 
 it('onboarded athlete is visible in coach pending inbox', async () => {
