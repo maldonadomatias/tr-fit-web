@@ -131,3 +131,42 @@ function baseItem(
     series, reps, descanso, ...(flag ? { flag } : {}),
   };
 }
+
+/**
+ * Returns the next pending program day index for the athlete,
+ * computed sequentially from `session_logs` for the current
+ * program_week. Always cycles within `1..days_per_week`.
+ */
+export async function computeNextPendingDay(athleteId: string): Promise<number> {
+  const stateR = await pool.query<{
+    current_week: number | null;
+    active_skeleton_id: string | null;
+  }>(
+    `SELECT current_week, active_skeleton_id
+       FROM athlete_program_state WHERE athlete_id = $1`,
+    [athleteId],
+  );
+  const state = stateR.rows[0];
+
+  const profileR = await pool.query<{ days_per_week: number | null }>(
+    `SELECT days_per_week FROM athlete_profiles WHERE user_id = $1`,
+    [athleteId],
+  );
+  const daysPerWeek = profileR.rows[0]?.days_per_week ?? 7;
+
+  if (!state || !state.active_skeleton_id) {
+    return 1;
+  }
+
+  const lastR = await pool.query<{ last_day: number }>(
+    `SELECT COALESCE(MAX(day_of_week), 0)::int AS last_day
+       FROM session_logs
+      WHERE athlete_id = $1
+        AND program_week = $2
+        AND finished_at IS NOT NULL`,
+    [athleteId, state.current_week ?? 0],
+  );
+  const lastDay = lastR.rows[0]?.last_day ?? 0;
+
+  return (lastDay % daysPerWeek) + 1;
+}
