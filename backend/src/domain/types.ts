@@ -84,6 +84,9 @@ export interface SkeletonSlot {
   slot_index: number;
   exercise_id: number;
   role: SlotRole;
+  exercise_name?: string;
+  muscle_group?: string;
+  equipment?: string;
 }
 
 export interface AthleteSkeleton {

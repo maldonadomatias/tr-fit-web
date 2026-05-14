@@ -72,9 +72,11 @@ export async function findSkeleton(id: string): Promise<AthleteSkeleton | null> 
 
 export async function listSlots(skeletonId: string): Promise<SkeletonSlot[]> {
   const { rows } = await pool.query<SkeletonSlot>(
-    `SELECT * FROM skeleton_slots
-     WHERE skeleton_id = $1
-     ORDER BY day_of_week, slot_index`,
+    `SELECT s.*, e.name AS exercise_name, e.muscle_group, e.equipment
+     FROM skeleton_slots s
+     JOIN exercises e ON e.id = s.exercise_id
+     WHERE s.skeleton_id = $1
+     ORDER BY s.day_of_week, s.slot_index`,
     [skeletonId],
   );
   return rows;
