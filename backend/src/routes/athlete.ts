@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import { rmPayload } from '../domain/schemas.js';
 import pool from '../db/connect.js';
-import { buildTodaySession, TodayBlockedError } from '../services/engine.service.js';
+import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../services/engine.service.js';
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
 import { recordRm } from '../services/rm.service.js';
 import { getUserTier } from '../services/tier.service.js';
@@ -57,7 +57,7 @@ router.get('/me', async (req, res) => {
 
 router.get('/today', async (req, res) => {
   const userId = req.user!.id;
-  const dayOfWeek = ((new Date().getDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+  const dayOfWeek = await computeNextPendingDay(userId);
   try {
     const items = await buildTodaySession(userId, dayOfWeek);
     res.json({ dayOfWeek, items });
