@@ -33,6 +33,22 @@ it('returns an alternative same muscle_group, different id, compatible equipment
   }
 });
 
+it('excludes ids passed in excludeIds', async () => {
+  const coach = await createCoach();
+  const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
+  const r = await pool.query<{ id: number; muscle_group: string }>(
+    `SELECT id, muscle_group FROM exercises
+       WHERE is_principal = FALSE AND muscle_group = 'Pecho - Mayor' LIMIT 2`,
+  );
+  if (r.rows.length < 2) return;
+  const [target, other] = r.rows;
+  const alt = await findAlternative(target.id, ath, [other.id]);
+  if (alt) {
+    expect(alt.id).not.toBe(target.id);
+    expect(alt.id).not.toBe(other.id);
+  }
+});
+
 it('skips contraindicated exercises', async () => {
   const coach = await createCoach();
   const ath = await createAthlete(coach, { injuries: ['lumbar'] });

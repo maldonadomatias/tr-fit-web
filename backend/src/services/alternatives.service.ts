@@ -18,6 +18,7 @@ const equipmentMatrix: Record<AthleteProfile['equipment'], string[]> = {
 export async function findAlternative(
   exerciseId: number,
   athleteId: string,
+  excludeIds: number[] = [],
 ): Promise<Exercise | null> {
   const origR = await pool.query<Exercise>(
     `SELECT * FROM exercises WHERE id = $1`, [exerciseId],
@@ -37,6 +38,7 @@ export async function findAlternative(
   const r = await pool.query<Exercise>(
     `SELECT * FROM exercises
        WHERE id != $1
+         AND id <> ALL($7::int[])
          AND muscle_group = $2
          AND equipment = ANY($3::text[])
          AND CASE level_min
@@ -50,7 +52,7 @@ export async function findAlternative(
          id
        LIMIT 1`,
     [exerciseId, orig.muscle_group, allowedEquipment,
-     athleteLevelOrd, profile.injuries, orig.equipment],
+     athleteLevelOrd, profile.injuries, orig.equipment, excludeIds],
   );
   return r.rows[0] ?? null;
 }
