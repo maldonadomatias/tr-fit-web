@@ -1,7 +1,7 @@
 import pool from '../db/connect.js';
 import type { SessionSummary } from '../domain/types.js';
 import type { SetLogPayload } from '../domain/schemas.js';
-import { buildTodaySession } from './engine.service.js';
+import { buildTodaySession, TodayBlockedError } from './engine.service.js';
 
 export class SessionError extends Error {
   constructor(public reason:
@@ -128,7 +128,16 @@ export async function logSet(
 
 export async function getActive(
   athleteId: string,
-): Promise<{ session: { id: string; day_of_week: number; started_at: string } | null }> {
+): Promise<{
+  session: {
+    id: string;
+    day_of_week: number;
+    started_at: string;
+    items: import('../domain/types.js').SessionItem[];
+    sets: import('../domain/types.js').SetLog[];
+    current_slot_index: number;
+  } | null;
+}> {
   const r = await pool.query<{
     id: string; day_of_week: number; started_at: string;
   }>(
@@ -138,7 +147,45 @@ export async function getActive(
       ORDER BY started_at DESC LIMIT 1`,
     [athleteId],
   );
-  return { session: r.rows[0] ?? null };
+  const row = r.rows[0];
+  if (!row) return { session: null };
+
+  let items: import('../domain/types.js').SessionItem[] = [];
+  try {
+    items = await buildTodaySession(athleteId, row.day_of_week);
+  } catch (e) {
+    if (!(e instanceof TodayBlockedError)) throw e;
+    // Allow stale active sessions to surface even if engine refuses to
+    // rebuild items (e.g. skeleton replaced). UI handles empty items.
+  }
+
+  const setsR = await pool.query<import('../domain/types.js').SetLog>(
+    `SELECT * FROM set_logs
+      WHERE session_log_id = $1
+      ORDER BY client_ts ASC`,
+    [row.id],
+  );
+  const sets = setsR.rows;
+
+  let currentSlotIndex = 0;
+  for (const item of items) {
+    const completed = sets.filter(
+      (s) => s.exercise_id === item.exercise.id && s.completed,
+    ).length;
+    if (completed >= item.series) currentSlotIndex += 1;
+    else break;
+  }
+
+  return {
+    session: {
+      id: row.id,
+      day_of_week: row.day_of_week,
+      started_at: row.started_at,
+      items,
+      sets,
+      current_slot_index: currentSlotIndex,
+    },
+  };
 }
 
 export async function finishSession(
