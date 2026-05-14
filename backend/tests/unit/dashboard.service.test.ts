@@ -101,46 +101,45 @@ describe('computeStreak', () => {
 });
 
 describe('projectNextSessions', () => {
-  const FIXED_NOW = new Date('2026-05-13T12:00:00Z'); // Wed
-
-  it('returns 3 entries — mix of training days and rest days', () => {
-    // days_specific = lun, mie, vie. Today = Wed. Next 3: Thu(rest), Fri(train), Sat(rest).
+  it('returns 3 sequential sessions wrapping at days_per_week', () => {
     const r = projectNextSessions({
-      now: FIXED_NOW,
-      daysSpecific: ['lun', 'mie', 'vie'],
-      slotsByDay: { 1: 5, 3: 6, 5: 4 },
-      focusByDay: { 1: 'Pecho', 3: 'Espalda', 5: 'Piernas' },
+      daysPerWeek: 3,
+      currentDay: 2,
+      slotsByDay: { 1: 5, 2: 6, 3: 4 },
+      focusByDay: { 1: 'Pecho', 2: 'Espalda', 3: 'Piernas' },
       estimatedMin: 60,
     });
     expect(r).toHaveLength(3);
-    expect(r[0]?.rest).toBe(true);
-    expect(r[1]?.rest).toBe(false);
-    expect(r[1]?.focus).toBe('Piernas');
-    expect(r[1]?.exerciseCount).toBe(4);
-    expect(r[2]?.rest).toBe(true);
+    expect(r[0]).toMatchObject({
+      label: 'Sesión 1', dayIndex: 3, focus: 'Piernas', exerciseCount: 4,
+    });
+    expect(r[1]).toMatchObject({
+      label: 'Sesión 2', dayIndex: 1, focus: 'Pecho', exerciseCount: 5,
+    });
+    expect(r[2]).toMatchObject({
+      label: 'Sesión 3', dayIndex: 2, focus: 'Espalda', exerciseCount: 6,
+    });
   });
 
   it('uses null focus when skeleton_days is missing for that day', () => {
     const r = projectNextSessions({
-      now: FIXED_NOW,
-      daysSpecific: ['jue'],
-      slotsByDay: { 4: 5 },
+      daysPerWeek: 4,
+      currentDay: 1,
+      slotsByDay: { 2: 5 },
       focusByDay: {},
       estimatedMin: 60,
     });
-    expect(r[0]?.rest).toBe(false);
     expect(r[0]?.focus).toBeNull();
   });
 
-  it('formats date as "<Weekday> <DOM>" in Spanish (3 letter)', () => {
+  it('returns empty array when daysPerWeek <= 0', () => {
     const r = projectNextSessions({
-      now: FIXED_NOW,
-      daysSpecific: ['jue'],
-      slotsByDay: { 4: 5 },
-      focusByDay: { 4: 'Brazos' },
+      daysPerWeek: 0,
+      currentDay: 1,
+      slotsByDay: {},
+      focusByDay: {},
       estimatedMin: 60,
     });
-    // Tomorrow from 2026-05-13 = 2026-05-14 = Thursday (Jue 14)
-    expect(r[0]?.date).toBe('Jue 14');
+    expect(r).toEqual([]);
   });
 });
