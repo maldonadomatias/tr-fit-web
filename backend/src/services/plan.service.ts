@@ -1,14 +1,5 @@
 import pool from '../db/connect.js';
 
-const DAY_CODE_ORDER = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'] as const;
-
-function dayCodeToDow(code: string): number {
-  const idx = DAY_CODE_ORDER.indexOf(code.toLowerCase() as typeof DAY_CODE_ORDER[number]);
-  if (idx === -1) return 0;
-  // 1=Mon..7=Sun, matching backend convention.
-  return ((idx + 6) % 7) + 1;
-}
-
 export interface PlanSession {
   day: number;
   title: string;
@@ -37,10 +28,11 @@ export interface PlanPayload {
 export async function buildPlan(userId: string): Promise<PlanPayload> {
   const profileR = await pool.query<{
     name: string | null;
+    days_per_week: number | null;
     days_specific: string[] | null;
     exercise_minutes: number | null;
   }>(
-    `SELECT name, days_specific, exercise_minutes
+    `SELECT name, days_per_week, days_specific, exercise_minutes
        FROM athlete_profiles WHERE user_id = $1`,
     [userId],
   );
@@ -102,10 +94,9 @@ export async function buildPlan(userId: string): Promise<PlanPayload> {
   }
 
   const estimatedMin = profile.exercise_minutes ?? 60;
-  const sortedDows = (profile.days_specific ?? [])
-    .map(dayCodeToDow)
-    .filter((d) => d >= 1 && d <= 7)
-    .sort((a, b) => a - b);
+  const daysPerWeek = profile.days_per_week
+    ?? (profile.days_specific?.length ?? 0);
+  const dayIndices = Array.from({ length: daysPerWeek }, (_, i) => i + 1);
 
   // Group weeks into blocks preserving the order each block_label first appears.
   const blockOrder: string[] = [];
@@ -125,7 +116,7 @@ export async function buildPlan(userId: string): Promise<PlanPayload> {
     if (row.week_number === currentWeek) currentBlockId = row.block_label;
 
     const block = blockMap.get(row.block_label)!;
-    const sessions: PlanSession[] = sortedDows.map((dow, i) => {
+    const sessions: PlanSession[] = dayIndices.map((dow, i) => {
       const focus = focusByDay[dow];
       const title = focus ? `Día ${i + 1} · ${focus}` : `Día ${i + 1}`;
       return {

@@ -43,6 +43,7 @@ beforeEach(() => {
 function seedBasicFixtures(opts: {
   daysSpecific?: string[];
   exerciseMinutes?: number;
+  daysPerWeek?: number;
   currentWeek?: number;
   activeSkeletonId?: string | null;
   periodization?: Array<{ week_number: number; block_label: string }>;
@@ -51,10 +52,13 @@ function seedBasicFixtures(opts: {
   doneLogs?: Array<{ program_week: number; day_of_week: number }>;
 }) {
   pushHandler(
-    (s) => s.startsWith('SELECT name, days_specific, exercise_minutes FROM athlete_profiles'),
+    (s) => s.startsWith('SELECT name, days_specific, exercise_minutes FROM athlete_profiles')
+         || s.startsWith('SELECT name, days_per_week, days_specific, exercise_minutes'),
     [{
-      name: 'Test', days_specific: opts.daysSpecific ?? ['lun', 'mar', 'jue', 'sab'],
+      name: 'Test',
+      days_specific: opts.daysSpecific ?? ['lun', 'mar', 'jue', 'sab'],
       exercise_minutes: opts.exerciseMinutes ?? 60,
+      days_per_week: opts.daysPerWeek ?? 4,
     }],
   );
   pushHandler(
@@ -81,14 +85,14 @@ function seedBasicFixtures(opts: {
     (s) => s.startsWith('SELECT day_of_week, COUNT(*)::int AS n FROM skeleton_slots'),
     opts.slotCounts ?? [
       { day_of_week: 1, n: 6 }, { day_of_week: 2, n: 5 },
-      { day_of_week: 4, n: 6 }, { day_of_week: 6, n: 4 },
+      { day_of_week: 3, n: 6 }, { day_of_week: 4, n: 4 },
     ],
   );
   pushHandler(
     (s) => s.startsWith('SELECT day_of_week, focus FROM skeleton_days'),
     opts.focuses ?? [
       { day_of_week: 1, focus: 'Pecho' }, { day_of_week: 2, focus: 'Espalda' },
-      { day_of_week: 4, focus: 'Piernas' }, { day_of_week: 6, focus: 'Hombros' },
+      { day_of_week: 3, focus: 'Piernas' }, { day_of_week: 4, focus: 'Hombros' },
     ],
   );
   pushHandler(
@@ -155,5 +159,13 @@ describe('buildPlan', () => {
       expect(s.exerciseCount).toBe(0);
       expect(s.title).toMatch(/^Día \d+$/);
     }
+  });
+
+  it('iterates 1..days_per_week so exerciseCount matches slot counts', async () => {
+    seedBasicFixtures({});
+    const r = await buildPlan('athlete-1');
+    // days_per_week=4, slot counts = {1:6, 2:5, 3:6, 4:4}
+    const week1 = r.blocks[0]!.weeks[0]!;
+    expect(week1.sessions.map((s) => s.exerciseCount)).toEqual([6, 5, 6, 4]);
   });
 });
