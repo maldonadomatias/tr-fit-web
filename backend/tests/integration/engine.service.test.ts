@@ -71,7 +71,7 @@ it('returns missing_rm flag for principal in % week without RM', async () => {
   const session = await buildTodaySession(ath, 1);
   const principal = session.find((s) => s.role === 'principal')!;
   expect(principal.flag).toBe('missing_rm');
-  expect(principal.weight_kg).toBeNull();
+  expect(principal.suggested_value).toBeNull();
 });
 
 it('computes principal weight from RM × pct (week 1, 75% of RM30)', async () => {
@@ -88,7 +88,7 @@ it('computes principal weight from RM × pct (week 1, 75% of RM30)', async () =>
   const session = await buildTodaySession(ath, 1);
   const principal = session.find((s) => s.role === 'principal')!;
   // week 11 pct = 0.72 → 72 kg, barbell rounds to nearest 2.5 → 72.5
-  expect(principal.weight_kg).toBe(72.5);
+  expect(principal.suggested_value).toBe(72.5);
 });
 
 it('rm_test flag on week 10 even without RM', async () => {
@@ -99,7 +99,7 @@ it('rm_test flag on week 10 even without RM', async () => {
   const session = await buildTodaySession(ath, 1);
   const principal = session.find((s) => s.role === 'principal')!;
   expect(principal.flag).toBe('rm_test');
-  expect(principal.weight_kg).toBeNull();
+  expect(principal.suggested_value).toBeNull();
 });
 
 it('uses casilleros (athlete_exercise_weights) for principal in week 3', async () => {
@@ -110,7 +110,7 @@ it('uses casilleros (athlete_exercise_weights) for principal in week 3', async (
   await setWeight(ath, principalId, 60);
   const session = await buildTodaySession(ath, 1);
   const principal = session.find((s) => s.role === 'principal')!;
-  expect(principal.weight_kg).toBe(60);
+  expect(principal.suggested_value).toBe(60);
 });
 
 it('accesorio uses athlete_exercise_weights and reps fallback', async () => {
@@ -121,7 +121,7 @@ it('accesorio uses athlete_exercise_weights and reps fallback', async () => {
   await setWeight(ath, accesorioId, 12, '8 a 10');
   const session = await buildTodaySession(ath, 1);
   const acc = session.find((s) => s.role === 'accesorio')!;
-  expect(acc.weight_kg).toBe(12);
+  expect(acc.suggested_value).toBe(12);
   expect(acc.reps).toBe('8 a 10');
 });
 

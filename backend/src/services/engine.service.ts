@@ -1,5 +1,6 @@
 import pool from '../db/connect.js';
 import { roundToNearest25 } from './progression-helpers.js';
+import { resolveUnit } from './equipment-units.service.js';
 import type {
   Exercise, PeriodizationConfig, SessionItem, SkeletonSlot, SlotRole,
 } from '../domain/types.js';
@@ -51,9 +52,14 @@ export async function buildTodaySession(
 
   const wR = await pool.query<{
     exercise_id: number; current_weight_kg: number | null;
+    current_value: number | null; unit: 'kg' | 'ladrillos' | null;
     current_reps_text: string | null;
   }>(
-    `SELECT exercise_id, current_weight_kg, current_reps_text
+    `SELECT exercise_id,
+            COALESCE(current_value, current_weight_kg) AS current_value,
+            unit,
+            current_weight_kg,
+            current_reps_text
        FROM athlete_exercise_weights
       WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])`,
     [athleteId, exerciseIds],
@@ -72,27 +78,34 @@ export async function buildTodaySession(
     rmByEx = new Map(rmR.rows.map((r) => [r.exercise_id, Number(r.value_kg)]));
   }
 
-  return slotsR.rows.map((slot) => buildItem(slot, exById, wByEx, rmByEx, cfg));
+  return Promise.all(slotsR.rows.map((slot) => buildItem(athleteId, slot, exById, wByEx, rmByEx, cfg)));
 }
 
-function buildItem(
+async function buildItem(
+  athleteId: string,
   slot: SkeletonSlot,
   exById: Map<number, Exercise>,
-  wByEx: Map<number, { current_weight_kg: number | null; current_reps_text: string | null }>,
+  wByEx: Map<number, {
+    current_value: number | null; unit: 'kg' | 'ladrillos' | null;
+    current_reps_text: string | null;
+  }>,
   rmByEx: Map<number, number>,
   cfg: PeriodizationConfig,
-): SessionItem {
+): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
+  const w = wByEx.get(slot.exercise_id);
+  const unitFromAew = w?.unit as 'kg' | 'ladrillos' | null | undefined;
+  const unit = unitFromAew ?? await resolveUnit(athleteId, exercise.equipment);
 
   if (slot.role === 'principal') {
     if (cfg.is_rm_test) {
-      return baseItem(exercise, slot.role, slot.slot_index, null,
+      return baseItem(exercise, slot.role, slot.slot_index, null, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, 'rm_test');
     }
     if (cfg.principal_pct_rm && cfg.principal_rm_source) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
-        return baseItem(exercise, slot.role, slot.slot_index, null,
+        return baseItem(exercise, slot.role, slot.slot_index, null, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, 'missing_rm');
       }
       const computed = rm * Number(cfg.principal_pct_rm);
@@ -100,20 +113,18 @@ function buildItem(
         exercise.equipment === 'barra' || exercise.equipment === 'smith'
           ? roundToNearest25(computed)
           : Math.round(computed);
-      return baseItem(exercise, slot.role, slot.slot_index, weight,
+      return baseItem(exercise, slot.role, slot.slot_index, weight, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso);
     }
     // use_casilleros for principal
-    const w = wByEx.get(slot.exercise_id);
     return baseItem(exercise, slot.role, slot.slot_index,
-      w?.current_weight_kg ?? null,
+      w?.current_value ?? null, unit,
       cfg.principal_series, cfg.principal_reps, cfg.principal_descanso);
   }
 
   // accesorio
-  const w = wByEx.get(slot.exercise_id);
   return baseItem(
-    exercise, slot.role, slot.slot_index, w?.current_weight_kg ?? null,
+    exercise, slot.role, slot.slot_index, w?.current_value ?? null, unit,
     cfg.accesorio_series,
     w?.current_reps_text ?? cfg.accesorio_reps,
     cfg.accesorio_descanso,
@@ -122,12 +133,14 @@ function buildItem(
 
 function baseItem(
   ex: Exercise, role: SlotRole, slotIndex: number,
-  weight: number | null, series: number, reps: string, descanso: string,
+  weight: number | null, unit: 'kg' | 'ladrillos',
+  series: number, reps: string, descanso: string,
   flag?: 'rm_test' | 'missing_rm',
 ): SessionItem {
   return {
     exercise: ex, role, slot_index: slotIndex,
-    weight_kg: weight === null ? null : Number(weight),
+    suggested_value: weight === null ? null : Number(weight),
+    unit,
     series, reps, descanso, ...(flag ? { flag } : {}),
   };
 }
