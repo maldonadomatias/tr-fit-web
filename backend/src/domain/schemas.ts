@@ -104,7 +104,7 @@ export const verifyResetCodePayload = z.object({
 export const resetPasswordPayload = z.object({
   email: z.string().email().toLowerCase(),
   code: z.string().regex(/^\d{6}$/),
-  newPassword: z.string().min(8).max(200),
+  newPassword: z.string().max(200),
 });
 
 export type SignupPayload = z.infer<typeof signupPayload>;

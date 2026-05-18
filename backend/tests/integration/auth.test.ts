@@ -282,7 +282,37 @@ it('reset-password: weak password returns 400 weak_password', async () => {
     .post('/api/auth/reset-password')
     .send({ email: u.email, code: '999888', newPassword: 'short' });
   expect(r.status).toBe(400);
-  expect(r.body.error).toBe('invalid_payload');
+  expect(r.body.error).toBe('weak_password');
+});
+
+it('reset-password: non-athlete gets 403 not_athlete and code is burned', async () => {
+  // Create a coach user (non-athlete) with email_verified = true
+  const bcryptMod = await import('bcrypt');
+  const coachEmail = `coach-reset-${Date.now()}@test.local`;
+  const coachPass = 'coach-pass-1234';
+  const coachHash = await bcryptMod.default.hash(coachPass, 4);
+  const { rows: coachRows } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role, email_verified, email_verified_at)
+     VALUES ($1, $2, 'coach', TRUE, NOW()) RETURNING id`,
+    [coachEmail, coachHash],
+  );
+  const coachId = coachRows[0].id;
+
+  const code = '567890';
+  await seedKnownCode(coachId, code);
+
+  const r = await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: coachEmail, code, newPassword: 'newpass-secure99' });
+  expect(r.status).toBe(403);
+  expect(r.body.error).toBe('not_athlete');
+
+  // Verify the code row was burned (used_at is non-null) despite the error
+  const { rows } = await pool.query<{ used_at: string | null }>(
+    `SELECT used_at FROM password_resets WHERE user_id = $1`,
+    [coachId],
+  );
+  expect(rows[0].used_at).not.toBeNull();
 });
 
 it('rate-limit kicks in on 11th login attempt within window', async () => {

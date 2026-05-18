@@ -515,8 +515,8 @@ export async function resetPassword(
       user: { id: user.id, email: user.email, role: user.role },
     };
   } catch (e) {
-    if (e instanceof ResetError && (e.reason === 'invalid_code' || e.reason === 'code_expired')) {
-      // Commit so attempt increments and row invalidations persist
+    if (e instanceof ResetError && (e.reason === 'invalid_code' || e.reason === 'code_expired' || e.reason === 'not_athlete')) {
+      // Commit so attempt increments, row invalidations, and code consumption persist
       await client.query('COMMIT').catch(() => {});
     } else {
       await client.query('ROLLBACK').catch(() => {});
