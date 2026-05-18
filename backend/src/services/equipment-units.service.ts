@@ -2,6 +2,11 @@ import pool from '../db/connect.js';
 
 export type Unit = 'kg' | 'ladrillos';
 
+export class EquipmentUnitsError extends Error {
+  constructor(public reason: 'invalid_equipment') { super(reason); }
+}
+
+// "ladrillos" = stack-pin plate count on selectorized cable/machine equipment.
 export const DEFAULT_UNIT_BY_EQUIPMENT: Record<string, Unit> = {
   polea: 'ladrillos',
   maquina: 'ladrillos',
@@ -40,7 +45,7 @@ export async function setUserUnit(
   unit: Unit,
 ): Promise<void> {
   if (!(equipment in DEFAULT_UNIT_BY_EQUIPMENT)) {
-    throw new Error('invalid_equipment');
+    throw new EquipmentUnitsError('invalid_equipment');
   }
   await pool.query(
     `INSERT INTO athlete_equipment_units (athlete_id, equipment, unit, updated_at)

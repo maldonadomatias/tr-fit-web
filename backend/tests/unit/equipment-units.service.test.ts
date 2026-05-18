@@ -19,15 +19,15 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { resolveUnit, listUserUnits, setUserUnit, DEFAULT_UNIT_BY_EQUIPMENT } =
+const { resolveUnit, listUserUnits, setUserUnit, DEFAULT_UNIT_BY_EQUIPMENT, EquipmentUnitsError } =
   await import('../../src/services/equipment-units.service.js');
 
 beforeEach(() => { handlers.length = 0; });
 
 describe('resolveUnit', () => {
   it('returns user preference when set', async () => {
-    handlers.push((sql) =>
-      sql.includes('FROM athlete_equipment_units')
+    handlers.push((sql, params) =>
+      sql.includes('FROM athlete_equipment_units') && params?.[0] === 'a1' && params?.[1] === 'polea'
         ? { rows: [{ unit: 'kg' }], rowCount: 1 }
         : null,
     );
@@ -61,6 +61,20 @@ describe('DEFAULT_UNIT_BY_EQUIPMENT', () => {
 
 describe('setUserUnit', () => {
   it('rejects invalid equipment', async () => {
-    await expect(setUserUnit('a1', 'invalid', 'kg')).rejects.toThrow('invalid_equipment');
+    await expect(setUserUnit('a1', 'invalid', 'kg')).rejects.toThrow(EquipmentUnitsError);
+  });
+
+  it('upserts a valid equipment preference', async () => {
+    let received: { sql: string; params: unknown[] } | null = null;
+    handlers.push((sql, params) => {
+      if (sql.includes('INSERT INTO athlete_equipment_units')) {
+        received = { sql, params: params ?? [] };
+        return { rows: [], rowCount: 1 };
+      }
+      return null;
+    });
+    await expect(setUserUnit('a1', 'polea', 'kg')).resolves.toBeUndefined();
+    expect(received).not.toBeNull();
+    expect(received!.params).toEqual(['a1', 'polea', 'kg']);
   });
 });
