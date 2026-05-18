@@ -1,22 +1,22 @@
 import { Router, type Request, type Response } from 'express';
 import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
+import logger from '../utils/logger.js';
 import {
   loginLimiter, signupLimiter, forgotPasswordLimiter, resendVerifyLimiter,
   skipInTests,
 } from '../middleware/rate-limit.js';
 import {
   signupPayload, loginPayload, refreshPayload, logoutPayload,
-  forgotPasswordPayload, resetPasswordPayload,
+  forgotPasswordPayload, verifyResetCodePayload, resetPasswordPayload,
 } from '../domain/schemas.js';
 import {
   signup, login, refresh, logout,
   verifyEmail, resendVerification,
-  forgotPassword, resetPassword,
+  forgotPassword, verifyResetCode, resetPassword,
   LoginError, RefreshError, VerifyError, ResetError,
 } from '../services/auth.service.js';
 import {
-  resetPasswordPage, resetPasswordSuccessPage,
   verifySuccessPage, verifyErrorPage,
 } from '../views/reset-password.html.js';
 import { env } from '../config/env.js';
@@ -117,34 +117,45 @@ router.post('/forgot-password', skipInTests(forgotPasswordLimiter), async (req: 
   if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
   try {
     await forgotPassword(parsed.data.email, req.ip ?? null);
-  } catch {
-    return res.status(503).json({ error: 'email_send_failed' });
+  } catch (e) {
+    logger.error({ err: e }, 'forgot-password failed');
+    // Still return 200 — anti-enumeration
   }
-  return res.status(200).json({ message: 'if email exists, link sent' });
+  return res.status(200).json({ message: 'if account exists, code sent' });
 });
 
-// Note: this is the JSON API endpoint. The HTML form fallback for email link
-// recipients lives at top-level POST /reset-password in app.ts.
-router.post('/reset-password', async (req: Request, res: Response) => {
-  const parsed = resetPasswordPayload.safeParse(req.body);
-  const wantsHtml = req.header('accept')?.includes('text/html') ||
-    req.header('content-type')?.includes('urlencoded');
-
-  if (!parsed.success) {
-    if (wantsHtml) {
-      const token = typeof req.body?.token === 'string' ? req.body.token : '';
-      return res.status(400).type('html').send(resetPasswordPage(token, 'Password debe tener al menos 8 caracteres'));
-    }
-    return res.status(400).json({ error: 'invalid_payload' });
-  }
+router.post('/verify-reset-code', async (req: Request, res: Response) => {
+  const parsed = verifyResetCodePayload.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
   try {
-    await resetPassword(parsed.data.token, parsed.data.newPassword);
-    if (wantsHtml) return res.status(200).type('html').send(resetPasswordSuccessPage());
-    return res.status(200).json({ message: 'password updated' });
+    await verifyResetCode(parsed.data.email, parsed.data.code);
+    return res.status(200).json({ valid: true });
   } catch (e) {
     if (e instanceof ResetError) {
-      if (wantsHtml) return res.status(400).type('html').send(resetPasswordPage(parsed.data.token, `Token ${e.reason}`));
-      return res.status(400).json({ error: `token_${e.reason}` });
+      const status = e.reason === 'code_expired' ? 410 : 400;
+      const body: Record<string, unknown> = { error: e.reason };
+      if (e.attemptsLeft != null) body.attemptsLeft = e.attemptsLeft;
+      return res.status(status).json(body);
+    }
+    throw e;
+  }
+});
+
+router.post('/reset-password', async (req: Request, res: Response) => {
+  const parsed = resetPasswordPayload.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  try {
+    const result = await resetPassword(parsed.data.email, parsed.data.code, parsed.data.newPassword);
+    return res.status(200).json(result);
+  } catch (e) {
+    if (e instanceof ResetError) {
+      const status =
+        e.reason === 'code_expired' ? 410 :
+        e.reason === 'not_athlete' ? 403 :
+        400;
+      const body: Record<string, unknown> = { error: e.reason };
+      if (e.attemptsLeft != null) body.attemptsLeft = e.attemptsLeft;
+      return res.status(status).json(body);
     }
     throw e;
   }

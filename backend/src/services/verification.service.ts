@@ -28,5 +28,5 @@ export function expiresIn(ms: number): Date {
 }
 
 export const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;       // 24 hr
-export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;             // 1 hr
+export const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;             // 15 min (OTP)
 export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

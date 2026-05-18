@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import crypto, { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
 import pool from '../db/connect.js';
 import { env } from '../config/env.js';
@@ -327,7 +327,17 @@ export async function resendVerification(userId: string): Promise<{
   }
 }
 
-// ─── Forgot / Reset password ────────────────────────────────────
+// ─── Forgot / Reset password (OTP) ──────────────────────────────
+const MAX_ATTEMPTS = 5;
+
+// Exported so tests can spy on it
+export function generateSixDigitCode(): string {
+  // crypto-strong 6-digit code (range 100000..999999)
+  const buf = crypto.randomBytes(4);
+  const n = buf.readUInt32BE(0) % 900_000;
+  return String(100_000 + n);
+}
+
 export async function forgotPassword(
   email: string,
   requestedIp: string | null = null,
@@ -338,55 +348,179 @@ export async function forgotPassword(
   const user = r.rows[0];
   if (!user) return; // Silently return — anti-enumeration
 
-  const token = generateToken();
+  const code = generateSixDigitCode();
+  const codeHash = await bcrypt.hash(code, BCRYPT_COST);
+  // Invalidate any prior unused row for this user
   await pool.query(
-    `INSERT INTO password_resets (user_id, token_hash, expires_at, requested_ip)
-     VALUES ($1, $2, $3, $4)`,
-    [user.id, hashToken(token), expiresIn(RESET_TOKEN_TTL_MS), requestedIp],
+    `UPDATE password_resets SET used_at = NOW()
+       WHERE user_id = $1 AND used_at IS NULL`,
+    [user.id],
   );
-  await sendPasswordResetEmail(email, token);
-}
-
-export class ResetError extends Error {
-  constructor(public reason: 'invalid' | 'used' | 'expired') {
-    super(reason);
+  await pool.query(
+    `INSERT INTO password_resets (user_id, code_hash, expires_at, requested_ip)
+     VALUES ($1, $2, $3, $4)`,
+    [user.id, codeHash, expiresIn(RESET_TOKEN_TTL_MS), requestedIp],
+  );
+  // Best-effort email (anti-enumeration: caller still gets 200)
+  try {
+    await sendPasswordResetEmail(email, code);
+  } catch (e) {
+    logger.error({ err: e, email }, 'failed to send reset code email');
   }
 }
 
-export async function resetPassword(token: string, newPassword: string): Promise<void> {
-  const tokenHash = hashToken(token);
+export class ResetError extends Error {
+  public attemptsLeft?: number;
+  constructor(
+    public reason: 'invalid_code' | 'code_expired' | 'weak_password' | 'not_athlete',
+    attemptsLeft?: number,
+  ) {
+    super(reason);
+    this.attemptsLeft = attemptsLeft;
+  }
+}
+
+async function findAndValidateCode(
+  client: import('pg').PoolClient,
+  email: string,
+  code: string,
+  consume: boolean,
+): Promise<{ rowId: string; userId: string }> {
+  const userR = await client.query<{ id: string }>(
+    `SELECT id FROM users WHERE email = $1`, [email],
+  );
+  const user = userR.rows[0];
+  // Anti-enumeration: if no user, throw code_expired (mimicking "row not found")
+  if (!user) throw new ResetError('code_expired');
+
+  const r = await client.query<{
+    id: string; code_hash: string; expires_at: string;
+    used_at: string | null; attempts: number;
+  }>(
+    `SELECT id, code_hash, expires_at, used_at, attempts
+       FROM password_resets
+       WHERE user_id = $1 AND used_at IS NULL
+       ORDER BY created_at DESC LIMIT 1
+       FOR UPDATE`,
+    [user.id],
+  );
+  const row = r.rows[0];
+  if (!row) throw new ResetError('code_expired');
+  if (isExpired(row.expires_at)) {
+    await client.query(`UPDATE password_resets SET used_at = NOW() WHERE id = $1`, [row.id]);
+    throw new ResetError('code_expired');
+  }
+
+  const match = await bcrypt.compare(code, row.code_hash);
+  if (!match) {
+    const newAttempts = row.attempts + 1;
+    if (newAttempts >= MAX_ATTEMPTS) {
+      await client.query(
+        `UPDATE password_resets SET attempts = $1, used_at = NOW() WHERE id = $2`,
+        [newAttempts, row.id],
+      );
+      throw new ResetError('code_expired');
+    }
+    await client.query(
+      `UPDATE password_resets SET attempts = $1 WHERE id = $2`,
+      [newAttempts, row.id],
+    );
+    throw new ResetError('invalid_code', MAX_ATTEMPTS - newAttempts);
+  }
+
+  if (consume) {
+    await client.query(
+      `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
+      [row.id],
+    );
+  }
+  return { rowId: row.id, userId: user.id };
+}
+
+export async function verifyResetCode(email: string, code: string): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const r = await client.query<{
-      id: string; user_id: string; expires_at: string; used_at: string | null;
+    await findAndValidateCode(client, email, code, /* consume */ false);
+    await client.query('COMMIT');
+  } catch (e) {
+    if (e instanceof ResetError) {
+      // Commit so attempt increments and invalidations persist
+      await client.query('COMMIT').catch(() => {});
+    } else {
+      await client.query('ROLLBACK').catch(() => {});
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function resetPassword(
+  email: string,
+  code: string,
+  newPassword: string,
+): Promise<AuthLoginResult> {
+  if (newPassword.length < 8) throw new ResetError('weak_password');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { userId } = await findAndValidateCode(client, email, code, /* consume */ true);
+
+    // Role gate — mobile is athletes-only
+    const u = await client.query<{
+      id: string; email: string; role: 'athlete' | 'coach' | 'admin';
     }>(
-      `SELECT id, user_id, expires_at, used_at
-         FROM password_resets WHERE token_hash = $1 FOR UPDATE`,
-      [tokenHash],
+      `SELECT id, email, role FROM users WHERE id = $1`, [userId],
     );
-    const row = r.rows[0];
-    if (!row) throw new ResetError('invalid');
-    if (row.used_at) throw new ResetError('used');
-    if (isExpired(row.expires_at)) throw new ResetError('expired');
+    const user = u.rows[0];
+    if (user.role !== 'athlete') throw new ResetError('not_athlete');
 
     const newHash = await hashPassword(newPassword);
     await client.query(
       `UPDATE users SET password_hash = $1 WHERE id = $2`,
-      [newHash, row.user_id],
+      [newHash, userId],
     );
-    await client.query(
-      `UPDATE password_resets SET used_at = NOW() WHERE id = $1`, [row.id],
-    );
-    // Revoke ALL active refresh tokens for this user (anti-takeover)
+
+    // Revoke all active refresh tokens (anti-takeover)
     await client.query(
       `UPDATE refresh_tokens SET revoked_at = NOW()
         WHERE user_id = $1 AND revoked_at IS NULL`,
-      [row.user_id],
+      [userId],
     );
+
+    // Issue new access + refresh tokens (same flow as login)
+    const familyId = randomUUID();
+    const refreshTokenRaw = generateToken();
+    const refreshHash = hashToken(refreshTokenRaw);
+    await client.query(
+      `INSERT INTO refresh_tokens
+         (user_id, family_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, familyId, refreshHash, expiresIn(REFRESH_TOKEN_TTL_MS)],
+    );
+
+    const accessToken = jwt.sign(
+      { id: user.id, role: user.role },
+      env.JWT_SECRET as jwt.Secret,
+      { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions,
+    );
+
     await client.query('COMMIT');
+
+    return {
+      accessToken,
+      refreshToken: refreshTokenRaw,
+      user: { id: user.id, email: user.email, role: user.role },
+    };
   } catch (e) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (e instanceof ResetError && (e.reason === 'invalid_code' || e.reason === 'code_expired')) {
+      // Commit so attempt increments and row invalidations persist
+      await client.query('COMMIT').catch(() => {});
+    } else {
+      await client.query('ROLLBACK').catch(() => {});
+    }
     throw e;
   } finally {
     client.release();
