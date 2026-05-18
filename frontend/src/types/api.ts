@@ -74,6 +74,7 @@ export interface SkeletonDetail {
     level: 'nunca' | 'bajo' | 'medio' | 'avanzado' | 'muy_avanzado';
     goal: 'hipertrofia' | 'fuerza' | 'recomp' | 'perdida_grasa';
     days_per_week: number;
+    days_specific: ('lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom')[];
     equipment: 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
     injuries: string[];
   };
@@ -100,6 +101,28 @@ export interface AthleteDetailResponse {
   recentSessions: unknown[];
   alertsCount: number;
   measurements: AthleteMeasurement[];
+}
+
+export type UserStatus = 'pending' | 'approved' | 'rejected';
+export type SubscriptionTier = 'basico' | 'full' | 'premium';
+export type SubscriptionStatus =
+  | 'pending'
+  | 'authorized'
+  | 'paused'
+  | 'cancelled';
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: Role;
+  status: UserStatus;
+  email_verified: boolean;
+  email_verified_at: string | null;
+  created_at: string;
+  name: string | null;
+  subscription_tier: SubscriptionTier | null;
+  subscription_status: SubscriptionStatus | null;
+  current_period_end: string | null;
 }
 
 export interface CoachAlert {

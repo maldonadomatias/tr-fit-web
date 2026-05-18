@@ -9,9 +9,24 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { SkeletonSlot } from '@/types/api';
 
-const DAYS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const DAY_LABEL: Record<string, string> = {
+  lun: 'Lun',
+  mar: 'Mar',
+  mie: 'Mié',
+  jue: 'Jue',
+  vie: 'Vie',
+  sab: 'Sáb',
+  dom: 'Dom',
+};
 
-export function SkeletonReviewTable({ slots }: { slots: SkeletonSlot[] }) {
+type DayCode = keyof typeof DAY_LABEL;
+
+interface Props {
+  slots: SkeletonSlot[];
+  daysSpecific?: DayCode[] | null;
+}
+
+export function SkeletonReviewTable({ slots, daysSpecific }: Props) {
   const byDay = new Map<number, SkeletonSlot[]>();
   for (const s of slots) {
     if (!byDay.has(s.day_of_week)) byDay.set(s.day_of_week, []);
@@ -19,12 +34,20 @@ export function SkeletonReviewTable({ slots }: { slots: SkeletonSlot[] }) {
   }
   const dayKeys = Array.from(byDay.keys()).sort();
 
+  const labelFor = (sequence: number): string => {
+    if (daysSpecific && daysSpecific[sequence - 1]) {
+      return DAY_LABEL[daysSpecific[sequence - 1]] ?? '';
+    }
+    return '';
+  };
+
   return (
     <div className="space-y-6">
       {dayKeys.map((day) => (
         <div key={day}>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-            Día {day} · {DAYS[day]}
+            Día {day}
+            {labelFor(day) && <> · {labelFor(day)}</>}
           </h3>
           <Table>
             <TableHeader>

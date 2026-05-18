@@ -114,7 +114,7 @@ export default function SkeletonReview() {
         </Card>
       )}
 
-      <SkeletonReviewTable slots={slots} />
+      <SkeletonReviewTable slots={slots} daysSpecific={profile.days_specific} />
 
       <Card>
         <CardHeader>
