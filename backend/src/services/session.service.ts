@@ -99,19 +99,21 @@ export async function logSet(
   const r = await pool.query<{ id: string; was_insert: boolean }>(
     `INSERT INTO set_logs
        (athlete_id, exercise_id, week, day_of_week, set_index,
-        weight_kg, reps, completed, rpe,
+        value, unit, reps, completed, rpe,
         session_log_id, client_id, client_ts)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO UPDATE SET
-       weight_kg = EXCLUDED.weight_kg,
+       value = EXCLUDED.value,
+       unit = EXCLUDED.unit,
        reps = EXCLUDED.reps,
        completed = EXCLUDED.completed,
        rpe = EXCLUDED.rpe,
        synced_at = NOW()
      RETURNING id, (xmax = 0) AS was_insert`,
     [athleteId, payload.exercise_id, session.program_week, session.day_of_week,
-     payload.set_index, payload.weight_kg, payload.reps, payload.completed,
-     payload.rpe ?? null, sessionId, payload.client_id, payload.client_ts],
+     payload.set_index, payload.value, payload.unit, payload.reps,
+     payload.completed, payload.rpe ?? null,
+     sessionId, payload.client_id, payload.client_ts],
   );
 
   await pool.query(

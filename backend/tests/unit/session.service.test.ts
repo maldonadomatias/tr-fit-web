@@ -38,12 +38,12 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
 const mockBuildToday = jest.fn(async (_a: string, _d: number) => [
   {
     exercise: { id: 1, name: 'Sentadilla', muscle_group: 'piernas', equipment: 'barra' },
-    series: 3, reps: 8, weight_kg: 100, descanso: '02:00',
+    series: 3, reps: 8, suggested_value: 100, unit: 'kg', descanso: '02:00',
     slot_index: 1, role: 'principal', flag: null,
   },
   {
     exercise: { id: 2, name: 'Curl', muscle_group: 'brazos', equipment: 'mancuerna' },
-    series: 2, reps: 12, weight_kg: 10, descanso: '01:00',
+    series: 2, reps: 12, suggested_value: 10, unit: 'kg', descanso: '01:00',
     slot_index: 2, role: 'accesorio', flag: null,
   },
 ]);
