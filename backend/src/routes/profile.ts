@@ -1,9 +1,16 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import { measurementPayload, notificationPrefsPayload } from '../domain/schemas.js';
 import { createMeasurement, listMeasurements } from '../services/measurement.service.js';
+import {
+  listUserUnits,
+  setUserUnit,
+  DEFAULT_UNIT_BY_EQUIPMENT,
+  EquipmentUnitsError,
+} from '../services/equipment-units.service.js';
 
 const router = Router();
 
@@ -50,5 +57,45 @@ router.patch('/notification-prefs', requireAuth, requireRole('athlete'), async (
   );
   return res.json({ notification_prefs: r.rows[0].notification_prefs });
 });
+
+const setEquipmentUnitPayload = z.object({
+  equipment: z.string().min(1),
+  unit: z.enum(['kg', 'ladrillos']),
+});
+
+router.get(
+  '/equipment-units',
+  requireAuth,
+  requireRole('athlete'),
+  async (req, res) => {
+    const rows = await listUserUnits(req.user!.id);
+    const merged: Record<string, 'kg' | 'ladrillos'> = { ...DEFAULT_UNIT_BY_EQUIPMENT };
+    for (const r of rows) merged[r.equipment] = r.unit;
+    res.json(
+      Object.entries(merged).map(([equipment, unit]) => ({ equipment, unit })),
+    );
+  },
+);
+
+router.put(
+  '/equipment-units',
+  requireAuth,
+  requireRole('athlete'),
+  async (req, res) => {
+    const parsed = setEquipmentUnitPayload.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', issues: parsed.error.issues });
+    }
+    try {
+      await setUserUnit(req.user!.id, parsed.data.equipment, parsed.data.unit);
+      return res.json({ ok: true });
+    } catch (e) {
+      if (e instanceof EquipmentUnitsError) {
+        return res.status(400).json({ error: e.reason });
+      }
+      throw e;
+    }
+  },
+);
 
 export default router;
