@@ -106,7 +106,8 @@ export interface SessionItem {
   exercise: Exercise;
   role: SlotRole;
   slot_index: number;
-  weight_kg: number | null;
+  suggested_value: number | null;
+  unit: 'kg' | 'ladrillos';
   series: number;
   reps: string;
   descanso: string;
@@ -175,7 +176,8 @@ export interface SetLog {
   week: number;
   day_of_week: number;
   set_index: number;
-  weight_kg: number | null;
+  value: number | null;
+  unit: 'kg' | 'ladrillos' | null;
   reps: number | null;
   completed: boolean;
   logged_at: string;

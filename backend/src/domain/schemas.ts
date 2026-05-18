@@ -122,7 +122,8 @@ export const startSessionPayload = z.object({
 export const setLogPayload = z.object({
   exercise_id: z.number().int().positive(),
   set_index: z.number().int().min(1).max(20),
-  weight_kg: z.number().min(0).max(500).nullable(),
+  value: z.number().min(0).max(500).nullable(),
+  unit: z.enum(['kg', 'ladrillos']),
   reps: z.number().int().min(0).max(100).nullable(),
   completed: z.boolean(),
   rpe: z.number().min(1).max(10).nullable().optional(),
