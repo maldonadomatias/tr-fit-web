@@ -1,4 +1,5 @@
 import pool from '../db/connect.js';
+import { resolveUnit } from './equipment-units.service.js';
 
 export interface RecordRmInput {
   athleteId: string;
@@ -12,13 +13,24 @@ export async function recordRm(input: RecordRmInput): Promise<{ rmId: string }> 
   try {
     await client.query('BEGIN');
 
+    // Resolve the equipment for this exercise to determine unit
+    const exR = await client.query<{ equipment: string }>(
+      `SELECT equipment FROM exercises WHERE id = $1`,
+      [input.exerciseId],
+    );
+    const equipment = exR.rows[0]?.equipment ?? 'barra';
+    const unit = await resolveUnit(input.athleteId, equipment);
+
     const r = await client.query<{ id: string }>(
-      `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg, value, unit)
+       VALUES ($1, $2, $3, $4, $4, $5)
        ON CONFLICT (athlete_id, exercise_id, program_week)
-         DO UPDATE SET value_kg = EXCLUDED.value_kg, tested_at = NOW()
+         DO UPDATE SET value_kg = EXCLUDED.value_kg,
+                       value = EXCLUDED.value,
+                       unit = EXCLUDED.unit,
+                       tested_at = NOW()
        RETURNING id`,
-      [input.athleteId, input.exerciseId, input.week, input.valueKg],
+      [input.athleteId, input.exerciseId, input.week, input.valueKg, unit],
     );
 
     // Unblock: if all 7 principal exercises in skeleton have an RM for this week,

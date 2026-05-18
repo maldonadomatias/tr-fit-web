@@ -4,6 +4,7 @@ import {
   advanceReps, applyIncrement, isExcludedFromAutoProgression,
   EJERCICIOS_HASTA_15,
 } from './progression-helpers.js';
+import { resolveUnit } from './equipment-units.service.js';
 import type { Exercise } from '../domain/types.js';
 import logger from '../utils/logger.js';
 
@@ -90,9 +91,10 @@ export async function runWeeklyProgressionForAthlete(
       if (!arr || arr.length === 0 || !arr.every(Boolean)) continue;
 
       const wR = await client.query<{
-        current_weight_kg: string | null; current_reps_text: string | null;
+        current_value: string | null; unit: string | null; current_reps_text: string | null;
       }>(
-        `SELECT current_weight_kg::text, current_reps_text
+        `SELECT COALESCE(current_value, current_weight_kg)::text AS current_value,
+                unit, current_reps_text
            FROM athlete_exercise_weights
           WHERE athlete_id = $1 AND exercise_id = $2`,
         [athleteId, ex.id],
@@ -105,24 +107,29 @@ export async function runWeeklyProgressionForAthlete(
       const adv = advanceReps(currentReps, isHasta15);
 
       let newWeight: number | null =
-        w.current_weight_kg === null ? null : Number(w.current_weight_kg);
+        w.current_value === null ? null : Number(w.current_value);
       if (adv.bumpWeight && newWeight !== null) {
         newWeight = applyIncrement(newWeight, ex);
       }
 
+      // Resolve unit: prefer stored unit, fall back to resolveUnit
+      const unit = w.unit ?? await resolveUnit(athleteId, ex.equipment);
+
       await client.query(
         `UPDATE athlete_exercise_weights
             SET current_weight_kg = $1,
-                current_reps_text = $2,
+                current_value = $1,
+                unit = $2,
+                current_reps_text = $3,
                 updated_at = NOW(),
                 updated_by = 'progression_cron'
-          WHERE athlete_id = $3 AND exercise_id = $4`,
-        [newWeight, adv.newReps, athleteId, ex.id],
+          WHERE athlete_id = $4 AND exercise_id = $5`,
+        [newWeight, unit, adv.newReps, athleteId, ex.id],
       );
 
       bumped.push({
         exercise_id: ex.id,
-        from_kg: w.current_weight_kg === null ? null : Number(w.current_weight_kg),
+        from_kg: w.current_value === null ? null : Number(w.current_value),
         to_kg: newWeight,
         reps_from: currentReps,
         reps_to: adv.newReps,

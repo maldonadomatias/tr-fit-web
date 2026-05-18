@@ -60,8 +60,10 @@ it('upserts: re-recording same RM updates value', async () => {
   await recordRm({ athleteId: ath, exerciseId: ex.rows[0].id, valueKg: 100, week: 10 });
   await recordRm({ athleteId: ath, exerciseId: ex.rows[0].id, valueKg: 105, week: 10 });
   const r = await pool.query(
-    `SELECT value_kg::text AS v FROM rm_tests WHERE athlete_id = $1`, [ath],
+    `SELECT value_kg::text AS v, value::text AS nv, unit FROM rm_tests WHERE athlete_id = $1`, [ath],
   );
   expect(r.rows).toHaveLength(1);
   expect(Number(r.rows[0].v)).toBe(105);
+  expect(Number(r.rows[0].nv)).toBe(105);
+  expect(r.rows[0].unit).toBe('kg');
 });

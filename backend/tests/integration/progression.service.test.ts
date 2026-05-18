@@ -39,7 +39,7 @@ it('bumps accesorio reps when all sets completed (no weight bump on first rotati
   const { accesorioId } = await setup(coach, ath);
   await pool.query(
     `UPDATE athlete_exercise_weights
-        SET current_weight_kg = 10, current_reps_text = '6 a 8'
+        SET current_weight_kg = 10, current_value = 10, unit = 'kg', current_reps_text = '6 a 8'
       WHERE athlete_id = $1 AND exercise_id = $2`,
     [ath, accesorioId],
   );
@@ -51,12 +51,14 @@ it('bumps accesorio reps when all sets completed (no weight bump on first rotati
   const result = await runWeeklyProgressionForAthlete(ath);
   expect(result.status).toBe('success');
   const w = await pool.query(
-    `SELECT current_weight_kg::text AS w, current_reps_text
+    `SELECT current_weight_kg::text AS w, current_value::text AS cv, unit, current_reps_text
        FROM athlete_exercise_weights WHERE athlete_id = $1 AND exercise_id = $2`,
     [ath, accesorioId],
   );
   expect(w.rows[0].current_reps_text).toBe('8 a 10');
   expect(Number(w.rows[0].w)).toBe(10);
+  expect(Number(w.rows[0].cv)).toBe(10);
+  expect(w.rows[0].unit).toBe('kg');
 });
 
 it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () => {
@@ -65,7 +67,7 @@ it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () =>
   const { accesorioId } = await setup(coach, ath);
   await pool.query(
     `UPDATE athlete_exercise_weights
-        SET current_weight_kg = 10, current_reps_text = '10 a 12'
+        SET current_weight_kg = 10, current_value = 10, unit = 'kg', current_reps_text = '10 a 12'
       WHERE athlete_id = $1 AND exercise_id = $2`,
     [ath, accesorioId],
   );
@@ -76,12 +78,14 @@ it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () =>
   );
   await runWeeklyProgressionForAthlete(ath);
   const w = await pool.query(
-    `SELECT current_weight_kg::text AS w, current_reps_text
+    `SELECT current_weight_kg::text AS w, current_value::text AS cv, unit, current_reps_text
        FROM athlete_exercise_weights WHERE athlete_id = $1 AND exercise_id = $2`,
     [ath, accesorioId],
   );
   expect(w.rows[0].current_reps_text).toBe('4 a 6');
   expect(Number(w.rows[0].w)).toBe(12.5);
+  expect(Number(w.rows[0].cv)).toBe(12.5);
+  expect(w.rows[0].unit).toBe('kg');
 });
 
 it('does NOT bump when set not completed', async () => {
@@ -90,7 +94,7 @@ it('does NOT bump when set not completed', async () => {
   const { accesorioId } = await setup(coach, ath);
   await pool.query(
     `UPDATE athlete_exercise_weights
-        SET current_weight_kg = 10, current_reps_text = '6 a 8'
+        SET current_weight_kg = 10, current_value = 10, unit = 'kg', current_reps_text = '6 a 8'
       WHERE athlete_id = $1 AND exercise_id = $2`,
     [ath, accesorioId],
   );
