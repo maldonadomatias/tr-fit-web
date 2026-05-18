@@ -31,6 +31,6 @@ ALTER TABLE rm_tests
   ADD CONSTRAINT rm_tests_unit_check CHECK (unit IS NULL OR unit IN ('kg','ladrillos'));
 
 -- Backfill from legacy kg columns
-UPDATE set_logs                  SET value = weight_kg,           unit = 'kg' WHERE value IS NULL;
-UPDATE athlete_exercise_weights  SET current_value = current_weight_kg, unit = 'kg' WHERE current_value IS NULL;
+UPDATE set_logs                  SET value = weight_kg,           unit = 'kg' WHERE value IS NULL AND weight_kg IS NOT NULL;
+UPDATE athlete_exercise_weights  SET current_value = current_weight_kg, unit = 'kg' WHERE current_value IS NULL AND current_weight_kg IS NOT NULL;
 UPDATE rm_tests                  SET value = value_kg,            unit = 'kg' WHERE value IS NULL;
