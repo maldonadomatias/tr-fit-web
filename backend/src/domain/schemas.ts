@@ -96,15 +96,22 @@ export const forgotPasswordPayload = z.object({
   email: z.string().email().toLowerCase(),
 });
 
+export const verifyResetCodePayload = z.object({
+  email: z.string().email().toLowerCase(),
+  code: z.string().regex(/^\d{6}$/),
+});
+
 export const resetPasswordPayload = z.object({
-  token: z.string().min(32),
-  newPassword: z.string().min(8).max(200),
+  email: z.string().email().toLowerCase(),
+  code: z.string().regex(/^\d{6}$/),
+  newPassword: z.string().max(200),
 });
 
 export type SignupPayload = z.infer<typeof signupPayload>;
 export type LoginPayload = z.infer<typeof loginPayload>;
 export type RefreshPayload = z.infer<typeof refreshPayload>;
 export type ForgotPasswordPayload = z.infer<typeof forgotPasswordPayload>;
+export type VerifyResetCodePayload = z.infer<typeof verifyResetCodePayload>;
 export type ResetPasswordPayload = z.infer<typeof resetPasswordPayload>;
 
 export const startSessionPayload = z.object({

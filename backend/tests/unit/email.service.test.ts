@@ -34,14 +34,17 @@ it('sendVerifyEmail calls Resend with verify link', async () => {
   expect(call.html).toMatch(/verify-email\?token=token-abc/);
 });
 
-it('sendPasswordResetEmail calls Resend with reset link', async () => {
+it('sendPasswordResetEmail calls Resend with 6-digit code in HTML', async () => {
   resendMod.__mockSend.mockResolvedValue({ id: 'msg_2' });
-  await sendPasswordResetEmail('user@test.local', 'reset-xyz');
+  await sendPasswordResetEmail('user@test.local', '123456');
   const call = resendMod.__mockSend.mock.calls[0]?.[0] as unknown as {
     to: string; subject: string; html: string;
   };
-  expect(call.subject).toMatch(/restablecer|reset/i);
-  expect(call.html).toMatch(/reset-password\?token=reset-xyz/);
+  expect(call.to).toBe('user@test.local');
+  expect(call.subject).toMatch(/código|code/i);
+  expect(call.html).toContain('123456');
+  // Should not contain a link (OTP-based, not link-based)
+  expect(call.html).not.toMatch(/reset-password\?token=/);
 });
 
 it('propagates Resend errors', async () => {

@@ -122,7 +122,11 @@ it('forgot-password always returns 200 (anti-enum), sends email if user exists',
   await verifiedAthleteUser('exists@test.local');
   const r1 = await request(app).post('/api/auth/forgot-password').send({ email: 'exists@test.local' });
   expect(r1.status).toBe(200);
+  expect(r1.body.message).toBe('if account exists, code sent');
   expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
+  // Email should contain a 6-digit code (not a link)
+  const call = resendMod.__mockSend.mock.calls[0]?.[0] as unknown as { html: string };
+  expect(call.html).toMatch(/\d{6}/);
 
   resendMod.__mockSend.mockClear();
   const r2 = await request(app).post('/api/auth/forgot-password').send({ email: 'nope@test.local' });
@@ -130,36 +134,185 @@ it('forgot-password always returns 200 (anti-enum), sends email if user exists',
   expect(resendMod.__mockSend).not.toHaveBeenCalled();
 });
 
-it('reset-password changes password and revokes all refresh tokens', async () => {
-  const u = await verifiedAthleteUser('reset@test.local');
+// Helper: seed a known OTP code into password_resets bypassing bcrypt via known code
+async function seedKnownCode(userId: string, code: string): Promise<void> {
+  const bcryptMod = await import('bcrypt');
+  const { expiresIn, RESET_TOKEN_TTL_MS } = await import('../../src/services/verification.service.js');
+  const codeHash = await bcryptMod.default.hash(code, 10);
+  await pool.query(
+    `INSERT INTO password_resets (user_id, code_hash, expires_at) VALUES ($1, $2, $3)`,
+    [userId, codeHash, expiresIn(RESET_TOKEN_TTL_MS)],
+  );
+}
+
+it('verify-reset-code: valid code returns { valid: true } without consuming', async () => {
+  const u = await verifiedAthleteUser('vrcode@test.local');
+  const code = '654321';
+  await seedKnownCode(u.id, code);
+
+  const r = await request(app)
+    .post('/api/auth/verify-reset-code')
+    .send({ email: u.email, code });
+  expect(r.status).toBe(200);
+  expect(r.body.valid).toBe(true);
+
+  // Code should still be usable (not consumed)
+  const r2 = await request(app)
+    .post('/api/auth/verify-reset-code')
+    .send({ email: u.email, code });
+  expect(r2.status).toBe(200);
+});
+
+it('verify-reset-code: wrong code returns 400 invalid_code with attemptsLeft', async () => {
+  const u = await verifiedAthleteUser('vrcode2@test.local');
+  await seedKnownCode(u.id, '777777');
+
+  const r = await request(app)
+    .post('/api/auth/verify-reset-code')
+    .send({ email: u.email, code: '000000' });
+  expect(r.status).toBe(400);
+  expect(r.body.error).toBe('invalid_code');
+  expect(typeof r.body.attemptsLeft).toBe('number');
+  expect(r.body.attemptsLeft).toBe(4);
+});
+
+it('verify-reset-code: 5 wrong attempts returns 410 code_expired', async () => {
+  const u = await verifiedAthleteUser('vrcode3@test.local');
+  await seedKnownCode(u.id, '888888');
+
+  for (let i = 0; i < 4; i++) {
+    await request(app)
+      .post('/api/auth/verify-reset-code')
+      .send({ email: u.email, code: '000000' });
+  }
+  // 5th wrong attempt — should expire the code
+  const r = await request(app)
+    .post('/api/auth/verify-reset-code')
+    .send({ email: u.email, code: '000000' });
+  expect(r.status).toBe(410);
+  expect(r.body.error).toBe('code_expired');
+
+  // Subsequent correct code also fails (row consumed)
+  const r2 = await request(app)
+    .post('/api/auth/verify-reset-code')
+    .send({ email: u.email, code: '888888' });
+  expect(r2.status).toBe(410);
+});
+
+it('verify-reset-code: unknown email returns 410 code_expired (anti-enum)', async () => {
+  const r = await request(app)
+    .post('/api/auth/verify-reset-code')
+    .send({ email: 'nobody@test.local', code: '123456' });
+  expect(r.status).toBe(410);
+  expect(r.body.error).toBe('code_expired');
+});
+
+it('reset-password: OTP flow — changes password, revokes tokens, returns auth result', async () => {
+  const u = await verifiedAthleteUser('resetotp@test.local');
 
   // First login → get a refresh token
   const loginR = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(loginR.status).toBe(200);
   const oldRefresh = loginR.body.refreshToken;
 
-  // Generate a reset token directly in DB (simulating user clicking forgot-password email link)
-  const { generateToken: gen, hashToken: hash, expiresIn: ex, RESET_TOKEN_TTL_MS } =
-    await import('../../src/services/verification.service.js');
-  const plain = gen();
-  await pool.query(
-    `INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
-    [u.id, hash(plain), ex(RESET_TOKEN_TTL_MS)],
-  );
+  const code = '246810';
+  await seedKnownCode(u.id, code);
 
   const r = await request(app)
     .post('/api/auth/reset-password')
-    .send({ token: plain, newPassword: 'newpass-12345' });
+    .send({ email: u.email, code, newPassword: 'newpass-secure99' });
   expect(r.status).toBe(200);
+  expect(typeof r.body.accessToken).toBe('string');
+  expect(typeof r.body.refreshToken).toBe('string');
+  expect(r.body.user.email).toBe(u.email);
+  expect(r.body.user.role).toBe('athlete');
 
-  // Old refresh token revoked
+  // Old refresh token revoked (anti-takeover)
   const after = await request(app).post('/api/auth/refresh').send({ refreshToken: oldRefresh });
   expect(after.status).toBe(401);
+
+  // New token from reset response works
+  const afterRefresh = await request(app)
+    .post('/api/auth/refresh')
+    .send({ refreshToken: r.body.refreshToken });
+  expect(afterRefresh.status).toBe(200);
 
   // Old password fails, new password works
   const failOld = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
   expect(failOld.status).toBe(401);
-  const okNew = await request(app).post('/api/auth/login').send({ email: u.email, password: 'newpass-12345' });
+  const okNew = await request(app).post('/api/auth/login').send({ email: u.email, password: 'newpass-secure99' });
   expect(okNew.status).toBe(200);
+});
+
+it('reset-password: wrong code returns 400 invalid_code with attemptsLeft', async () => {
+  const u = await verifiedAthleteUser('resetwrong@test.local');
+  await seedKnownCode(u.id, '135790');
+
+  const r = await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: u.email, code: '000000', newPassword: 'newpass-secure99' });
+  expect(r.status).toBe(400);
+  expect(r.body.error).toBe('invalid_code');
+  expect(r.body.attemptsLeft).toBe(4);
+});
+
+it('reset-password: code already consumed returns 410 code_expired', async () => {
+  const u = await verifiedAthleteUser('resetconsumed@test.local');
+  const code = '112233';
+  await seedKnownCode(u.id, code);
+
+  // Consume the code with a successful reset
+  await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: u.email, code, newPassword: 'newpass-secure99' });
+
+  // Second attempt same code → 410
+  const r2 = await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: u.email, code, newPassword: 'another-pass-99' });
+  expect(r2.status).toBe(410);
+  expect(r2.body.error).toBe('code_expired');
+});
+
+it('reset-password: weak password returns 400 weak_password', async () => {
+  const u = await verifiedAthleteUser('resetweak@test.local');
+  await seedKnownCode(u.id, '999888');
+
+  const r = await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: u.email, code: '999888', newPassword: 'short' });
+  expect(r.status).toBe(400);
+  expect(r.body.error).toBe('weak_password');
+});
+
+it('reset-password: non-athlete gets 403 not_athlete and code is burned', async () => {
+  // Create a coach user (non-athlete) with email_verified = true
+  const bcryptMod = await import('bcrypt');
+  const coachEmail = `coach-reset-${Date.now()}@test.local`;
+  const coachPass = 'coach-pass-1234';
+  const coachHash = await bcryptMod.default.hash(coachPass, 4);
+  const { rows: coachRows } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role, email_verified, email_verified_at)
+     VALUES ($1, $2, 'coach', TRUE, NOW()) RETURNING id`,
+    [coachEmail, coachHash],
+  );
+  const coachId = coachRows[0].id;
+
+  const code = '567890';
+  await seedKnownCode(coachId, code);
+
+  const r = await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: coachEmail, code, newPassword: 'newpass-secure99' });
+  expect(r.status).toBe(403);
+  expect(r.body.error).toBe('not_athlete');
+
+  // Verify the code row was burned (used_at is non-null) despite the error
+  const { rows } = await pool.query<{ used_at: string | null }>(
+    `SELECT used_at FROM password_resets WHERE user_id = $1`,
+    [coachId],
+  );
+  expect(rows[0].used_at).not.toBeNull();
 });
 
 it('rate-limit kicks in on 11th login attempt within window', async () => {
