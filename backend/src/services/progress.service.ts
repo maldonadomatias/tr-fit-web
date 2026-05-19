@@ -149,17 +149,17 @@ export async function listWeightVsSuggested(
 ): Promise<WeightVsSuggestedRow[]> {
   const r = await pool.query<WeightVsSuggestedRow>(
     `WITH used AS (
-       SELECT s.exercise_id, AVG(s.weight_kg) AS avg_used_kg
+       SELECT s.exercise_id, AVG(COALESCE(s.value, s.weight_kg)) AS avg_used_kg
          FROM set_logs s
          JOIN session_logs sl ON sl.id = s.session_log_id
         WHERE sl.athlete_id = $1
           AND s.completed = TRUE
-          AND s.weight_kg IS NOT NULL
+          AND COALESCE(s.value, s.weight_kg) IS NOT NULL
           AND sl.started_at > now() - ($2 || ' weeks')::interval
         GROUP BY s.exercise_id
      ),
      suggested AS (
-       SELECT exercise_id, current_weight_kg AS suggested_kg
+       SELECT exercise_id, COALESCE(current_value, current_weight_kg) AS suggested_kg
          FROM athlete_exercise_weights
         WHERE athlete_id = $1
      )

@@ -221,7 +221,7 @@ export async function finishSession(
     }>(
       `SELECT
          COUNT(*) FILTER (WHERE completed = TRUE)::int AS total_completed,
-         COALESCE(SUM(weight_kg * reps) FILTER (WHERE completed = TRUE), 0)::text AS total_volume
+         COALESCE(SUM(COALESCE(value, weight_kg) * reps) FILTER (WHERE completed = TRUE), 0)::text AS total_volume
          FROM set_logs WHERE session_log_id = $1`,
       [sessionId],
     );
@@ -240,13 +240,13 @@ export async function finishSession(
       exercise_id: number; name: string; kg: string; reps: number;
     }>(
       `WITH cur AS (
-         SELECT exercise_id, MAX(weight_kg * reps) AS cur_max,
-                weight_kg, reps
+         SELECT exercise_id, MAX(COALESCE(value, weight_kg) * reps) AS cur_max,
+                COALESCE(value, weight_kg) AS weight_kg, reps
            FROM set_logs
           WHERE session_log_id = $1 AND completed = TRUE
-          GROUP BY exercise_id, weight_kg, reps
+          GROUP BY exercise_id, COALESCE(value, weight_kg), reps
        ), best_old AS (
-         SELECT sl.exercise_id, COALESCE(MAX(sl.weight_kg * sl.reps), 0) AS old_max
+         SELECT sl.exercise_id, COALESCE(MAX(COALESCE(sl.value, sl.weight_kg) * sl.reps), 0) AS old_max
            FROM set_logs sl
           WHERE sl.athlete_id = $2 AND sl.completed = TRUE
             AND sl.session_log_id IS DISTINCT FROM $1
