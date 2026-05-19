@@ -94,8 +94,14 @@ async function buildItem(
 ): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
   const w = wByEx.get(slot.exercise_id);
-  const unitFromAew = w?.unit as 'kg' | 'ladrillos' | null | undefined;
-  const unit = unitFromAew ?? await resolveUnit(athleteId, exercise.equipment);
+  // Profile preference (athlete_equipment_units) is source of truth for unit.
+  // Falls back to equipment default. Previously prioritized AEW.unit, which
+  // froze the unit to whatever was logged first and ignored later profile
+  // changes (e.g. user switches polea from kg to ladrillos).
+  const unit = await resolveUnit(athleteId, exercise.equipment);
+  // Drop stale suggested value if the recorded unit no longer matches.
+  const aewValue =
+    !w?.unit || w.unit === unit ? w?.current_value ?? null : null;
 
   if (slot.role === 'principal') {
     if (cfg.is_rm_test) {
@@ -118,13 +124,13 @@ async function buildItem(
     }
     // use_casilleros for principal
     return baseItem(exercise, slot.role, slot.slot_index,
-      w?.current_value ?? null, unit,
+      aewValue, unit,
       cfg.principal_series, cfg.principal_reps, cfg.principal_descanso);
   }
 
   // accesorio
   return baseItem(
-    exercise, slot.role, slot.slot_index, w?.current_value ?? null, unit,
+    exercise, slot.role, slot.slot_index, aewValue, unit,
     cfg.accesorio_series,
     w?.current_reps_text ?? cfg.accesorio_reps,
     cfg.accesorio_descanso,

@@ -125,6 +125,56 @@ it('accesorio uses athlete_exercise_weights and reps fallback', async () => {
   expect(acc.reps).toBe('8 a 10');
 });
 
+it('profile equipment-units override stale AEW.unit and drop suggested value', async () => {
+  const coach = await createCoach();
+  const ath = await createAthlete(coach);
+  const principalId = (
+    await pool.query<{ id: number }>(
+      `SELECT id FROM exercises WHERE is_principal = TRUE AND equipment='barra' LIMIT 1`,
+    )
+  ).rows[0].id;
+  const poleaId = (
+    await pool.query<{ id: number }>(
+      `SELECT id FROM exercises WHERE is_principal = FALSE AND equipment='polea' LIMIT 1`,
+    )
+  ).rows[0].id;
+  const ai = {
+    rationale: 'r',
+    days: [1, 2, 3, 4].map((d) => ({
+      day_index: d,
+      focus: `Day${d}`,
+      slots: [
+        { slot_index: 1, exercise_id: principalId, role: 'principal' as const },
+        { slot_index: 2, exercise_id: poleaId, role: 'accesorio' as const },
+      ],
+    })),
+  };
+  const { skeletonId } = await createPendingSkeleton(
+    { athleteId: ath, generationPrompt: {}, generationRationale: 'r' }, ai,
+  );
+  await approveSkeleton(skeletonId, coach);
+  await setProgramWeek(ath, 3);
+  // Stale AEW: previously logged in kg
+  await pool.query(
+    `UPDATE athlete_exercise_weights
+        SET current_value = 100, current_weight_kg = 100, unit = 'kg'
+      WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, poleaId],
+  );
+  // User flips profile preference for polea → ladrillos
+  await pool.query(
+    `INSERT INTO athlete_equipment_units (athlete_id, equipment, unit, updated_at)
+       VALUES ($1, 'polea', 'ladrillos', NOW())
+       ON CONFLICT (athlete_id, equipment)
+       DO UPDATE SET unit = EXCLUDED.unit, updated_at = NOW()`,
+    [ath],
+  );
+  const session = await buildTodaySession(ath, 1);
+  const item = session.find((s) => s.exercise.id === poleaId)!;
+  expect(item.unit).toBe('ladrillos');
+  expect(item.suggested_value).toBeNull();
+});
+
 it('blocks with rm_test_required when state.rm_test_blocking=true', async () => {
   const coach = await createCoach();
   const ath = await createAthlete(coach);
