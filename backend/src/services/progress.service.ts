@@ -2,7 +2,9 @@ import pool from '../db/connect.js';
 
 export interface RmHistoryPoint {
   program_week: 10 | 20 | 30;
-  value_kg: string;
+  value: string;
+  value_kg: string; // kept for backward compat — equals value
+  unit: 'kg' | 'ladrillos';
   tested_at: string;
 }
 
@@ -15,10 +17,13 @@ export interface RmHistoryRow {
 export async function listRmHistory(athleteId: string): Promise<RmHistoryRow[]> {
   const r = await pool.query<{
     exercise_id: number; exercise_name: string;
-    program_week: 10 | 20 | 30; value_kg: string; tested_at: string;
+    program_week: 10 | 20 | 30; value: string; unit: string; tested_at: string;
   }>(
     `SELECT r.exercise_id, e.name AS exercise_name,
-            r.program_week, r.value_kg, r.tested_at
+            r.program_week,
+            COALESCE(r.value::text, r.value_kg::text) AS value,
+            COALESCE(r.unit, 'kg') AS unit,
+            r.tested_at
        FROM rm_tests r
        JOIN exercises e ON e.id = r.exercise_id
       WHERE r.athlete_id = $1
@@ -38,7 +43,9 @@ export async function listRmHistory(athleteId: string): Promise<RmHistoryRow[]> 
     }
     bucket.data.push({
       program_week: row.program_week,
-      value_kg: row.value_kg,
+      value: row.value,
+      value_kg: row.value, // mirror for backward compat
+      unit: row.unit as 'kg' | 'ladrillos',
       tested_at: row.tested_at,
     });
   }
