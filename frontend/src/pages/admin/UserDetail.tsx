@@ -443,6 +443,7 @@ function EstadoTab({
   user: AdminUser;
   isSelf: boolean;
 }) {
+  const { user: me } = useAuth();
   const update = useUpdateAdminUser(user.id);
   const [status, setStatus] = useState<UserStatus>(user.status);
   const [role, setRole] = useState<Role>(user.role);
@@ -458,6 +459,10 @@ function EstadoTab({
     status !== user.status ||
     role !== user.role ||
     verified !== user.email_verified;
+
+  const cantSetSuper =
+    (role === 'superadmin' || user.role === 'superadmin') &&
+    me?.role !== 'superadmin';
 
   function save() {
     const patch: Parameters<typeof update.mutate>[0] = {};
@@ -497,7 +502,6 @@ function EstadoTab({
         </Field>
 
         <Field label="Rol">
-          {/* TODO(Task 4): remove coach option once role is fully collapsed */}
           <Segmented<Role>
             value={role}
             onChange={setRole}
@@ -510,6 +514,11 @@ function EstadoTab({
           {isSelf && role !== 'admin' && (
             <span className="text-xs text-destructive">
               No podés cambiar tu propio rol.
+            </span>
+          )}
+          {cantSetSuper && (
+            <span className="text-xs text-muted-foreground">
+              Solo un superadmin puede tocar este rol.
             </span>
           )}
         </Field>
@@ -544,7 +553,7 @@ function EstadoTab({
           <Button
             size="sm"
             onClick={save}
-            disabled={!dirty || update.isPending || (isSelf && (status !== 'approved' || role !== 'admin'))}
+            disabled={!dirty || update.isPending || cantSetSuper || (isSelf && (status !== 'approved' || role !== 'admin'))}
           >
             {update.isPending ? 'Guardando…' : 'Guardar'}
           </Button>

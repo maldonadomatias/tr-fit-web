@@ -200,8 +200,15 @@ export function Sidebar() {
       <div className="mt-auto flex items-center gap-2.5 border-t border-border pt-3">
         <Avatar name={user?.email ?? '??'} size="md" brand={false} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-semibold">
-            {user?.email?.split('@')[0] ?? 'Admin'}
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="truncate text-[13px] font-semibold">
+              {user?.email?.split('@')[0] ?? 'Admin'}
+            </span>
+            {user?.role === 'superadmin' && (
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-[0.18em] text-primary-foreground">
+                Super
+              </span>
+            )}
           </div>
           <div className="truncate font-mono text-[11px] text-muted-foreground">
             {user?.email ?? ''}

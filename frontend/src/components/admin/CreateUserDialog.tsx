@@ -15,8 +15,7 @@ import { Label } from '@/components/ui/label';
 import { useCreateUser } from '@/hooks/useAdminUsers';
 import type { Role, UserStatus } from '@/types/api';
 
-// TODO(Task 4): drop 'coach' once UI is rewritten
-const ROLES: Role[] = ['athlete', 'admin'] as Role[];
+const ROLES: Role[] = ['athlete', 'admin', 'superadmin'];
 const STATUSES: UserStatus[] = ['pending', 'approved', 'rejected'];
 
 interface Props {

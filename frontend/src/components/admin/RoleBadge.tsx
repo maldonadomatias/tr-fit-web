@@ -1,7 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import type { Role } from '@/types/api';
 
-// TODO(Task 4): remove coach label once role is fully collapsed
 const LABELS: Record<Role, string> = {
   athlete: 'Atleta',
   admin: 'Admin',
@@ -9,5 +8,8 @@ const LABELS: Record<Role, string> = {
 };
 
 export function RoleBadge({ role }: { role: Role }) {
-  return <Badge variant="muted">{LABELS[role] ?? role}</Badge>;
+  if (role === 'superadmin') {
+    return <Badge variant="default">{LABELS.superadmin}</Badge>;
+  }
+  return <Badge variant="muted">{LABELS[role]}</Badge>;
 }

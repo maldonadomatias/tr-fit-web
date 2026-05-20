@@ -148,6 +148,12 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
   const before = await getUser(req.params.id);
   if (!before) return res.status(404).json({ error: 'not_found' });
 
+  const touchingSuperadmin =
+    parsed.data.role === 'superadmin' || before.role === 'superadmin';
+  if (touchingSuperadmin && req.user!.role !== 'superadmin') {
+    return res.status(403).json({ error: 'superadmin_only' });
+  }
+
   await updateUser(req.params.id, parsed.data);
   const fresh = await getUser(req.params.id);
 
