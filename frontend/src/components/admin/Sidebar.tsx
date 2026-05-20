@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Avatar } from './Avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { cn } from '@/lib/utils';
@@ -183,15 +184,19 @@ export function Sidebar() {
             {user?.email ?? ''}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => logout()}
-          className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Salir"
-          title="Salir"
-        >
-          <LogOut size={14} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Salir"
+            >
+              <LogOut size={14} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Salir</TooltipContent>
+        </Tooltip>
       </div>
     </aside>
   );

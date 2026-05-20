@@ -23,6 +23,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Eyebrow } from '@/components/admin/Eyebrow';
 import { Avatar } from '@/components/admin/Avatar';
 import { RoleBadge } from '@/components/admin/RoleBadge';
@@ -226,14 +231,19 @@ function IdentityCard({
                 {user.id.slice(0, 8)}…
               </span>
             </span>
-            <button
-              type="button"
-              onClick={copyId}
-              title="Copiar id"
-              className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
-              <Copy size={12} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={copyId}
+                  aria-label="Copiar id"
+                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Copy size={12} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>Copiar id completo</TooltipContent>
+            </Tooltip>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">
               creado el{' '}

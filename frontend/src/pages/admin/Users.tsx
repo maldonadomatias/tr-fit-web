@@ -4,6 +4,11 @@ import { Download, MoreHorizontal, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Table,
   TableBody,
   TableCell,
@@ -331,14 +336,19 @@ function UserRow({
       </TableCell>
       <TableCell>
         <div className="invisible flex justify-end group-hover:visible">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={(e) => e.stopPropagation()}
-            aria-label="Más"
-          >
-            <MoreHorizontal />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Más acciones"
+              >
+                <MoreHorizontal />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Más acciones</TooltipContent>
+          </Tooltip>
         </div>
       </TableCell>
     </TableRow>

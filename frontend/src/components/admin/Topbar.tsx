@@ -1,5 +1,6 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Bell, Moon, Search, Sun } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTheme } from '@/hooks/useTheme';
 import { useAdminUser } from '@/hooks/useAdminUsers';
 import { cn } from '@/lib/utils';
@@ -83,27 +84,37 @@ export function Topbar() {
           </kbd>
         </div>
 
-        <button
-          type="button"
-          onClick={toggle}
-          className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-          title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
-        >
-          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
-        <button
-          type="button"
-          className="relative grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Notificaciones"
-          title="Notificaciones"
-        >
-          <Bell size={16} />
-          <span
-            aria-hidden
-            className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-brand"
-          />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggle}
+              className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="relative grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Notificaciones"
+            >
+              <Bell size={16} />
+              <span
+                aria-hidden
+                className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-brand"
+              />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Notificaciones</TooltipContent>
+        </Tooltip>
       </div>
     </header>
   );
