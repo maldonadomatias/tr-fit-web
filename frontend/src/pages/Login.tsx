@@ -21,12 +21,15 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email.trim().toLowerCase(), password);
-      if (user.role !== 'coach') {
+      if (user.role === 'admin') {
+        navigate('/admin/users');
+      } else if ((user.role as string) === 'coach') {
+        // TODO(Task 2): remove coach redirect once role is fully collapsed
+        navigate('/coach');
+      } else {
         clearAuth();
-        toast.error('Esta cuenta no tiene permisos de coach');
-        return;
+        toast.error('Esta cuenta no tiene acceso a la consola web');
       }
-      navigate('/coach');
     } catch (err) {
       const e = err as AxiosError<{ error?: string; reason?: string }>;
       const body = e.response?.data;
@@ -34,6 +37,10 @@ export default function Login() {
         toast.error('Email o contraseña incorrectos');
       } else if (body?.error === 'blocked' && body.reason === 'email_not_verified') {
         toast.error('Verificá tu email antes de iniciar sesión');
+      } else if (body?.error === 'blocked' && body.reason === 'not_approved') {
+        toast.error('Tu cuenta está pendiente de aprobación');
+      } else if (body?.error === 'blocked' && body.reason === 'rejected') {
+        toast.error('Tu cuenta fue rechazada');
       } else if (body?.error === 'rate_limited') {
         toast.error('Demasiados intentos. Esperá unos minutos.');
       } else {

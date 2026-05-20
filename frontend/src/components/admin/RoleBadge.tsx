@@ -1,10 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import type { Role } from '@/types/api';
 
+// TODO(Task 3): remove coach label once role is fully collapsed
 const LABELS: Record<Role, string> = {
   athlete: 'Atleta',
-  coach: 'Coach',
   admin: 'Admin',
+  superadmin: 'Superadmin',
 };
 
 export function RoleBadge({ role }: { role: Role }) {

@@ -42,7 +42,8 @@ describe('RequireCoach', () => {
 
   it('renders children for coach role', async () => {
     setTokens('a', 'b');
-    setUser({ id: 'x', email: 'e', role: 'coach' });
+    // TODO(Task 2): update to new role once coach is fully removed
+    setUser({ id: 'x', email: 'e', role: 'coach' as 'admin' });
     renderAt('/protected');
     expect(await screen.findByText('secret')).toBeInTheDocument();
   });

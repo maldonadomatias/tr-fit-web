@@ -12,6 +12,7 @@ export function RequireCoach({ children }: { children: ReactNode }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role !== 'coach') return <Navigate to="/login" replace />;
+  // TODO(Task 2): coach role is being collapsed — cast is temporary
+  if ((user.role as string) !== 'coach') return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

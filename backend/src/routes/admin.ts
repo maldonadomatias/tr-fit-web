@@ -52,7 +52,7 @@ router.get('/activity', async (req: Request, res: Response) => {
 
 const listQuery = z.object({
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
-  role: z.enum(['athlete', 'coach', 'admin']).optional(),
+  role: z.enum(['athlete', 'admin', 'superadmin']).optional(),
   search: z.string().trim().min(1).max(120).optional(),
 });
 
@@ -66,7 +66,7 @@ router.get('/users', async (req: Request, res: Response) => {
 const createBody = z.object({
   email: z.string().email().max(255),
   password: z.string().min(8).max(128),
-  role: z.enum(['athlete', 'coach', 'admin']).optional(),
+  role: z.enum(['athlete', 'admin', 'superadmin']).optional(),
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
   email_verified: z.boolean().optional(),
 });
@@ -124,7 +124,7 @@ router.get('/users/:id', async (req: Request, res: Response) => {
 
 const patchBody = z
   .object({
-    role: z.enum(['athlete', 'coach', 'admin']).optional(),
+    role: z.enum(['athlete', 'admin', 'superadmin']).optional(),
     status: z.enum(['pending', 'approved', 'rejected']).optional(),
     email_verified: z.boolean().optional(),
   })
@@ -135,8 +135,9 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
   if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
 
   if (req.params.id === req.user!.id) {
+    const me = req.user!;
     const wantsRoleChange =
-      parsed.data.role !== undefined && parsed.data.role !== 'admin';
+      parsed.data.role !== undefined && parsed.data.role !== me.role;
     const wantsStatusChange =
       parsed.data.status !== undefined && parsed.data.status !== 'approved';
     if (wantsRoleChange || wantsStatusChange) {

@@ -5,7 +5,7 @@ const USER_KEY = 'auth_user';
 export interface StoredUser {
   id: string;
   email: string;
-  role: 'athlete' | 'coach' | 'admin';
+  role: 'athlete' | 'admin' | 'superadmin';
 }
 
 export function getAccessToken(): string | null {

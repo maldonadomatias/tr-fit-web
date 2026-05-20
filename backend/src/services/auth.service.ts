@@ -103,7 +103,7 @@ export async function login(
   ctx: LoginContext = {},
 ): Promise<AuthLoginResult> {
   const r = await pool.query<{
-    id: string; password_hash: string; role: 'athlete'|'coach'|'admin';
+    id: string; password_hash: string; role: 'athlete'|'admin'|'superadmin';
     email: string; email_verified: boolean;
   }>(
     `SELECT id, password_hash, role, email, email_verified
@@ -209,7 +209,7 @@ export async function refresh(
     );
 
     // Get user role for new access token
-    const u = await client.query<{ role: 'athlete'|'coach'|'admin' }>(
+    const u = await client.query<{ role: 'athlete'|'admin'|'superadmin' }>(
       `SELECT role FROM users WHERE id = $1`, [row.user_id],
     );
     await client.query('COMMIT');
@@ -470,7 +470,7 @@ export async function resetPassword(
 
     // Role gate — mobile is athletes-only
     const u = await client.query<{
-      id: string; email: string; role: 'athlete' | 'coach' | 'admin';
+      id: string; email: string; role: 'athlete' | 'admin' | 'superadmin';
     }>(
       `SELECT id, email, role FROM users WHERE id = $1`, [userId],
     );

@@ -9,7 +9,7 @@ export class AdminError extends Error {
   }
 }
 
-export type Role = 'athlete' | 'coach' | 'admin';
+export type Role = 'athlete' | 'admin' | 'superadmin';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 export type SubTier = 'basico' | 'full' | 'premium';
 export type SubStatus = 'pending' | 'authorized' | 'paused' | 'cancelled';

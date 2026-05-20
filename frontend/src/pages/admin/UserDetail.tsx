@@ -497,13 +497,14 @@ function EstadoTab({
         </Field>
 
         <Field label="Rol">
+          {/* TODO(Task 3): remove coach option once role is fully collapsed */}
           <Segmented<Role>
             value={role}
             onChange={setRole}
             options={[
               { key: 'athlete', label: 'Atleta' },
-              { key: 'coach', label: 'Coach' },
               { key: 'admin', label: 'Admin' },
+              { key: 'superadmin', label: 'Superadmin' },
             ]}
           />
           {isSelf && role !== 'admin' && (

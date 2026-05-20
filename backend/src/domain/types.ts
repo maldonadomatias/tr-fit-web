@@ -16,7 +16,7 @@ export type MovementPattern =
   | 'isolation' | 'core' | 'cardio';
 export type SkeletonStatus =
   | 'pending_review' | 'approved' | 'rejected' | 'superseded';
-export type SlotRole = 'principal' | 'accesorio';
+export type SlotRole = 'calentamiento' | 'principal' | 'accesorio';
 
 export interface AthleteProfile {
   user_id: string;
@@ -84,6 +84,7 @@ export interface SkeletonSlot {
   slot_index: number;
   exercise_id: number;
   role: SlotRole;
+  notes: string | null;
   exercise_name?: string;
   muscle_group?: string;
   equipment?: string;
@@ -111,6 +112,7 @@ export interface SessionItem {
   series: number;
   reps: string;
   descanso: string;
+  notes: string | null;
   flag?: 'rm_test' | 'missing_rm';
 }
 
@@ -149,7 +151,7 @@ export interface PasswordReset {
 export interface AuthLoginResult {
   accessToken: string;
   refreshToken: string;
-  user: { id: string; email: string; role: 'athlete' | 'coach' | 'admin' };
+  user: { id: string; email: string; role: 'athlete' | 'admin' | 'superadmin' };
 }
 
 export interface SessionLog {

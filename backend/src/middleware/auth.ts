@@ -4,7 +4,7 @@ import { env } from '../config/env.js';
 
 export interface AuthUser {
   id: string;
-  role: 'athlete' | 'coach' | 'admin';
+  role: 'athlete' | 'admin' | 'superadmin';
 }
 
 declare global {
