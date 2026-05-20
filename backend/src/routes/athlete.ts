@@ -10,6 +10,7 @@ import { getUserTier } from '../services/tier.service.js';
 import { regenerateSkeleton } from '../services/skeleton-regen.service.js';
 import { buildDashboard } from '../services/dashboard.service.js';
 import { buildPlan } from '../services/plan.service.js';
+import { buildAthleteStats } from '../services/athlete-stats.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -17,6 +18,11 @@ router.use(requireAuth, requireRole('athlete'));
 router.get('/me/tier', async (req, res) => {
   const tier = await getUserTier(req.user!.id);
   res.json({ plan_interest: tier });
+});
+
+router.get('/me/stats', async (req, res) => {
+  const stats = await buildAthleteStats(req.user!.id);
+  res.json(stats);
 });
 
 router.post('/skeleton/regenerate', async (req, res) => {
