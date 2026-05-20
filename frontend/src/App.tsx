@@ -17,6 +17,7 @@ import SkeletonReview from '@/pages/coach/SkeletonReview';
 import Alerts from '@/pages/coach/Alerts';
 import AdminUsers from '@/pages/admin/Users';
 import AdminUserDetail from '@/pages/admin/UserDetail';
+import AdminDashboard from '@/pages/admin/Dashboard';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -54,10 +55,7 @@ export default function App() {
                 </RequireAdmin>
               }
             >
-              <Route
-                path="/admin"
-                element={<Navigate to="/admin/users" replace />}
-              />
+              <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/users/:id" element={<AdminUserDetail />} />
             </Route>

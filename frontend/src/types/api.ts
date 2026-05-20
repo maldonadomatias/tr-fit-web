@@ -125,6 +125,21 @@ export interface AdminUser {
   current_period_end: string | null;
 }
 
+export interface AdminStats {
+  signups_30d: number;
+  signups_delta_pct: number;
+  signups_trend: number[];
+  pending_count: number;
+  active_subs: number;
+  active_subs_delta: number;
+  mrr_estimated: number;
+  mrr_delta_pct: number;
+  mrr_trend: number[];
+  churn_pct: number;
+  churn_delta_pp: number;
+  verified_pct: number;
+}
+
 export interface CoachAlert {
   id: string;
   type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting';
