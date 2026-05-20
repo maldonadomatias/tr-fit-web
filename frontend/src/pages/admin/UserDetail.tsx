@@ -41,6 +41,8 @@ import {
   useUpdateAdminUser,
   useUpsertSubscription,
 } from '@/hooks/useAdminUsers';
+import { useActivityLog } from '@/hooks/useActivityLog';
+import { activityLabel, activitySub } from '@/lib/activity';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtARS, fmtShortDate, fmtTimeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -71,6 +73,7 @@ export default function UserDetail() {
   const navigate = useNavigate();
   const { user: me } = useAuth();
   const { data: user, isLoading, error } = useAdminUser(id);
+  const activityQ = useActivityLog(id ? { target_id: id, limit: 50 } : {});
   const [tab, setTab] = useState<TabKey>('resumen');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const isSelf = me?.id === id;
@@ -121,7 +124,11 @@ export default function UserDetail() {
           { key: 'resumen', label: 'Resumen' },
           { key: 'estado', label: 'Estado de la cuenta' },
           { key: 'suscripcion', label: 'Suscripción' },
-          { key: 'actividad', label: 'Actividad' },
+          {
+            key: 'actividad',
+            label: 'Actividad',
+            count: activityQ.data?.length ?? undefined,
+          },
           { key: 'peligro', label: 'Zona peligrosa' },
         ]}
         value={tab}
@@ -747,39 +754,33 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
 }
 
 function ActividadTab({ user }: { user: AdminUser }) {
-  // Placeholder until /admin/activity backend lands.
-  const items: TimelineEntry[] = [
-    {
-      id: 'created',
-      title: 'Usuario creado',
-      sub: (
-        <>
-          actor{' '}
-          <span className="font-mono">auto-signup</span> ·{' '}
-          <span className="font-mono">{user.email}</span>
-        </>
-      ),
-      time: <>hace {fmtTimeAgo(user.created_at)}</>,
-      severity: null,
-    },
-    ...(user.email_verified
+  const q = useActivityLog({ target_id: user.id, limit: 50 });
+  const events = q.data ?? [];
+  const items: TimelineEntry[] =
+    events.length === 0
       ? [
           {
-            id: 'verified',
-            title: 'Email verificado',
-            sub: (
-              <>
-                actor <span className="font-mono">system</span>
-              </>
-            ),
-            time: user.email_verified_at ? (
-              <>hace {fmtTimeAgo(user.email_verified_at)}</>
-            ) : undefined,
-            severity: 'brand' as const,
+            id: 'empty',
+            title: 'Sin eventos registrados',
+            sub: 'Las acciones sobre este usuario van a aparecer acá.',
+            severity: null,
           },
         ]
-      : []),
-  ];
+      : events.map((ev) => {
+          const sub = activitySub(ev);
+          return {
+            id: ev.id,
+            title: activityLabel(ev.type),
+            sub: (
+              <>
+                actor <span className="font-mono">{ev.actor}</span>
+                {sub && <> · {sub}</>}
+              </>
+            ),
+            time: <>hace {fmtTimeAgo(ev.created_at)}</>,
+            severity: ev.severity,
+          };
+        });
   return (
     <div className="rounded-2xl border bg-card">
       <div className="border-b border-border p-[18px]">

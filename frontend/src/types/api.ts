@@ -125,6 +125,33 @@ export interface AdminUser {
   current_period_end: string | null;
 }
 
+export type AuditType =
+  | 'user_created'
+  | 'user_approved'
+  | 'user_rejected'
+  | 'user_deleted'
+  | 'role_changed'
+  | 'email_verified'
+  | 'email_unverified'
+  | 'subscription_created'
+  | 'subscription_updated'
+  | 'subscription_cancelled'
+  | 'subscription_authorized'
+  | 'subscription_paused';
+
+export type ActivitySeverity = 'brand' | 'warning' | 'destructive' | null;
+
+export interface ActivityEvent {
+  id: string;
+  type: AuditType;
+  actor: string;
+  target: string | null;
+  target_id: string | null;
+  meta: Record<string, unknown> | null;
+  severity: ActivitySeverity;
+  created_at: string;
+}
+
 export interface AdminStats {
   signups_30d: number;
   signups_delta_pct: number;

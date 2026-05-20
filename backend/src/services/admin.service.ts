@@ -243,6 +243,113 @@ export async function cancelSubscription(userId: string): Promise<void> {
   );
 }
 
+export type AuditType =
+  | 'user_created'
+  | 'user_approved'
+  | 'user_rejected'
+  | 'user_deleted'
+  | 'role_changed'
+  | 'email_verified'
+  | 'email_unverified'
+  | 'subscription_created'
+  | 'subscription_updated'
+  | 'subscription_cancelled'
+  | 'subscription_authorized'
+  | 'subscription_paused';
+
+export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
+
+export interface AuditEventRow {
+  id: string;
+  type: AuditType;
+  actor: string;
+  target: string | null;
+  target_id: string | null;
+  meta: Record<string, unknown> | null;
+  severity: AuditSeverity;
+  created_at: string;
+}
+
+export interface LogAuditInput {
+  type: AuditType;
+  actor: string;
+  target?: string | null;
+  target_id?: string | null;
+  meta?: Record<string, unknown> | null;
+  severity?: AuditSeverity;
+}
+
+export async function logAudit(input: LogAuditInput): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO admin_audit_log (type, actor, target, target_id, meta, severity)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        input.type,
+        input.actor,
+        input.target ?? null,
+        input.target_id ?? null,
+        input.meta ? JSON.stringify(input.meta) : null,
+        input.severity ?? null,
+      ],
+    );
+  } catch (e) {
+    // Audit must not break the user-facing operation.
+    // eslint-disable-next-line no-console
+    console.warn('audit_log_failed', e);
+  }
+}
+
+export type ActivityCategory = 'user' | 'sub' | 'auth';
+
+const CATEGORY_TYPES: Record<ActivityCategory, AuditType[]> = {
+  user: ['user_created', 'user_approved', 'user_rejected', 'user_deleted'],
+  sub: [
+    'subscription_created',
+    'subscription_updated',
+    'subscription_cancelled',
+    'subscription_authorized',
+    'subscription_paused',
+  ],
+  auth: ['email_verified', 'email_unverified', 'role_changed'],
+};
+
+export interface ActivityFilters {
+  category?: ActivityCategory;
+  target_id?: string;
+  before?: string;
+  limit?: number;
+}
+
+export async function listActivity(
+  filters: ActivityFilters,
+): Promise<AuditEventRow[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (filters.category) {
+    params.push(CATEGORY_TYPES[filters.category]);
+    where.push(`type = ANY($${params.length})`);
+  }
+  if (filters.target_id) {
+    params.push(filters.target_id);
+    where.push(`target_id = $${params.length}`);
+  }
+  if (filters.before) {
+    params.push(filters.before);
+    where.push(`created_at < $${params.length}`);
+  }
+  const limit = Math.min(Math.max(filters.limit ?? 100, 1), 500);
+  const sql = `
+    SELECT id, type, actor, target, target_id::text, meta, severity, created_at
+      FROM admin_audit_log
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+  `;
+  const r = await pool.query<AuditEventRow>(sql, params);
+  return r.rows;
+}
+
 // ARS/mes per tier. Update here if pricing changes.
 export const TIER_PRICE_ARS: Record<SubTier, number> = {
   basico: 15000,

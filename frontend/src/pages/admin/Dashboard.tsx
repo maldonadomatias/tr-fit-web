@@ -29,6 +29,8 @@ import {
   useAdminUsers,
   useUpdateAdminUser,
 } from '@/hooks/useAdminUsers';
+import { useActivityLog } from '@/hooks/useActivityLog';
+import { activityLabel, activitySub } from '@/lib/activity';
 import { fmtARS, fmtDelta, fmtTimeAgo } from '@/lib/format';
 import type { AdminUser, SubscriptionTier } from '@/types/api';
 import { cn } from '@/lib/utils';
@@ -481,15 +483,39 @@ function PendingRow({
 }
 
 function ActivityPanel({ onAll }: { onAll: () => void }) {
-  // Placeholder activity until /admin/activity backend lands (Phase 8).
-  const items: TimelineEntry[] = [
-    {
-      id: 'placeholder',
-      title: 'Sin eventos por ahora',
-      sub: 'La bitácora del sistema va a aparecer acá cuando esté lista.',
-      severity: null,
-    },
-  ];
+  const q = useActivityLog({ limit: 6 });
+  const events = q.data ?? [];
+  const items: TimelineEntry[] =
+    events.length === 0
+      ? [
+          {
+            id: 'empty',
+            title: 'Sin eventos recientes',
+            sub: 'A medida que apruebes, cambies suscripciones o roles, vas a verlo acá.',
+            severity: null,
+          },
+        ]
+      : events.map((ev) => {
+          const sub = activitySub(ev);
+          return {
+            id: ev.id,
+            title: activityLabel(ev.type),
+            sub: (
+              <>
+                <span className="font-mono">{ev.actor}</span>
+                {ev.target && (
+                  <>
+                    {' · '}
+                    <span className="font-mono">{ev.target}</span>
+                  </>
+                )}
+                {sub && <> · {sub}</>}
+              </>
+            ),
+            time: <>hace {fmtTimeAgo(ev.created_at)}</>,
+            severity: ev.severity,
+          };
+        });
   return (
     <div className="rounded-2xl border bg-card">
       <div className="flex items-center justify-between p-[18px] pb-[14px]">

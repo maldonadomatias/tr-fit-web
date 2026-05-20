@@ -20,6 +20,7 @@ import AdminUserDetail from '@/pages/admin/UserDetail';
 import AdminDashboard from '@/pages/admin/Dashboard';
 import AdminPending from '@/pages/admin/Pending';
 import AdminSubscriptions from '@/pages/admin/Subscriptions';
+import AdminActivity from '@/pages/admin/Activity';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -65,6 +66,7 @@ export default function App() {
                 path="/admin/subscriptions"
                 element={<AdminSubscriptions />}
               />
+              <Route path="/admin/activity" element={<AdminActivity />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
