@@ -21,11 +21,8 @@ export default function Login() {
     setLoading(true);
     try {
       const user = await login(email.trim().toLowerCase(), password);
-      if (user.role === 'admin') {
-        navigate('/admin/users');
-      } else if ((user.role as string) === 'coach') {
-        // TODO(Task 2): remove coach redirect once role is fully collapsed
-        navigate('/coach');
+      if (user.role === 'admin' || user.role === 'superadmin') {
+        navigate('/admin');
       } else {
         clearAuth();
         toast.error('Esta cuenta no tiene acceso a la consola web');

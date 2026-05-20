@@ -7,7 +7,7 @@ export function useSkeleton(id: string | undefined) {
     queryKey: ['coach', 'skeleton', id],
     enabled: !!id,
     queryFn: async (): Promise<SkeletonDetail> => {
-      const r = await api.get<SkeletonDetail>(`/coach/skeletons/${id}`);
+      const r = await api.get<SkeletonDetail>(`/admin/operations/skeletons/${id}`);
       return r.data;
     },
   });
@@ -17,7 +17,7 @@ export function useApproveSkeleton() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await api.post(`/coach/skeletons/${id}/approve`);
+      await api.post(`/admin/operations/skeletons/${id}/approve`);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['coach', 'skeletons'] });
@@ -31,7 +31,7 @@ export function useRejectSkeleton() {
   return useMutation({
     mutationFn: async ({ id, feedback }: { id: string; feedback: string }) => {
       const r = await api.post<{ newSkeletonId: string }>(
-        `/coach/skeletons/${id}/reject`,
+        `/admin/operations/skeletons/${id}/reject`,
         { feedback },
       );
       return r.data;

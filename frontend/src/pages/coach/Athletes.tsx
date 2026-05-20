@@ -51,7 +51,7 @@ export default function Athletes() {
         {athletes.map((a) => (
           <TableRow
             key={a.id}
-            onClick={() => navigate(`/coach/athletes/${a.id}`)}
+            onClick={() => navigate(`/admin/operations/athletes/${a.id}`)}
             className="cursor-pointer"
           >
             <TableCell className="font-medium">{a.name}</TableCell>

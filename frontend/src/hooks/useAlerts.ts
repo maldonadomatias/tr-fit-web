@@ -7,7 +7,7 @@ export function useAlerts({ unreadOnly = false } = {}) {
     queryKey: ['coach', 'alerts', { unreadOnly }],
     queryFn: async (): Promise<CoachAlert[]> => {
       const r = await api.get<CoachAlert[]>(
-        `/coach/alerts${unreadOnly ? '?unread=true' : ''}`,
+        `/admin/operations/alerts${unreadOnly ? '?unread=true' : ''}`,
       );
       return r.data;
     },
@@ -19,7 +19,7 @@ export function useMarkAlertRead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await api.patch(`/coach/alerts/${id}/read`);
+      await api.patch(`/admin/operations/alerts/${id}/read`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['coach', 'alerts'] }),
   });
@@ -29,7 +29,7 @@ export function useResolveAlert() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await api.patch(`/coach/alerts/${id}/resolve`);
+      await api.patch(`/admin/operations/alerts/${id}/resolve`);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['coach', 'alerts'] }),
   });

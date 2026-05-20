@@ -28,7 +28,7 @@ export default function AthleteDetail() {
         <CardContent className="space-y-4 p-8 text-center">
           <p className="text-sm text-destructive">Atleta no encontrado.</p>
           <Button asChild variant="outline">
-            <Link to="/coach/athletes">Volver</Link>
+            <Link to="/admin/operations/athletes">Volver</Link>
           </Button>
         </CardContent>
       </Card>
@@ -164,7 +164,7 @@ export default function AthleteDetail() {
       </Card>
 
       <Button asChild variant="outline">
-        <Link to="/coach/athletes">Volver a la lista</Link>
+        <Link to="/admin/operations/athletes">Volver a la lista</Link>
       </Button>
     </div>
   );

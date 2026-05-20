@@ -192,7 +192,7 @@ function FilterBar({
           ]}
         />
         <div className="h-[22px] w-px bg-border" />
-        {/* TODO(Task 3): remove coach option once role is fully collapsed */}
+        {/* TODO(Task 4): remove coach option once role is fully collapsed */}
         <Segmented<RoleKey>
           value={role}
           onChange={onRole}

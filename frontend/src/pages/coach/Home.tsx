@@ -34,7 +34,7 @@ export default function Home() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Link to="/coach/alerts" className="text-3xl font-bold text-destructive">
+            <Link to="/admin/operations/alerts" className="text-3xl font-bold text-destructive">
               {redAlerts.length}
             </Link>
           </CardContent>
@@ -46,7 +46,7 @@ export default function Home() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Link to="/coach/skeletons" className="text-3xl font-bold">
+            <Link to="/admin/operations/skeletons" className="text-3xl font-bold">
               {pending.length}
             </Link>
           </CardContent>
@@ -72,7 +72,7 @@ export default function Home() {
             {todayAthletes.map((a) => (
               <Link
                 key={a.id}
-                to={`/coach/athletes/${a.id}`}
+                to={`/admin/operations/athletes/${a.id}`}
                 className="flex items-center justify-between rounded-md border p-3 hover:bg-muted"
               >
                 <div>

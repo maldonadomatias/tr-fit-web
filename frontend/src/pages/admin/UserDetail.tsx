@@ -497,7 +497,7 @@ function EstadoTab({
         </Field>
 
         <Field label="Rol">
-          {/* TODO(Task 3): remove coach option once role is fully collapsed */}
+          {/* TODO(Task 4): remove coach option once role is fully collapsed */}
           <Segmented<Role>
             value={role}
             onChange={setRole}

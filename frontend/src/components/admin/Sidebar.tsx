@@ -1,10 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   Activity,
+  AlertCircle,
   Clock,
   CreditCard,
   Dumbbell,
-  Home,
+  FileText,
+  Home as HomeIcon,
   LogOut,
   Settings,
   Users as UsersIcon,
@@ -36,7 +38,7 @@ export function Sidebar() {
     {
       label: 'Panel',
       items: [
-        { key: 'dashboard', label: 'Resumen', icon: Home, to: '/admin' },
+        { key: 'dashboard', label: 'Resumen', icon: HomeIcon, to: '/admin' },
         {
           key: 'pending',
           label: 'Pendientes',
@@ -50,6 +52,27 @@ export function Sidebar() {
           icon: Activity,
           to: '/admin/activity',
         },
+      ],
+    },
+    {
+      label: 'Operaciones',
+      items: [
+        { key: 'ops-home', label: 'Home', icon: HomeIcon, to: '/admin/operations' },
+        {
+          key: 'ops-athletes',
+          label: 'Atletas',
+          icon: UsersIcon,
+          to: '/admin/operations/athletes',
+          matchPrefixes: ['/admin/operations/athletes'],
+        },
+        {
+          key: 'ops-skeletons',
+          label: 'Skeletons',
+          icon: FileText,
+          to: '/admin/operations/skeletons',
+          matchPrefixes: ['/admin/operations/skeletons'],
+        },
+        { key: 'ops-alerts', label: 'Alertas', icon: AlertCircle, to: '/admin/operations/alerts' },
       ],
     },
     {

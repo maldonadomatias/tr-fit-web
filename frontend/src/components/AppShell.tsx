@@ -13,10 +13,10 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { to: '/coach', label: 'Home', icon: Home },
-  { to: '/coach/athletes', label: 'Atletas', icon: Users },
-  { to: '/coach/skeletons', label: 'Skeletons', icon: FileCheck },
-  { to: '/coach/alerts', label: 'Alertas', icon: Bell },
+  { to: '/admin/operations', label: 'Home', icon: Home },
+  { to: '/admin/operations/athletes', label: 'Atletas', icon: Users },
+  { to: '/admin/operations/skeletons', label: 'Skeletons', icon: FileCheck },
+  { to: '/admin/operations/alerts', label: 'Alertas', icon: Bell },
 ];
 
 export function AppShell() {
@@ -29,14 +29,14 @@ export function AppShell() {
     <div className="flex min-h-screen bg-background">
       <aside className="w-56 border-r bg-card">
         <div className="px-5 py-6">
-          <h1 className="text-lg font-bold">TR-FIT Coach</h1>
+          <h1 className="text-lg font-bold">TR-FIT Operaciones</h1>
         </div>
         <nav className="space-y-1 px-3">
           {NAV.map((item) => {
             const Icon = item.icon;
             const active =
-              item.to === '/coach'
-                ? location.pathname === '/coach'
+              item.to === '/admin/operations'
+                ? location.pathname === '/admin/operations'
                 : location.pathname.startsWith(item.to);
             return (
               <Link
@@ -53,7 +53,7 @@ export function AppShell() {
                   <Icon size={16} />
                   {item.label}
                 </span>
-                {item.to === '/coach/alerts' && unreadCount > 0 && (
+                {item.to === '/admin/operations/alerts' && unreadCount > 0 && (
                   <Badge variant="destructive">{unreadCount}</Badge>
                 )}
               </Link>

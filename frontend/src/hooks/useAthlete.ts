@@ -7,7 +7,7 @@ export function useAthlete(id: string | undefined) {
     queryKey: ['coach', 'athlete', id],
     enabled: !!id,
     queryFn: async () => {
-      const r = await api.get<AthleteDetailResponse>(`/coach/athletes/${id}`);
+      const r = await api.get<AthleteDetailResponse>(`/admin/operations/athletes/${id}`);
       return r.data;
     },
   });

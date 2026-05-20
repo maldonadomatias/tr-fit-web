@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { RequireCoach } from '@/components/RequireCoach';
 import { RequireAdmin } from '@/components/RequireAdmin';
 import { AppShell } from '@/components/AppShell';
 import { AdminShell } from '@/components/AdminShell';
@@ -35,21 +34,21 @@ export default function App() {
         <AuthProvider>
           <TooltipProvider delayDuration={150}>
           <Routes>
-            <Route path="/" element={<Navigate to="/coach" replace />} />
+            <Route path="/" element={<Navigate to="/admin" replace />} />
             <Route path="/login" element={<Login />} />
             <Route
               element={
-                <RequireCoach>
+                <RequireAdmin>
                   <AppShell />
-                </RequireCoach>
+                </RequireAdmin>
               }
             >
-              <Route path="/coach" element={<Home />} />
-              <Route path="/coach/athletes" element={<Athletes />} />
-              <Route path="/coach/athletes/:id" element={<AthleteDetail />} />
-              <Route path="/coach/skeletons" element={<Skeletons />} />
-              <Route path="/coach/skeletons/:id" element={<SkeletonReview />} />
-              <Route path="/coach/alerts" element={<Alerts />} />
+              <Route path="/admin/operations" element={<Home />} />
+              <Route path="/admin/operations/athletes" element={<Athletes />} />
+              <Route path="/admin/operations/athletes/:id" element={<AthleteDetail />} />
+              <Route path="/admin/operations/skeletons" element={<Skeletons />} />
+              <Route path="/admin/operations/skeletons/:id" element={<SkeletonReview />} />
+              <Route path="/admin/operations/alerts" element={<Alerts />} />
             </Route>
             <Route
               element={

@@ -6,7 +6,7 @@ export function useAthletes() {
   return useQuery({
     queryKey: ['coach', 'athletes'],
     queryFn: async (): Promise<CoachAthlete[]> => {
-      const r = await api.get<CoachAthlete[]>('/coach/athletes');
+      const r = await api.get<CoachAthlete[]>('/admin/operations/athletes');
       return r.data;
     },
     refetchInterval: 60_000,

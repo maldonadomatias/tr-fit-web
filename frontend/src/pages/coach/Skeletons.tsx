@@ -21,7 +21,7 @@ export default function Skeletons() {
   return (
     <div className="space-y-3">
       {data.map((s) => (
-        <Link key={s.id} to={`/coach/skeletons/${s.id}`}>
+        <Link key={s.id} to={`/admin/operations/skeletons/${s.id}`}>
           <Card className="cursor-pointer transition hover:bg-muted/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-base">{s.athlete_name}</CardTitle>

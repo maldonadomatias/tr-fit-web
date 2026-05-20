@@ -38,7 +38,7 @@ export default function SkeletonReview() {
     try {
       await approve.mutateAsync(id);
       toast.success('Skeleton aprobado');
-      navigate('/coach/skeletons');
+      navigate('/admin/operations/skeletons');
     } catch (e) {
       const err = e as AxiosError<{ error?: string }>;
       if (err.response?.status === 409) {
@@ -59,7 +59,7 @@ export default function SkeletonReview() {
     try {
       await reject.mutateAsync({ id, feedback: feedback.trim() });
       toast.success('Skeleton rechazado, generando uno nuevo');
-      navigate('/coach/skeletons');
+      navigate('/admin/operations/skeletons');
     } catch {
       toast.error('No se pudo rechazar');
     }
