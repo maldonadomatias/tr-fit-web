@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireRole } from '../middleware/role.js';
+import { requireAdmin } from '../middleware/role.js';
 import {
   listUsers,
   getUser,
@@ -18,7 +18,7 @@ import {
 } from '../services/admin.service.js';
 
 const router = Router();
-router.use(requireAuth, requireRole('admin'));
+router.use(requireAuth, requireAdmin);
 
 async function actorEmail(req: Request): Promise<string> {
   if (!req.user) return 'system';

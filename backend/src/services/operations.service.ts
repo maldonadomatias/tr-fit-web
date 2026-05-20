@@ -1,7 +1,7 @@
 import pool from '../db/connect.js';
 import type { Level, Goal } from '../domain/types.js';
 
-export interface CoachAthleteRow {
+export interface AdminAthleteRow {
   id: string;
   name: string;
   email: string;
@@ -20,10 +20,10 @@ export interface CoachAthleteRow {
   unread_alerts_count: number;
 }
 
-export async function listAthletesForCoach(
-  coachId: string,
-): Promise<CoachAthleteRow[]> {
-  const r = await pool.query<CoachAthleteRow>(
+export async function listAthletesForAdmin(
+  adminId: string,
+): Promise<AdminAthleteRow[]> {
+  const r = await pool.query<AdminAthleteRow>(
     `SELECT
         ap.user_id AS id,
         ap.name,
@@ -51,19 +51,19 @@ export async function listAthletesForCoach(
        LEFT JOIN athlete_program_state ps ON ps.athlete_id = ap.user_id
       WHERE ap.coach_id = $1
       ORDER BY last_session_at DESC NULLS LAST`,
-    [coachId],
+    [adminId],
   );
   return r.rows;
 }
 
-export class CoachError extends Error {
+export class OperationsError extends Error {
   constructor(public reason: 'not_found') {
     super(reason);
   }
 }
 
-export async function getAthleteDetailForCoach(
-  coachId: string,
+export async function getAthleteDetailForAdmin(
+  adminId: string,
   athleteId: string,
 ): Promise<{
   profile: unknown;
@@ -75,9 +75,9 @@ export async function getAthleteDetailForCoach(
 }> {
   const profR = await pool.query(
     `SELECT * FROM athlete_profiles WHERE user_id = $1 AND coach_id = $2`,
-    [athleteId, coachId],
+    [athleteId, adminId],
   );
-  if (!profR.rows[0]) throw new CoachError('not_found');
+  if (!profR.rows[0]) throw new OperationsError('not_found');
   const profile = profR.rows[0];
 
   const stateR = await pool.query(

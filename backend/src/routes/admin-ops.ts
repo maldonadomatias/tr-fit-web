@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { requireRole } from '../middleware/role.js';
+import { requireAdmin } from '../middleware/role.js';
 import { skeletonRejectPayload } from '../domain/schemas.js';
 import {
   approveSkeleton, rejectSkeleton, listPendingForCoach,
@@ -10,17 +10,17 @@ import { listExercisesForAthlete } from '../services/exercise.service.js';
 import { generateSkeleton } from '../services/openai.service.js';
 import { listAlertsForCoach, markRead, markResolved, AlertError } from '../services/alert.service.js';
 import {
-  listAthletesForCoach,
-  getAthleteDetailForCoach,
-  CoachError,
-} from '../services/coach.service.js';
+  listAthletesForAdmin,
+  getAthleteDetailForAdmin,
+  OperationsError,
+  type AdminAthleteRow,
+} from '../services/operations.service.js';
 import pool from '../db/connect.js';
 import logger from '../utils/logger.js';
 import { notifyUser } from '../services/notification.service.js';
 
 const router = Router();
-// TODO(Task 2): coach role is being collapsed — this cast is temporary
-router.use(requireAuth, requireRole('coach' as 'admin'));
+router.use(requireAuth, requireAdmin);
 
 router.get('/skeletons/pending', async (req, res) => {
   const list = await listPendingForCoach(req.user!.id);
@@ -134,16 +134,16 @@ router.patch('/alerts/:id/resolve', async (req: Request, res: Response) => {
 });
 
 router.get('/athletes', async (req: Request, res: Response) => {
-  const list = await listAthletesForCoach(req.user!.id);
+  const list = await listAthletesForAdmin(req.user!.id);
   return res.status(200).json(list);
 });
 
 router.get('/athletes/:id', async (req: Request, res: Response) => {
   try {
-    const out = await getAthleteDetailForCoach(req.user!.id, req.params.id);
+    const out = await getAthleteDetailForAdmin(req.user!.id, req.params.id);
     return res.status(200).json(out);
   } catch (e) {
-    if (e instanceof CoachError) return res.status(404).json({ error: 'not_found' });
+    if (e instanceof OperationsError) return res.status(404).json({ error: 'not_found' });
     throw e;
   }
 });

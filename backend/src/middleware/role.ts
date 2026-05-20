@@ -18,3 +18,6 @@ export function requireRole(...roles: AuthUser['role'][]) {
     next();
   };
 }
+
+export const requireAdmin = requireRole('admin', 'superadmin');
+export const requireSuperadmin = requireRole('superadmin');
