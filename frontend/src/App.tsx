@@ -18,6 +18,7 @@ import Alerts from '@/pages/coach/Alerts';
 import AdminUsers from '@/pages/admin/Users';
 import AdminUserDetail from '@/pages/admin/UserDetail';
 import AdminDashboard from '@/pages/admin/Dashboard';
+import AdminPending from '@/pages/admin/Pending';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -56,6 +57,7 @@ export default function App() {
               }
             >
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/pending" element={<AdminPending />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/users/:id" element={<AdminUserDetail />} />
             </Route>
