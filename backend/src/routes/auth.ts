@@ -58,9 +58,7 @@ router.post('/login', skipInTests(loginLimiter), async (req: Request, res: Respo
       if (e.reason === 'invalid_credentials') {
         return res.status(401).json({ error: 'invalid_credentials' });
       }
-      if (e.reason === 'email_not_verified') {
-        return res.status(403).json({ error: 'blocked', reason: 'email_not_verified' });
-      }
+      return res.status(403).json({ error: 'blocked', reason: e.reason });
     }
     throw e;
   }

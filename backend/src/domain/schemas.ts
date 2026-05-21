@@ -63,7 +63,8 @@ export const aiSkeletonOutput = z.object({
         z.object({
           slot_index: z.number().int().min(1).max(12),
           exercise_id: z.number().int().positive(),
-          role: z.enum(['principal', 'accesorio']),
+          role: z.enum(['calentamiento', 'principal', 'accesorio']),
+          notes: z.string().nullable(),
         }),
       ).min(1).max(12),
     }),

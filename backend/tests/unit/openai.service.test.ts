@@ -60,18 +60,18 @@ const validOutput = {
   rationale: 'split adecuado',
   days: [
     { day_index: 1, focus: 'Pecho', slots: [
-      { slot_index: 1, exercise_id: 1, role: 'principal' },
-      { slot_index: 2, exercise_id: 2, role: 'accesorio' },
+      { slot_index: 1, exercise_id: 1, role: 'principal', notes: null },
+      { slot_index: 2, exercise_id: 2, role: 'accesorio', notes: null },
     ] },
     { day_index: 2, focus: 'Brazos', slots: [
-      { slot_index: 1, exercise_id: 1, role: 'principal' },
-      { slot_index: 2, exercise_id: 2, role: 'accesorio' },
+      { slot_index: 1, exercise_id: 1, role: 'principal', notes: null },
+      { slot_index: 2, exercise_id: 2, role: 'accesorio', notes: null },
     ] },
     { day_index: 3, focus: 'Pecho', slots: [
-      { slot_index: 1, exercise_id: 1, role: 'principal' },
+      { slot_index: 1, exercise_id: 1, role: 'principal', notes: null },
     ] },
     { day_index: 4, focus: 'Brazos', slots: [
-      { slot_index: 1, exercise_id: 1, role: 'principal' },
+      { slot_index: 1, exercise_id: 1, role: 'principal', notes: null },
     ] },
   ],
 };
@@ -120,7 +120,7 @@ it('rejects when output uses unknown exercise_id', async () => {
       rationale: 'r',
       days: Array.from({ length: 4 }, (_, i) => ({
         day_index: i + 1, focus: 'x',
-        slots: [{ slot_index: 1, exercise_id: 999, role: 'principal' }],
+        slots: [{ slot_index: 1, exercise_id: 999, role: 'principal', notes: null }],
       })),
     }, refusal: null } }],
   });
@@ -133,7 +133,7 @@ it('rejects when day count !== days_per_week', async () => {
       rationale: 'r',
       days: [
         { day_index: 1, focus: 'x',
-          slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' }] },
+          slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null }] },
       ],
     }, refusal: null } }],
   });
@@ -145,7 +145,7 @@ it('includes commitment + training_mode + exercise_minutes in user prompt', asyn
     choices: [{ message: { parsed: {
       rationale: 'r',
       days: [{ day_index: 1, focus: 'f',
-        slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' }] }],
+        slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null }] }],
     }, refusal: null } }],
   });
 

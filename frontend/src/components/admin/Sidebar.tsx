@@ -123,8 +123,8 @@ export function Sidebar() {
           <Dumbbell size={16} strokeWidth={2.5} />
         </span>
         <div className="min-w-0">
-          <div className="text-[13px] font-extrabold tracking-[0.28em]">
-            FORMA
+          <div className="text-[13px] font-extrabold tracking-[0.18em]">
+            TR-Fit
           </div>
           <div className="text-[10px] text-muted-foreground">
             Admin · ARG

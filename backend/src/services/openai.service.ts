@@ -18,16 +18,18 @@ const MAX_ATTEMPTS = 3;
 const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON.
 Reglas estrictas:
 - El campo "days" debe tener exactamente la cantidad indicada en "days_per_week".
-- Cada día tiene al menos 1 slot con role="principal" (compuesto pesado).
-- Cada día tiene entre 5 y 8 slots en total. slot_index empieza en 1.
-- El campo "role" SIEMPRE en español: usar exactamente "principal" o "accesorio". Nunca "accessory" ni "main".
+- Cada día arranca con 1 o 2 slots role="calentamiento" (slot_index 1, 2) antes del trabajo principal. Elegí del muscle_group "Calentamiento" del catálogo.
+- Cada día tiene al menos 1 slot con role="principal" (compuesto pesado) después de los calentamientos.
+- Cada día tiene entre 5 y 8 slots en total contando calentamiento. slot_index empieza en 1 y es consecutivo.
+- El campo "role" SIEMPRE en español: usar exactamente "calentamiento", "principal" o "accesorio". Nunca "warmup", "accessory" ni "main".
 - Sólo podés usar exercise_id que aparezcan en el catálogo provisto.
 - No usar ejercicios contraindicados para las lesiones del atleta.
 - Distribuir grupos musculares para evitar repetir el mismo en días consecutivos.
 - Adaptar volumen según commitment (suave=menos series, exigente=más).
 - Adaptar cantidad ejercicios según exercise_minutes (30-45 min → 4 ej, 60 min → 5-6 ej, 75-90 min → 6-7 ej).
 - Si training_mode='casa', priorizá ejercicios con equipment compatible (bw, mancuerna, elastico).
-- Devolver SIEMPRE el JSON con TODOS los campos del schema, incluido "rationale" (string no vacío).`;
+- Campo "notes": indicación libre del coach por ejercicio (ej. "Disminuir peso cada 10 reps! son seguidas", "Aumentar peso al finalizar cada serie", "Hacer series de aproximación"). Usar null si no hay indicación.
+- Devolver SIEMPRE el JSON con TODOS los campos del schema, incluido "rationale" (string no vacío) y "notes" en cada slot (string o null).`;
 
 export async function generateSkeleton(
   input: GenerateSkeletonInput,

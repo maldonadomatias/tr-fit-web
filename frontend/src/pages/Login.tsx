@@ -1,90 +1,103 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowUpRight, Eye, EyeOff, Mail, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { clearAuth } from '@/lib/auth-storage';
-import { AxiosError } from 'axios';
+import { authErrorMessage } from '@/lib/auth-errors';
+import { loginSchema, type LoginValues } from '@/lib/auth-schemas';
+import { AuthLayout } from '@/components/auth/AuthLayout';
+import { AuthHeader } from '@/components/auth/AuthHeader';
+import { AuthField } from '@/components/auth/AuthField';
+import { AuthAlert } from '@/components/auth/AuthAlert';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting, errors },
+  } = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  });
+
+  async function onSubmit(values: LoginValues) {
+    setError(null);
     try {
-      const user = await login(email.trim().toLowerCase(), password);
+      const user = await login(values.email.trim().toLowerCase(), values.password);
       if (user.role === 'admin' || user.role === 'superadmin') {
         navigate('/admin');
       } else {
         clearAuth();
-        toast.error('Esta cuenta no tiene acceso a la consola web');
+        setError('Esta cuenta no tiene acceso a la consola web.');
       }
     } catch (err) {
-      const e = err as AxiosError<{ error?: string; reason?: string }>;
-      const body = e.response?.data;
-      if (body?.error === 'invalid_credentials') {
-        toast.error('Email o contraseña incorrectos');
-      } else if (body?.error === 'blocked' && body.reason === 'email_not_verified') {
-        toast.error('Verificá tu email antes de iniciar sesión');
-      } else if (body?.error === 'blocked' && body.reason === 'not_approved') {
-        toast.error('Tu cuenta está pendiente de aprobación');
-      } else if (body?.error === 'blocked' && body.reason === 'rejected') {
-        toast.error('Tu cuenta fue rechazada');
-      } else if (body?.error === 'rate_limited') {
-        toast.error('Demasiados intentos. Esperá unos minutos.');
-      } else {
-        toast.error('No se pudo iniciar sesión');
-      }
-    } finally {
-      setLoading(false);
+      const { message } = authErrorMessage(err);
+      setError(message || 'No se pudo iniciar sesión');
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">TR-FIT Coach</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoCapitalize="none"
-                autoComplete="email"
-                required
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Iniciando...' : 'Iniciar sesión'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthLayout>
+      <AuthHeader
+        eyebrow="Iniciar sesión"
+        title="Bienvenido de vuelta"
+        sub="Entrá a tu consola para seguir donde lo dejaste."
+      />
+
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        {error && <AuthAlert>{error}</AuthAlert>}
+
+        <AuthField
+          id="email"
+          type="email"
+          label="Email"
+          icon={<Mail size={16} />}
+          placeholder="vos@equipo.com"
+          autoCapitalize="off"
+          autoComplete="email"
+          error={errors.email?.message}
+          {...register('email')}
+        />
+
+        <div className="mt-[18px]">
+          <AuthField
+            id="password"
+            type={show ? 'text' : 'password'}
+            label="Contraseña"
+            icon={<Shield size={16} />}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            error={errors.password?.message}
+            affix={
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                {show ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            }
+            {...register('password')}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-brand text-sm font-semibold text-brand-foreground transition-[filter,transform] duration-150 hover:brightness-95 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isSubmitting ? 'Iniciando...' : 'Iniciar sesión'}
+          {!isSubmitting && <ArrowUpRight size={14} />}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

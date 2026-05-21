@@ -37,9 +37,12 @@ export async function createPendingSkeleton(
       for (const slot of day.slots) {
         await client.query(
           `INSERT INTO skeleton_slots
-             (skeleton_id, day_of_week, slot_index, exercise_id, role)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [skeletonId, day.day_index, slot.slot_index, slot.exercise_id, slot.role],
+             (skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            skeletonId, day.day_index, slot.slot_index,
+            slot.exercise_id, slot.role, slot.notes,
+          ],
         );
       }
     }

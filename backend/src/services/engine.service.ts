@@ -102,17 +102,25 @@ async function buildItem(
   // Drop stale suggested value if the recorded unit no longer matches.
   const aewValue =
     !w?.unit || w.unit === unit ? w?.current_value ?? null : null;
+  const notes = slot.notes ?? null;
+
+  if (slot.role === 'calentamiento') {
+    return baseItem(
+      exercise, slot.role, slot.slot_index, null, unit,
+      2, '10', '1 min', notes,
+    );
+  }
 
   if (slot.role === 'principal') {
     if (cfg.is_rm_test) {
       return baseItem(exercise, slot.role, slot.slot_index, null, unit,
-        cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, 'rm_test');
+        cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'rm_test');
     }
     if (cfg.principal_pct_rm && cfg.principal_rm_source) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
         return baseItem(exercise, slot.role, slot.slot_index, null, unit,
-          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, 'missing_rm');
+          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
       }
       const computed = rm * Number(cfg.principal_pct_rm);
       const weight =
@@ -120,12 +128,12 @@ async function buildItem(
           ? roundToNearest25(computed)
           : Math.round(computed);
       return baseItem(exercise, slot.role, slot.slot_index, weight, unit,
-        cfg.principal_series, cfg.principal_reps, cfg.principal_descanso);
+        cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
     }
     // use_casilleros for principal
     return baseItem(exercise, slot.role, slot.slot_index,
       aewValue, unit,
-      cfg.principal_series, cfg.principal_reps, cfg.principal_descanso);
+      cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
   }
 
   // accesorio
@@ -134,6 +142,7 @@ async function buildItem(
     cfg.accesorio_series,
     w?.current_reps_text ?? cfg.accesorio_reps,
     cfg.accesorio_descanso,
+    notes,
   );
 }
 
@@ -141,13 +150,15 @@ function baseItem(
   ex: Exercise, role: SlotRole, slotIndex: number,
   weight: number | null, unit: 'kg' | 'ladrillos',
   series: number, reps: string, descanso: string,
+  notes: string | null,
   flag?: 'rm_test' | 'missing_rm',
 ): SessionItem {
   return {
     exercise: ex, role, slot_index: slotIndex,
     suggested_value: weight === null ? null : Number(weight),
     unit,
-    series, reps, descanso, ...(flag ? { flag } : {}),
+    series, reps, descanso, notes,
+    ...(flag ? { flag } : {}),
   };
 }
 
