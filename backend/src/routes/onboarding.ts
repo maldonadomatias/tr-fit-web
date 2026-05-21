@@ -35,7 +35,7 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
   if (!coachId) {
     logger.error(
       { ownerEmail: env.OWNER_COACH_EMAIL },
-      'owner admin missing — run src/scripts/setup-owner-coach.ts',
+      'owner admin missing — run src/scripts/create-admin.ts <email> <password>',
     );
     return res.status(500).json({ error: 'owner_coach_missing' });
   }
