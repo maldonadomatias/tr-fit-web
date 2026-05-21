@@ -1,3 +1,4 @@
+import request from 'supertest';
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
 import pool from '../../src/db/connect.js';
 import {
@@ -10,6 +11,9 @@ import {
   ExerciseError,
   type CreateExerciseInput,
 } from '../../src/services/admin-exercise.service.js';
+import { signToken } from '../../src/middleware/auth.js';
+import { createAdmin, createAthlete, createSuperadmin } from './helpers/fixtures.js';
+import app from '../../src/app.js';
 
 // resetDatabase() does not truncate the `exercises` table (it preserves the
 // catalog), so we first prune any leftover test rows (anything that was ever
@@ -152,5 +156,141 @@ describe('archiveExercise idempotency', () => {
     const x = await createExercise({ ...baseInput, name: 'TwiceArchive' });
     await archiveExercise(x.id);
     await expect(archiveExercise(x.id)).resolves.toBeUndefined();
+  });
+});
+
+// --- Route-level integration tests --------------------------------------
+
+describe('GET /api/admin/exercises (auth)', () => {
+  it('401 without token', async () => {
+    const r = await request(app).get('/api/admin/exercises');
+    expect(r.status).toBe(401);
+  });
+
+  it('403 as athlete', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach);
+    const tok = signToken({ id: ath, role: 'athlete' });
+    const r = await request(app)
+      .get('/api/admin/exercises')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(403);
+  });
+
+  it('200 as admin', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const r = await request(app)
+      .get('/api/admin/exercises')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(r.body).toHaveProperty('items');
+    expect(r.body).toHaveProperty('total');
+    expect(Array.isArray(r.body.items)).toBe(true);
+  });
+
+  it('200 as superadmin', async () => {
+    const sa = await createSuperadmin();
+    const tok = signToken({ id: sa, role: 'superadmin' });
+    const r = await request(app)
+      .get('/api/admin/exercises')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body.items)).toBe(true);
+  });
+});
+
+describe('POST /api/admin/exercises', () => {
+  it('201 creates exercise', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const r = await request(app)
+      .post('/api/admin/exercises')
+      .set('Authorization', `Bearer ${tok}`)
+      .send(baseInput);
+    expect(r.status).toBe(201);
+    expect(r.body.exercise.name).toBe(baseInput.name);
+    expect(r.body.exercise.id).toBeGreaterThan(0);
+  });
+
+  it('409 on duplicate name', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    await createExercise(baseInput);
+    const r = await request(app)
+      .post('/api/admin/exercises')
+      .set('Authorization', `Bearer ${tok}`)
+      .send(baseInput);
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe('name_taken');
+  });
+
+  it('400 on invalid enum', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const r = await request(app)
+      .post('/api/admin/exercises')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ ...baseInput, equipment: 'bogus' });
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('invalid_payload');
+  });
+});
+
+describe('PATCH /api/admin/exercises/:id', () => {
+  it('200 updates fields', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const created = await createExercise(baseInput);
+    const r = await request(app)
+      .patch(`/api/admin/exercises/${created.id}`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ name: 'Renamed' });
+    expect(r.status).toBe(200);
+    expect(r.body.exercise.name).toBe('Renamed');
+  });
+
+  it('404 for missing id', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const r = await request(app)
+      .patch('/api/admin/exercises/999999')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ name: 'X' });
+    expect(r.status).toBe(404);
+    expect(r.body.error).toBe('not_found');
+  });
+});
+
+describe('DELETE /api/admin/exercises/:id', () => {
+  it('200 archives and is idempotent', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const created = await createExercise(baseInput);
+    const r1 = await request(app)
+      .delete(`/api/admin/exercises/${created.id}`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r1.status).toBe(200);
+    expect(r1.body.archived).toBe(true);
+
+    const r2 = await request(app)
+      .delete(`/api/admin/exercises/${created.id}`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r2.status).toBe(200);
+    expect(r2.body.archived).toBe(true);
+  });
+});
+
+describe('POST /api/admin/exercises/:id/restore', () => {
+  it('200 restores archived', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const created = await createExercise(baseInput);
+    await archiveExercise(created.id);
+    const r = await request(app)
+      .post(`/api/admin/exercises/${created.id}/restore`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(r.body.exercise.archived_at).toBeNull();
   });
 });
