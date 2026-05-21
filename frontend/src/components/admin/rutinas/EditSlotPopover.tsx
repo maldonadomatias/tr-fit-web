@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Pencil, Search } from 'lucide-react';
 import {
   Popover,
@@ -7,10 +7,8 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  searchExercises,
-  type CatalogExercise,
-} from '@/lib/exercisesCatalog';
+import { useExercisesSearch } from '@/hooks/useAdminExercises';
+import type { Exercise } from '@/types/api';
 import { cn } from '@/lib/utils';
 
 export type SlotOverride = {
@@ -35,7 +33,7 @@ export function EditSlotPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(currentExerciseName);
-  const [selected, setSelected] = useState<CatalogExercise | null>(null);
+  const [selected, setSelected] = useState<Exercise | null>(null);
   const [notes, setNotes] = useState(currentNotes ?? '');
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -48,10 +46,10 @@ export function EditSlotPopover({
     }
   }, [open, currentExerciseName, currentNotes]);
 
-  const results = useMemo(
-    () => (open ? searchExercises(query, 8) : []),
-    [query, open],
-  );
+  const { data: results = [] } = useExercisesSearch(query, {
+    enabled: open,
+    limit: 8,
+  });
 
   function commit() {
     const ex =
