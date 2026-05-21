@@ -157,14 +157,46 @@ export async function archiveExercise(id: number): Promise<void> {
   }
 }
 
-// Stubs implemented in Task 2.3
 export async function updateExercise(
-  _id: number,
-  _patch: UpdateExerciseInput,
+  id: number,
+  patch: UpdateExerciseInput,
 ): Promise<Exercise> {
-  throw new Error('not implemented');
+  const keys = Object.keys(patch) as Array<keyof UpdateExerciseInput>;
+  if (keys.length === 0) return getExercise(id);
+
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  for (const k of keys) {
+    params.push(patch[k]);
+    sets.push(`${k} = $${params.length}`);
+  }
+  params.push(id);
+
+  try {
+    const r = await pool.query<Exercise>(
+      `UPDATE exercises SET ${sets.join(', ')}
+         WHERE id = $${params.length}
+       RETURNING ${SELECT_COLS}`,
+      params,
+    );
+    if (!r.rows[0]) throw new ExerciseError('not_found');
+    return normalize(r.rows[0]);
+  } catch (err: unknown) {
+    if (err instanceof ExerciseError) throw err;
+    if (err instanceof Error && 'code' in err && (err as { code?: string }).code === '23505') {
+      throw new ExerciseError('name_taken');
+    }
+    throw err;
+  }
 }
 
-export async function restoreExercise(_id: number): Promise<Exercise> {
-  throw new Error('not implemented');
+export async function restoreExercise(id: number): Promise<Exercise> {
+  const r = await pool.query<Exercise>(
+    `UPDATE exercises SET archived_at = NULL
+       WHERE id = $1
+     RETURNING ${SELECT_COLS}`,
+    [id],
+  );
+  if (!r.rows[0]) throw new ExerciseError('not_found');
+  return normalize(r.rows[0]);
 }
