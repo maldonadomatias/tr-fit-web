@@ -74,6 +74,13 @@ export function Sidebar() {
           matchPrefixes: ['/admin/users'],
         },
         {
+          key: 'exercises',
+          label: 'Ejercicios',
+          icon: Dumbbell,
+          to: '/admin/exercises',
+          matchPrefixes: ['/admin/exercises'],
+        },
+        {
           key: 'subs',
           label: 'Suscripciones',
           icon: CreditCard,
