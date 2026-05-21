@@ -31,7 +31,7 @@ export interface CoachAthlete {
   unread_alerts_count: number;
 }
 
-export interface PendingSkeleton {
+export interface PendingRutina {
   id: string;
   athlete_id: string;
   athlete_name: string;
@@ -39,7 +39,7 @@ export interface PendingSkeleton {
   generation_rationale: string | null;
 }
 
-export interface SkeletonSlot {
+export interface RutinaSlot {
   id: string;
   day_of_week: number;
   slot_index: number;
@@ -50,7 +50,7 @@ export interface SkeletonSlot {
   equipment?: string;
 }
 
-export interface AthleteSkeleton {
+export interface AthleteRutina {
   id: string;
   athlete_id: string;
   status: 'pending_review' | 'approved' | 'rejected' | 'superseded';
@@ -62,9 +62,9 @@ export interface AthleteSkeleton {
   reviewed_by: string | null;
 }
 
-export interface SkeletonDetail {
-  skeleton: AthleteSkeleton;
-  slots: SkeletonSlot[];
+export interface RutinaDetail {
+  skeleton: AthleteRutina;
+  slots: RutinaSlot[];
   profile: {
     name: string;
     gender: 'male' | 'female' | 'other';

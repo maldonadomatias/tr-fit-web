@@ -2,10 +2,10 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Activity,
   AlertCircle,
+  ClipboardList,
   Clock,
   CreditCard,
   Dumbbell,
-  FileText,
   Home as HomeIcon,
   LogOut,
   Settings,
@@ -16,6 +16,7 @@ import { Avatar } from './Avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
+import { usePendingRutinas } from '@/hooks/usePendingRutinas';
 import { cn } from '@/lib/utils';
 
 type Item = {
@@ -33,6 +34,8 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const { data: pending } = useAdminUsers({ status: 'pending' });
   const pendingCount = pending?.length ?? 0;
+  const { data: pendingRutinas } = usePendingRutinas();
+  const rutinasCount = pendingRutinas?.length ?? 0;
 
   const groups: { label: string; items: Item[] }[] = [
     {
@@ -47,32 +50,17 @@ export function Sidebar() {
           count: pendingCount,
         },
         {
+          key: 'alerts',
+          label: 'Alertas',
+          icon: AlertCircle,
+          to: '/admin/alerts',
+        },
+        {
           key: 'activity',
           label: 'Actividad',
           icon: Activity,
           to: '/admin/activity',
         },
-      ],
-    },
-    {
-      label: 'Operaciones',
-      items: [
-        { key: 'ops-home', label: 'Home', icon: HomeIcon, to: '/admin/operations' },
-        {
-          key: 'ops-athletes',
-          label: 'Atletas',
-          icon: UsersIcon,
-          to: '/admin/operations/athletes',
-          matchPrefixes: ['/admin/operations/athletes'],
-        },
-        {
-          key: 'ops-skeletons',
-          label: 'Skeletons',
-          icon: FileText,
-          to: '/admin/operations/skeletons',
-          matchPrefixes: ['/admin/operations/skeletons'],
-        },
-        { key: 'ops-alerts', label: 'Alertas', icon: AlertCircle, to: '/admin/operations/alerts' },
       ],
     },
     {
@@ -90,6 +78,14 @@ export function Sidebar() {
           label: 'Suscripciones',
           icon: CreditCard,
           to: '/admin/subscriptions',
+        },
+        {
+          key: 'rutinas',
+          label: 'Rutinas',
+          icon: ClipboardList,
+          to: '/admin/rutinas',
+          count: rutinasCount,
+          matchPrefixes: ['/admin/rutinas'],
         },
       ],
     },

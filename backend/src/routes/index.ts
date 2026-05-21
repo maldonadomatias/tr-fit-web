@@ -10,6 +10,8 @@ import pushRouter from './push.js';
 import progressRouter from './progress.js';
 import subscriptions from './subscriptions.js';
 import adminOps from './admin-ops.js';
+import adminAlerts from './admin-alerts.js';
+import rutinas from './rutinas.js';
 import admin from './admin.js';
 
 const router = Router();
@@ -24,5 +26,7 @@ router.use('/push', pushRouter);
 router.use('/progress', progressRouter);
 router.use('/subscriptions', subscriptions);
 router.use('/admin/operations', adminOps);
+router.use('/admin/alerts', adminAlerts);
+router.use('/admin/rutinas', rutinas);
 router.use('/admin', admin);
 export default router;

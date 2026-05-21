@@ -1,0 +1,170 @@
+/* ============================================================
+   FORMA — Colors & Type
+   Tokens mirror lib/theme.ts (shadcn / react-native-reusables)
+   with a single emerald brand accent over neutral grayscale.
+   ============================================================ */
+
+/* ---------- Fonts ---------- */
+/* App uses the platform default (system / SF Pro / Roboto).
+   Onboarding-flow.html and web previews use Inter + JetBrains Mono.
+   We import these from Google Fonts as the closest available match. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Tone tokens (HSL triplets for hsl(var(--…)) usage) */
+  --background:           0 0% 100%;
+  --foreground:           0 0% 3.9%;
+  --card:                 0 0% 100%;
+  --card-foreground:      0 0% 3.9%;
+  --popover:              0 0% 100%;
+  --popover-foreground:   0 0% 3.9%;
+  --primary:              0 0% 9%;
+  --primary-foreground:   0 0% 98%;
+  --secondary:            0 0% 96.1%;
+  --secondary-foreground: 0 0% 9%;
+  --muted:                0 0% 96.1%;
+  --muted-foreground:     0 0% 45.1%;
+  --accent:               0 0% 96.1%;
+  --accent-foreground:    0 0% 9%;
+  --destructive:          0 84.2% 60.2%;
+  --border:               0 0% 89.8%;
+  --input:                0 0% 89.8%;
+  --ring:                 0 0% 63%;
+
+  --brand:                142 71% 45%;
+  --brand-foreground:     0 0% 100%;
+
+  /* Charts (used sparingly) */
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+
+  /* Page chrome (used by onboarding-flow.html) */
+  --page:                 0 0% 98%;
+  --phone-bezel:          0 0% 8%;
+
+  /* Geometry */
+  --radius:               0.625rem;     /* 10px — base radius */
+  --radius-sm:            calc(var(--radius) - 4px); /* 6px */
+  --radius-md:            calc(var(--radius) - 2px); /* 8px */
+  --radius-lg:            var(--radius);             /* 10px */
+  --radius-xl:            0.875rem;     /* 14px — input pill */
+  --radius-2xl:           1rem;         /* 16px — cards */
+  --radius-pill:          999px;
+
+  /* Shadows (lifted from FloatingTabBar + buttons) */
+  --shadow-button:        0 1px 2px hsl(0 0% 0% / 0.05);
+  --shadow-card:          0 1px 3px hsl(0 0% 0% / 0.06), 0 1px 2px hsl(0 0% 0% / 0.04);
+  --shadow-floating:      0 8px 24px hsl(0 0% 0% / 0.18);
+
+  /* Spacing scale (Tailwind mapping in 0.25rem steps) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Type families */
+  --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.dark, .dark:root {
+  --background:           0 0% 3.9%;
+  --foreground:           0 0% 98%;
+  --card:                 0 0% 3.9%;
+  --card-foreground:      0 0% 98%;
+  --popover:              0 0% 3.9%;
+  --popover-foreground:   0 0% 98%;
+  --primary:              0 0% 98%;
+  --primary-foreground:   0 0% 9%;
+  --secondary:            0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted:                0 0% 14.9%;
+  --muted-foreground:     0 0% 63.9%;
+  --accent:               0 0% 14.9%;
+  --accent-foreground:    0 0% 98%;
+  --destructive:          0 70.9% 59.4%;
+  --border:               0 0% 14.9%;
+  --input:                0 0% 14.9%;
+  --ring:                 0 0% 45%;
+
+  --brand:                142 64% 52%;
+  --brand-foreground:     0 0% 9%;
+
+  --page:                 0 0% 6%;
+  --phone-bezel:          0 0% 14%;
+}
+
+/* ---------- Semantic shorthands ---------- */
+:root {
+  --bg:    hsl(var(--background));
+  --fg:    hsl(var(--foreground));
+  --fg-muted: hsl(var(--muted-foreground));
+  --line:  hsl(var(--border));
+  --brand-color:    hsl(var(--brand));
+  --brand-fg-color: hsl(var(--brand-foreground));
+}
+
+/* ---------- Type scale ---------- */
+/*  Mobile-first; matches NativeWind classes used in code:
+    text-3xl  → display      (auth screens)
+    text-2xl  → page title   (Hoy/Plan/Profile/Progress)
+    text-xl   → section h2
+    text-base → body / button label
+    text-sm   → secondary body
+    text-xs   → meta / labels
+    text-[10/11]px → micro labels (uppercase eyebrows, table headers)
+*/
+
+html, body { font-family: var(--font-sans); color: var(--fg); background: var(--bg); }
+
+.h-display { font-size: 30px; line-height: 36px; font-weight: 700; letter-spacing: -0.02em; }
+.h-title   { font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -0.01em; }
+.h-section { font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: -0.005em; }
+.h-card    { font-size: 16px; line-height: 22px; font-weight: 700; }
+.body      { font-size: 14px; line-height: 22px; font-weight: 400; }
+.body-sm   { font-size: 13px; line-height: 20px; font-weight: 400; }
+.meta      { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--fg-muted); }
+.micro     { font-size: 10px; line-height: 14px; font-weight: 600; }
+
+/* The signature treatment: a brand-color uppercase eyebrow */
+.eyebrow {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--brand-color);
+}
+
+/* Numeric / metric / tabular runs (weights, RPE, %, dates) */
+.mono, .num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Pills and tag chips — used for tags like "Hipertrofia", "Activo" */
+.tag-brand {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: hsl(var(--brand) / 0.15);
+  color: var(--brand-color);
+  font-size: 10px; font-weight: 600;
+}
+.tag-muted {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: hsl(var(--muted));
+  color: var(--fg-muted);
+  font-size: 10px; font-weight: 600;
+}
