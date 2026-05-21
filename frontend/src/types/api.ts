@@ -178,3 +178,30 @@ export interface CoachAlert {
   resolved_at: string | null;
   created_at: string;
 }
+
+export type Equipment =
+  | 'barra' | 'mancuerna' | 'maquina' | 'polea' | 'smith'
+  | 'bw' | 'pesa_rusa' | 'elastico' | 'disco';
+
+export type MovementPattern =
+  | 'squat' | 'hinge' | 'push_h' | 'push_v' | 'pull_h' | 'pull_v'
+  | 'isolation' | 'core' | 'cardio';
+
+export type ExerciseLevel = 'principiante' | 'intermedio' | 'avanzado';
+
+export interface Exercise {
+  id: number;
+  name: string;
+  muscle_group: string;
+  equipment: Equipment;
+  movement_pattern: MovementPattern;
+  is_principal: boolean;
+  is_unilateral: boolean;
+  level_min: ExerciseLevel;
+  contraindicated_for: string[];
+  default_increment_kg: number;
+  alternatives_ids: number[];
+  video_url: string | null;
+  illustration_url: string | null;
+  archived_at: string | null;
+}
