@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { findAlternative } from '../../src/services/alternatives.service.js';
 import pool from '../../src/db/connect.js';
 
@@ -8,7 +8,7 @@ beforeEach(async () => { await resetDatabase(); });
 afterAll(async () => { await closePool(); });
 
 it('returns null when no alternative exists for muscle_group', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const r = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE muscle_group = 'Abdomen' LIMIT 1`,
@@ -19,7 +19,7 @@ it('returns null when no alternative exists for muscle_group', async () => {
 });
 
 it('returns an alternative same muscle_group, different id, compatible equipment', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
   const r = await pool.query<{ id: number; muscle_group: string }>(
     `SELECT id, muscle_group FROM exercises
@@ -34,7 +34,7 @@ it('returns an alternative same muscle_group, different id, compatible equipment
 });
 
 it('excludes ids passed in excludeIds', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
   const r = await pool.query<{ id: number; muscle_group: string }>(
     `SELECT id, muscle_group FROM exercises
@@ -50,7 +50,7 @@ it('excludes ids passed in excludeIds', async () => {
 });
 
 it('skips contraindicated exercises', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach, { injuries: ['lumbar'] });
   const r = await pool.query<{ id: number; muscle_group: string }>(
     `SELECT id, muscle_group FROM exercises

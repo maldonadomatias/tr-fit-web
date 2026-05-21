@@ -26,16 +26,16 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     return res.status(409).json({ error: 'profile_already_exists' });
   }
 
-  // Single-coach owner model: route to the configured OWNER_COACH_EMAIL.
+  // Single-admin owner model: route to the configured OWNER_COACH_EMAIL.
   const coachR = await pool.query<{ id: string }>(
-    `SELECT id FROM users WHERE email = $1 AND role = 'coach'`,
+    `SELECT id FROM users WHERE email = $1 AND role IN ('admin', 'superadmin')`,
     [env.OWNER_COACH_EMAIL],
   );
   const coachId = coachR.rows[0]?.id;
   if (!coachId) {
     logger.error(
       { ownerEmail: env.OWNER_COACH_EMAIL },
-      'owner coach missing — run src/scripts/setup-owner-coach.ts',
+      'owner admin missing — run src/scripts/setup-owner-coach.ts',
     );
     return res.status(500).json({ error: 'owner_coach_missing' });
   }

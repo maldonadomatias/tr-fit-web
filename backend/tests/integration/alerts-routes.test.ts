@@ -12,7 +12,7 @@ type MockSend = jest.Mock<(opts: { to: string; subject: string; html: string; fr
 const resendMod = (await import('resend')) as unknown as { __mockSend: MockSend };
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const { signToken } = await import('../../src/middleware/auth.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
@@ -29,7 +29,7 @@ beforeEach(async () => {
 afterAll(async () => { await closePool(); });
 
 it('POST /api/alerts SOS pain creates row + emails coach', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const ex = await pool.query<{ id: number }>(`SELECT id FROM exercises LIMIT 1`);
   const tok = signToken({ id: ath, role: 'athlete' });
@@ -44,8 +44,8 @@ it('POST /api/alerts SOS pain creates row + emails coach', async () => {
   expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
 });
 
-it('GET /api/coach/alerts lists alerts for coach', async () => {
-  const coach = await createCoach();
+it('GET /api/admin/operations/alerts lists alerts for coach', async () => {
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const ex = await pool.query<{ id: number }>(`SELECT id FROM exercises LIMIT 1`);
   const athTok = signToken({ id: ath, role: 'athlete' });
@@ -56,15 +56,15 @@ it('GET /api/coach/alerts lists alerts for coach', async () => {
       payload: { zone: 'rodilla', intensity: 5 },
     });
 
-  const coachTok = signToken({ id: coach, role: 'coach' });
-  const list = await request(app).get('/api/coach/alerts?unread=true')
+  const coachTok = signToken({ id: coach, role: 'admin' });
+  const list = await request(app).get('/api/admin/operations/alerts?unread=true')
     .set('Authorization', `Bearer ${coachTok}`);
   expect(list.status).toBe(200);
   expect(list.body).toHaveLength(1);
 });
 
 it('GET /api/exercises/:id/alternatives returns alternative or null', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const ex = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE muscle_group = 'Pecho - Mayor' AND is_principal = FALSE LIMIT 1`,

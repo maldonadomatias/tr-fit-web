@@ -1,6 +1,6 @@
 export {};
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const {
@@ -13,7 +13,7 @@ afterAll(async () => { await closePool(); });
 
 describe('listRmHistory', () => {
   it('groups rm_tests by exercise sorted by program_week', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const ex = await pool.query<{ id: number }>(`SELECT id FROM exercises LIMIT 1`);
     const exId = ex.rows[0].id;
@@ -30,7 +30,7 @@ describe('listRmHistory', () => {
   });
 
   it('returns empty when no rm_tests', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const r = await listRmHistory(a);
     expect(r).toEqual([]);
@@ -39,7 +39,7 @@ describe('listRmHistory', () => {
 
 describe('listCompliance', () => {
   it('groups finished sessions by program_week', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const sk = await pool.query<{ id: string }>(
       `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
@@ -64,7 +64,7 @@ describe('listCompliance', () => {
 
 describe('listVolume', () => {
   it('returns volume per finished session', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const sk = await pool.query<{ id: string }>(
       `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
@@ -84,7 +84,7 @@ describe('listVolume', () => {
   });
 
   it('excludes unfinished sessions', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const sk = await pool.query<{ id: string }>(
       `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
@@ -107,7 +107,7 @@ const { listRpeHistogram, listWeightVsSuggested } =
 
 describe('listRpeHistogram', () => {
   it('returns rpe buckets ordered ascending', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const sk = await pool.query<{ id: string }>(
       `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
@@ -137,7 +137,7 @@ describe('listRpeHistogram', () => {
   });
 
   it('skips rpe null', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const sk = await pool.query<{ id: string }>(
       `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt)
@@ -163,7 +163,7 @@ describe('listRpeHistogram', () => {
 
 describe('listWeightVsSuggested', () => {
   it('returns delta_pct for exercises used vs suggested', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const ex = await pool.query<{ id: number; name: string }>(
       `SELECT id, name FROM exercises LIMIT 1`,

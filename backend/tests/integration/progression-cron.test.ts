@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { createPendingSkeleton, approveSkeleton } from '../../src/services/skeleton.service.js';
 import { runWeeklyProgressionForAll } from '../../src/services/progression.service.js';
 import pool from '../../src/db/connect.js';
@@ -9,7 +9,7 @@ beforeEach(async () => { await resetDatabase(); });
 afterAll(async () => { await closePool(); });
 
 it('runWeeklyProgressionForAll iterates over active athletes', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const a1 = await createAthlete(coach);
   const a2 = await createAthlete(coach);
   const ex = await pool.query<{ id: number }>(
@@ -20,7 +20,7 @@ it('runWeeklyProgressionForAll iterates over active athletes', async () => {
     rationale: 'r',
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: 'd',
-      slots: [{ slot_index: 1, exercise_id: pid, role: 'principal' as const }],
+      slots: [{ slot_index: 1, exercise_id: pid, role: 'principal' as const, notes: null }],
     })),
   };
   const s1 = await createPendingSkeleton(

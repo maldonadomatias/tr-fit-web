@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../src/services/mp.service.js', () => ({
 }));
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const { createSubscription, handleWebhookEvent } = await import('../../src/services/subscription.service.js');
@@ -45,7 +45,7 @@ async function athleteWithEmail(coachId: string, suffix: string) {
 
 describe('createSubscription', () => {
   it('inserts pending subscription and returns checkout_url', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const { id, email } = await athleteWithEmail(c, '1');
     const result = await createSubscription({ athleteId: id, tier: 'full', payerEmail: email });
 
@@ -59,7 +59,7 @@ describe('createSubscription', () => {
   });
 
   it('throws 409 if authorized subscription for same tier already exists', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const { id, email } = await athleteWithEmail(c, '2');
     await pool.query(
       `INSERT INTO subscriptions
@@ -73,7 +73,7 @@ describe('createSubscription', () => {
   });
 
   it('allows creating subscription if previous one is cancelled', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const { id, email } = await athleteWithEmail(c, '3');
     await pool.query(
       `INSERT INTO subscriptions
@@ -88,7 +88,7 @@ describe('createSubscription', () => {
 
 describe('handleWebhookEvent — subscription_preapproval', () => {
   it('authorized: sets plan_interest + subscription status', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const { id } = await athleteWithEmail(c, '4');
     await pool.query(
       `INSERT INTO subscriptions
@@ -119,7 +119,7 @@ describe('handleWebhookEvent — subscription_preapproval', () => {
   });
 
   it('paused: updates subscription status but does NOT change plan_interest', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const { id } = await athleteWithEmail(c, '5');
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'full' WHERE user_id = $1`, [id],
@@ -151,7 +151,7 @@ describe('handleWebhookEvent — subscription_preapproval', () => {
   });
 
   it('cancelled: sets plan_interest to NULL', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const { id } = await athleteWithEmail(c, '6');
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`, [id],

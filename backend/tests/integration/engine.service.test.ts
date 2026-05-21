@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { createPendingSkeleton, approveSkeleton } from '../../src/services/skeleton.service.js';
 import { buildTodaySession, TodayBlockedError } from '../../src/services/engine.service.js';
 import pool from '../../src/db/connect.js';
@@ -25,8 +25,8 @@ async function setup4DaySkeleton(athleteId: string, coachId: string) {
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: `Day${d}`,
       slots: [
-        { slot_index: 1, exercise_id: principalId, role: 'principal' as const },
-        { slot_index: 2, exercise_id: accesorioId, role: 'accesorio' as const },
+        { slot_index: 1, exercise_id: principalId, role: 'principal' as const, notes: null },
+        { slot_index: 2, exercise_id: accesorioId, role: 'accesorio' as const, notes: null },
       ],
     })),
   };
@@ -51,20 +51,20 @@ async function setWeight(
     `UPDATE athlete_exercise_weights
         SET current_weight_kg = $1,
             current_reps_text = COALESCE($2, current_reps_text),
-            updated_by = 'coach'
+            updated_by = 'admin'
       WHERE athlete_id = $3 AND exercise_id = $4`,
     [weight, reps ?? null, athleteId, exerciseId],
   );
 }
 
 it('throws awaiting_review when no active skeleton', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   await expect(buildTodaySession(ath, 1)).rejects.toBeInstanceOf(TodayBlockedError);
 });
 
 it('returns missing_rm flag for principal in % week without RM', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   await setup4DaySkeleton(ath, coach);
   await setProgramWeek(ath, 1); // pct=0.75 rm=30
@@ -75,7 +75,7 @@ it('returns missing_rm flag for principal in % week without RM', async () => {
 });
 
 it('computes principal weight from RM × pct (week 1, 75% of RM30)', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { principalId } = await setup4DaySkeleton(ath, coach);
   // No RM30 yet; need to use a week that uses RM10 (e.g. week 11)
@@ -92,7 +92,7 @@ it('computes principal weight from RM × pct (week 1, 75% of RM30)', async () =>
 });
 
 it('rm_test flag on week 10 even without RM', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   await setup4DaySkeleton(ath, coach);
   await setProgramWeek(ath, 10);
@@ -103,7 +103,7 @@ it('rm_test flag on week 10 even without RM', async () => {
 });
 
 it('uses casilleros (athlete_exercise_weights) for principal in week 3', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { principalId } = await setup4DaySkeleton(ath, coach);
   await setProgramWeek(ath, 3);
@@ -114,7 +114,7 @@ it('uses casilleros (athlete_exercise_weights) for principal in week 3', async (
 });
 
 it('accesorio uses athlete_exercise_weights and reps fallback', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { accesorioId } = await setup4DaySkeleton(ath, coach);
   await setProgramWeek(ath, 1);
@@ -126,7 +126,7 @@ it('accesorio uses athlete_exercise_weights and reps fallback', async () => {
 });
 
 it('profile equipment-units override stale AEW.unit and drop suggested value', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const principalId = (
     await pool.query<{ id: number }>(
@@ -144,8 +144,8 @@ it('profile equipment-units override stale AEW.unit and drop suggested value', a
       day_index: d,
       focus: `Day${d}`,
       slots: [
-        { slot_index: 1, exercise_id: principalId, role: 'principal' as const },
-        { slot_index: 2, exercise_id: poleaId, role: 'accesorio' as const },
+        { slot_index: 1, exercise_id: principalId, role: 'principal' as const, notes: null },
+        { slot_index: 2, exercise_id: poleaId, role: 'accesorio' as const, notes: null },
       ],
     })),
   };
@@ -176,7 +176,7 @@ it('profile equipment-units override stale AEW.unit and drop suggested value', a
 });
 
 it('blocks with rm_test_required when state.rm_test_blocking=true', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   await setup4DaySkeleton(ath, coach);
   await pool.query(

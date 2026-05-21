@@ -12,7 +12,7 @@ jest.unstable_mockModule('../../src/services/subscription.service.js', () => ({
 }));
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const { signToken } = await import('../../src/middleware/auth.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
@@ -31,7 +31,7 @@ describe('POST /api/subscriptions/create', () => {
       checkoutUrl: 'https://mp.com/checkout',
       subscriptionId: 'sub-uuid',
     });
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app)
@@ -44,7 +44,7 @@ describe('POST /api/subscriptions/create', () => {
   });
 
   it('returns 400 for invalid tier', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app)
@@ -60,7 +60,7 @@ describe('POST /api/subscriptions/create', () => {
     mockCreate.mockRejectedValueOnce(
       new SubscriptionError('Already subscribed', 409, 'already_subscribed'),
     );
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app)
@@ -77,8 +77,8 @@ describe('POST /api/subscriptions/create', () => {
   });
 
   it('returns 403 for coach role', async () => {
-    const c = await createCoach();
-    const tok = signToken({ id: c, role: 'coach' });
+    const c = await createAdmin();
+    const tok = signToken({ id: c, role: 'admin' });
     const r = await request(app)
       .post('/api/subscriptions/create')
       .set('Authorization', `Bearer ${tok}`)
@@ -89,7 +89,7 @@ describe('POST /api/subscriptions/create', () => {
 
 describe('GET /api/subscriptions/me', () => {
   it('returns null when no subscription', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app)
@@ -100,7 +100,7 @@ describe('GET /api/subscriptions/me', () => {
   });
 
   it('returns active subscription', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `INSERT INTO subscriptions

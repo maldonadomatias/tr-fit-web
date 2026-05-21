@@ -7,7 +7,7 @@ jest.unstable_mockModule('../../src/services/notification.service.js', () => ({
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { signToken } = await import('../../src/middleware/auth.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const requestMod = await import('supertest');
@@ -23,18 +23,18 @@ beforeEach(async () => {
 });
 afterAll(async () => { await closePool(); });
 
-describe('coach push triggers', () => {
+describe('admin operations push triggers', () => {
   it('skeleton approve calls notifyUser', async () => {
-    const coachId = await createCoach();
+    const coachId = await createAdmin();
     const athleteId = await createAthlete(coachId);
     const sk = await pool.query<{ id: string }>(
       `INSERT INTO athlete_skeletons (athlete_id, status, generation_prompt, generation_rationale)
        VALUES ($1, 'pending_review', '{}'::jsonb, 'test') RETURNING id`,
       [athleteId],
     );
-    const tok = signToken({ id: coachId, role: 'coach' });
+    const tok = signToken({ id: coachId, role: 'admin' });
     const r = await request(app)
-      .post(`/api/coach/skeletons/${sk.rows[0].id}/approve`)
+      .post(`/api/admin/operations/skeletons/${sk.rows[0].id}/approve`)
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBeLessThan(300);
     // Wait a tick for fire-and-forget
@@ -43,7 +43,7 @@ describe('coach push triggers', () => {
   });
 
   it('alert resolve calls notifyUser', async () => {
-    const coachId = await createCoach();
+    const coachId = await createAdmin();
     const athleteId = await createAthlete(coachId);
     const alert = await pool.query<{ id: string }>(
       `INSERT INTO coach_alerts (athlete_id, coach_id, type, severity, payload)
@@ -51,9 +51,9 @@ describe('coach push triggers', () => {
        RETURNING id`,
       [athleteId, coachId],
     );
-    const tok = signToken({ id: coachId, role: 'coach' });
+    const tok = signToken({ id: coachId, role: 'admin' });
     const r = await request(app)
-      .patch(`/api/coach/alerts/${alert.rows[0].id}/resolve`)
+      .patch(`/api/admin/operations/alerts/${alert.rows[0].id}/resolve`)
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBeLessThan(300);
     await new Promise((res) => setTimeout(res, 50));

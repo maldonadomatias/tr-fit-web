@@ -1,7 +1,7 @@
 export {};
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { signToken } = await import('../../src/middleware/auth.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const requestMod = await import('supertest');
@@ -23,9 +23,9 @@ describe('progress routes', () => {
     }
   });
 
-  it('all endpoints reject coach role', async () => {
-    const c = await createCoach();
-    const tok = signToken({ id: c, role: 'coach' });
+  it('all endpoints reject admin role', async () => {
+    const c = await createAdmin();
+    const tok = signToken({ id: c, role: 'admin' });
     for (const path of ENDPOINTS) {
       const r = await request(app).get(`/api/progress${path}`)
         .set('Authorization', `Bearer ${tok}`);
@@ -34,7 +34,7 @@ describe('progress routes', () => {
   });
 
   it('returns 200 with empty array for new athlete', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     // Upgrade to premium so tier-gated endpoints (/rms, /weight-vs-suggested) are accessible.
     await pool.query(
@@ -52,7 +52,7 @@ describe('progress routes', () => {
   });
 
   it('compliance accepts weeks query param', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/api/progress/compliance?weeks=4')
@@ -61,7 +61,7 @@ describe('progress routes', () => {
   });
 
   it('rejects invalid weeks query param', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/api/progress/compliance?weeks=abc')
@@ -72,7 +72,7 @@ describe('progress routes', () => {
 
 describe('progress routes tier gating', () => {
   it('basico is blocked from /rms', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,
@@ -86,7 +86,7 @@ describe('progress routes tier gating', () => {
   });
 
   it('basico is blocked from /weight-vs-suggested', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,
@@ -99,7 +99,7 @@ describe('progress routes tier gating', () => {
   });
 
   it('premium accesses /rms', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'premium' WHERE user_id = $1`,
@@ -112,7 +112,7 @@ describe('progress routes tier gating', () => {
   });
 
   it('basico accesses /compliance (no gate)', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,

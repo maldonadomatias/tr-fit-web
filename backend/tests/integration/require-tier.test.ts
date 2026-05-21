@@ -4,7 +4,7 @@ const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/tes
 const { signToken, requireAuth } = await import('../../src/middleware/auth.js');
 const { requireRole } = await import('../../src/middleware/role.js');
 const { requireTier } = await import('../../src/middleware/require-tier.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const requestMod = await import('supertest');
@@ -23,7 +23,7 @@ afterAll(async () => { await closePool(); });
 
 describe('requireTier', () => {
   it('passes when tier sufficient', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/protected-full')
@@ -32,7 +32,7 @@ describe('requireTier', () => {
   });
 
   it('premium satisfies full gate', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'premium' WHERE user_id = $1`, [a],
@@ -44,7 +44,7 @@ describe('requireTier', () => {
   });
 
   it('blocks when tier insufficient', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`, [a],
@@ -59,7 +59,7 @@ describe('requireTier', () => {
   });
 
   it('returns 403 no_plan when plan_interest is NULL', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = NULL WHERE user_id = $1`, [a],
@@ -83,7 +83,7 @@ describe('requireTier', () => {
   });
 
   it('premium passes premium gate', async () => {
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = 'premium' WHERE user_id = $1`, [a],

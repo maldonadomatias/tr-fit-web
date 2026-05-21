@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { createPendingSkeleton, approveSkeleton } from '../../src/services/skeleton.service.js';
 import { signToken } from '../../src/middleware/auth.js';
 import pool from '../../src/db/connect.js';
@@ -11,7 +11,7 @@ beforeEach(async () => { await resetDatabase(); });
 afterAll(async () => { await closePool(); });
 
 async function setup() {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const ex = await pool.query<{ id: number; principal: boolean }>(
     `(SELECT id, true AS principal FROM exercises WHERE is_principal = TRUE LIMIT 1)
@@ -25,8 +25,8 @@ async function setup() {
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: 'd',
       slots: [
-        { slot_index: 1, exercise_id: pid, role: 'principal' as const },
-        { slot_index: 2, exercise_id: aid, role: 'accesorio' as const },
+        { slot_index: 1, exercise_id: pid, role: 'principal' as const, notes: null },
+        { slot_index: 2, exercise_id: aid, role: 'accesorio' as const, notes: null },
       ],
     })),
   };

@@ -286,14 +286,14 @@ it('reset-password: weak password returns 400 weak_password', async () => {
 });
 
 it('reset-password: non-athlete gets 403 not_athlete and code is burned', async () => {
-  // Create a coach user (non-athlete) with email_verified = true
+  // Create an admin user (non-athlete) with email_verified = true
   const bcryptMod = await import('bcrypt');
-  const coachEmail = `coach-reset-${Date.now()}@test.local`;
-  const coachPass = 'coach-pass-1234';
+  const coachEmail = `admin-reset-${Date.now()}@test.local`;
+  const coachPass = 'admin-pass-1234';
   const coachHash = await bcryptMod.default.hash(coachPass, 4);
   const { rows: coachRows } = await pool.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, role, email_verified, email_verified_at)
-     VALUES ($1, $2, 'coach', TRUE, NOW()) RETURNING id`,
+     VALUES ($1, $2, 'admin', TRUE, NOW()) RETURNING id`,
     [coachEmail, coachHash],
   );
   const coachId = coachRows[0].id;

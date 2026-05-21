@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import {
   createPendingSkeleton, approveSkeleton, rejectSkeleton,
   listPendingForCoach, findActiveByAthlete,
@@ -15,20 +15,20 @@ const aiOut = {
   days: [
     { day_index: 1, focus: 'p',
       slots: [
-        { slot_index: 1, exercise_id: 1, role: 'principal' as const },
-        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const },
+        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null },
+        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const, notes: null },
       ] },
     { day_index: 2, focus: 'q',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const }] },
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }] },
     { day_index: 3, focus: 'r',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const }] },
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }] },
     { day_index: 4, focus: 's',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const }] },
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }] },
   ],
 };
 
 it('creates pending skeleton with slots', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { skeletonId } = await createPendingSkeleton(
     { athleteId: ath, generationPrompt: { x: 1 }, generationRationale: 'r' },
@@ -42,7 +42,7 @@ it('creates pending skeleton with slots', async () => {
 });
 
 it('approve sets program_state and seeds weights', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { skeletonId } = await createPendingSkeleton(
     { athleteId: ath, generationPrompt: {}, generationRationale: 'r' },
@@ -62,7 +62,7 @@ it('approve sets program_state and seeds weights', async () => {
 });
 
 it('approve supersedes prior approved skeleton', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const a = await createPendingSkeleton(
     { athleteId: ath, generationPrompt: {}, generationRationale: '' }, aiOut,
@@ -79,7 +79,7 @@ it('approve supersedes prior approved skeleton', async () => {
 });
 
 it('reject sets status and feedback', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { skeletonId } = await createPendingSkeleton(
     { athleteId: ath, generationPrompt: {}, generationRationale: '' }, aiOut,
@@ -94,8 +94,8 @@ it('reject sets status and feedback', async () => {
 });
 
 it('listPendingForCoach returns only pending for this coach', async () => {
-  const coachA = await createCoach();
-  const coachB = await createCoach();
+  const coachA = await createAdmin();
+  const coachB = await createAdmin();
   const ath1 = await createAthlete(coachA);
   const ath2 = await createAthlete(coachB);
   await createPendingSkeleton({ athleteId: ath1, generationPrompt: {}, generationRationale: '' }, aiOut);
@@ -106,7 +106,7 @@ it('listPendingForCoach returns only pending for this coach', async () => {
 });
 
 it('findActiveByAthlete returns null when no state', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const r = await findActiveByAthlete(ath);
   expect(r.state).toBeNull();
@@ -117,40 +117,40 @@ import request from 'supertest';
 import app from '../../src/app.js';
 import { signToken } from '../../src/middleware/auth.js';
 
-describe('coach HTTP endpoints', () => {
-  it('GET /api/coach/skeletons/pending lists own athletes only', async () => {
-    const coachA = await createCoach();
+describe('admin operations HTTP endpoints', () => {
+  it('GET /api/admin/operations/skeletons/pending lists own athletes only', async () => {
+    const coachA = await createAdmin();
     const ath = await createAthlete(coachA);
     await createPendingSkeleton(
       { athleteId: ath, generationPrompt: {}, generationRationale: 'r' }, aiOut,
     );
-    const tok = signToken({ id: coachA, role: 'coach' });
+    const tok = signToken({ id: coachA, role: 'admin' });
     const r = await request(app)
-      .get('/api/coach/skeletons/pending')
+      .get('/api/admin/operations/skeletons/pending')
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(200);
     expect(r.body).toHaveLength(1);
   });
 
-  it('athlete cannot access /api/coach/*', async () => {
-    const coach = await createCoach();
+  it('athlete cannot access /api/admin/operations/*', async () => {
+    const coach = await createAdmin();
     const ath = await createAthlete(coach);
     const tok = signToken({ id: ath, role: 'athlete' });
     const r = await request(app)
-      .get('/api/coach/skeletons/pending')
+      .get('/api/admin/operations/skeletons/pending')
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(403);
   });
 
   it('approve via HTTP works end-to-end', async () => {
-    const coach = await createCoach();
+    const coach = await createAdmin();
     const ath = await createAthlete(coach);
     const { skeletonId } = await createPendingSkeleton(
       { athleteId: ath, generationPrompt: {}, generationRationale: '' }, aiOut,
     );
-    const tok = signToken({ id: coach, role: 'coach' });
+    const tok = signToken({ id: coach, role: 'admin' });
     const r = await request(app)
-      .post(`/api/coach/skeletons/${skeletonId}/approve`)
+      .post(`/api/admin/operations/skeletons/${skeletonId}/approve`)
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(204);
     const s = await pool.query(

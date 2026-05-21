@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { RequireCoach } from '@/components/RequireCoach';
+import { RequireSuperadmin } from '@/components/RequireSuperadmin';
 import { setTokens, setUser, clearAuth } from '@/lib/auth-storage';
 
 function renderAt(path: string) {
@@ -13,12 +13,13 @@ function renderAt(path: string) {
           <Route
             path="/protected"
             element={
-              <RequireCoach>
+              <RequireSuperadmin>
                 <div>secret</div>
-              </RequireCoach>
+              </RequireSuperadmin>
             }
           />
           <Route path="/login" element={<div>login page</div>} />
+          <Route path="/admin" element={<div>admin page</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
@@ -27,24 +28,23 @@ function renderAt(path: string) {
 
 beforeEach(() => clearAuth());
 
-describe('RequireCoach', () => {
-  it('redirects to /login when no user', async () => {
-    renderAt('/protected');
-    expect(await screen.findByText('login page')).toBeInTheDocument();
-  });
-
-  it('redirects to /login when role !== coach', async () => {
+describe('RequireSuperadmin', () => {
+  it('renders children for superadmin role', async () => {
     setTokens('a', 'b');
-    setUser({ id: 'x', email: 'e', role: 'athlete' });
-    renderAt('/protected');
-    expect(await screen.findByText('login page')).toBeInTheDocument();
-  });
-
-  it('renders children for coach role', async () => {
-    setTokens('a', 'b');
-    // TODO(Task 2): update to new role once coach is fully removed
-    setUser({ id: 'x', email: 'e', role: 'coach' as 'admin' });
+    setUser({ id: 'x', email: 'e', role: 'superadmin' });
     renderAt('/protected');
     expect(await screen.findByText('secret')).toBeInTheDocument();
+  });
+
+  it('redirects admin to /admin', async () => {
+    setTokens('a', 'b');
+    setUser({ id: 'x', email: 'e', role: 'admin' });
+    renderAt('/protected');
+    expect(await screen.findByText('admin page')).toBeInTheDocument();
+  });
+
+  it('redirects unauthenticated to /login', async () => {
+    renderAt('/protected');
+    expect(await screen.findByText('login page')).toBeInTheDocument();
   });
 });

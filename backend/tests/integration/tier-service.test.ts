@@ -1,6 +1,6 @@
 export {};
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const { hasTier, getUserTier } = await import('../../src/services/tier.service.js');
@@ -29,14 +29,14 @@ describe('hasTier', () => {
 
 describe('getUserTier', () => {
   it('returns plan_interest for existing athlete', async () => {
-    const coach = await createCoach();
+    const coach = await createAdmin();
     const athleteId = await createAthlete(coach);
     const tier = await getUserTier(athleteId);
     expect(tier).toBe('full');
   });
 
   it('returns null when plan_interest is NULL', async () => {
-    const coach = await createCoach();
+    const coach = await createAdmin();
     const athleteId = await createAthlete(coach);
     await pool.query(
       `UPDATE athlete_profiles SET plan_interest = NULL WHERE user_id = $1`,

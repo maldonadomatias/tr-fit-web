@@ -55,12 +55,12 @@ describe('POST /api/push/register', () => {
     expect(r.status).toBe(401);
   });
 
-  it('rejects coach role', async () => {
+  it('rejects admin role', async () => {
     const { rows } = await pool.query<{ id: string }>(
       `INSERT INTO users (email, password_hash, role)
-       VALUES ('coach@t.local','x','coach') RETURNING id`,
+       VALUES ('admin-push@t.local','x','admin') RETURNING id`,
     );
-    const tok = signToken({ id: rows[0].id, role: 'coach' });
+    const tok = signToken({ id: rows[0].id, role: 'admin' });
     const r = await request(app).post('/api/push/register')
       .set('Authorization', `Bearer ${tok}`)
       .send({ token: 'c'.repeat(30), platform: 'android' });

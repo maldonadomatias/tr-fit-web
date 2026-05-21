@@ -9,7 +9,7 @@ jest.unstable_mockModule('resend', () => {
 });
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const { createPendingSkeleton, approveSkeleton } = await import('../../src/services/skeleton.service.js');
 const { signToken } = await import('../../src/middleware/auth.js');
 const poolMod = await import('../../src/db/connect.js');
@@ -24,7 +24,7 @@ beforeEach(async () => { await resetDatabase(); });
 afterAll(async () => { await closePool(); });
 
 async function setup() {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const p = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
@@ -33,7 +33,7 @@ async function setup() {
     rationale: 'r',
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: 'd',
-      slots: [{ slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const }],
+      slots: [{ slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const, notes: null }],
     })),
   };
   const sk = await createPendingSkeleton(

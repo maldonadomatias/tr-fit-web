@@ -20,7 +20,7 @@ type MockCreate = jest.Mock<
 
 const openaiMod = (await import('openai')) as unknown as { __mockCreate: MockCreate };
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach } = await import('./helpers/fixtures.js');
+const { createAdmin } = await import('./helpers/fixtures.js');
 const { signToken } = await import('../../src/middleware/auth.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
@@ -31,33 +31,29 @@ const app = appMod.default;
 
 let ownerCoachId: string;
 
-beforeAll(async () => {
-  await ensureMigrated();
+async function seedOwnerAdmin() {
   const hash = await bcrypt.hash('owner-test-pass', 4);
   const userRes = await pool.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, role, email_verified)
-     VALUES ($1, $2, 'coach', TRUE)
-     ON CONFLICT (email) DO NOTHING
+     VALUES ($1, $2, 'admin', TRUE)
+     ON CONFLICT (email) DO UPDATE SET role = 'admin'
      RETURNING id`,
     ['owner-test@example.local', hash],
   );
-  let ownerId: string;
-  if (userRes.rows.length > 0) {
-    ownerId = userRes.rows[0].id;
-  } else {
-    const existing = await pool.query<{ id: string }>(
-      `SELECT id FROM users WHERE email = $1`,
-      ['owner-test@example.local'],
-    );
-    ownerId = existing.rows[0].id;
-  }
+  const ownerId = userRes.rows[0].id;
   await pool.query(
-    `INSERT INTO coach_profiles (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
-    [ownerId],
+    `INSERT INTO coach_profiles (user_id, name) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
+    [ownerId, 'Owner Admin'],
   );
   ownerCoachId = ownerId;
+}
+
+beforeAll(async () => { await ensureMigrated(); });
+beforeEach(async () => {
+  await resetDatabase();
+  await seedOwnerAdmin();
+  openaiMod.__mockCreate.mockReset();
 });
-beforeEach(async () => { await resetDatabase(); openaiMod.__mockCreate.mockReset(); });
 afterAll(async () => { await closePool(); });
 
 async function makeAthleteUser() {
@@ -95,7 +91,6 @@ it('rejects payload validation errors', async () => {
 });
 
 it('creates profile + skeleton + slots on success', async () => {
-  await createCoach();
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
 
@@ -112,8 +107,8 @@ it('creates profile + skeleton + slots on success', async () => {
       days: [1, 2, 3, 4].map((d) => ({
         day_index: d, focus: 'd',
         slots: [
-          { slot_index: 1, exercise_id: pid, role: 'principal' },
-          { slot_index: 2, exercise_id: aid, role: 'accesorio' },
+          { slot_index: 1, exercise_id: pid, role: 'principal', notes: null },
+          { slot_index: 2, exercise_id: aid, role: 'accesorio', notes: null },
         ],
       })),
     }) } }],
@@ -136,7 +131,7 @@ it('creates profile + skeleton + slots on success', async () => {
 });
 
 it('onboarded athlete is visible in coach pending inbox', async () => {
-  const coachId = await createCoach();
+  const coachId = await createAdmin();
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
   const ex = await pool.query<{ id: number }>(
@@ -147,7 +142,7 @@ it('onboarded athlete is visible in coach pending inbox', async () => {
       rationale: 'r',
       days: [1, 2, 3, 4].map((d) => ({
         day_index: d, focus: 'd',
-        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal' }],
+        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal', notes: null }],
       })),
     }) } }],
   });
@@ -156,9 +151,9 @@ it('onboarded athlete is visible in coach pending inbox', async () => {
   expect(onboardR.status).toBe(201);
 
   // Coach should see it
-  const coachTok = signToken({ id: coachId, role: 'coach' });
+  const coachTok = signToken({ id: coachId, role: 'admin' });
   const inbox = await request(app)
-    .get('/api/coach/skeletons/pending')
+    .get('/api/admin/operations/skeletons/pending')
     .set('Authorization', `Bearer ${coachTok}`);
   expect(inbox.status).toBe(200);
   expect(inbox.body).toHaveLength(1);
@@ -176,7 +171,7 @@ it('returns 409 on duplicate onboarding', async () => {
       rationale: 'r',
       days: [1, 2, 3, 4].map((d) => ({
         day_index: d, focus: 'd',
-        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal' }],
+        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal', notes: null }],
       })),
     }) } }],
   });
@@ -211,7 +206,7 @@ it('returns 502 when skeleton generation fails', async () => {
 it('persists new fields and measurements', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  await createCoach();
+  await createAdmin();
   const ex = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
   );
@@ -221,7 +216,7 @@ it('persists new fields and measurements', async () => {
       rationale: 'ok',
       days: [1, 2, 3, 4].map((d) => ({
         day_index: d, focus: 'full',
-        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal' }],
+        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal', notes: null }],
       })),
     }) } }],
   });
@@ -250,7 +245,7 @@ it('persists new fields and measurements', async () => {
 it('skips measurements INSERT when all values null', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  await createCoach();
+  await createAdmin();
   const ex = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
   );
@@ -260,7 +255,7 @@ it('skips measurements INSERT when all values null', async () => {
       rationale: 'ok',
       days: [1, 2, 3, 4].map((d) => ({
         day_index: d, focus: 'f',
-        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal' }],
+        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal', notes: null }],
       })),
     }) } }],
   });

@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { createPendingSkeleton, approveSkeleton } from '../../src/services/skeleton.service.js';
 import { recordRm } from '../../src/services/rm.service.js';
 import pool from '../../src/db/connect.js';
@@ -13,7 +13,7 @@ async function setup(coachId: string, athleteId: string, principals: number[]) {
     rationale: 'r',
     days: principals.map((id, i) => ({
       day_index: i + 1, focus: 'd',
-      slots: [{ slot_index: 1, exercise_id: id, role: 'principal' as const }],
+      slots: [{ slot_index: 1, exercise_id: id, role: 'principal' as const, notes: null }],
     })),
   };
   const { skeletonId } = await createPendingSkeleton(
@@ -23,7 +23,7 @@ async function setup(coachId: string, athleteId: string, principals: number[]) {
 }
 
 it('records RM and clears blocking when all principals registered', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach, { days_per_week: 4 });
   const ps = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 4`,
@@ -51,7 +51,7 @@ it('records RM and clears blocking when all principals registered', async () => 
 });
 
 it('upserts: re-recording same RM updates value', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const ex = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,

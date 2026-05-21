@@ -18,14 +18,13 @@ describe('auth-storage', () => {
   });
 
   it('round-trips user', () => {
-    // TODO(Task 2): update to new role once coach is fully removed
-    setUser({ id: 'x', email: 'e', role: 'coach' as 'admin' });
-    expect(getUser()).toEqual({ id: 'x', email: 'e', role: 'coach' });
+    setUser({ id: 'x', email: 'e', role: 'admin' });
+    expect(getUser()).toEqual({ id: 'x', email: 'e', role: 'admin' });
   });
 
   it('clearAuth wipes everything', () => {
     setTokens('a', 'b');
-    setUser({ id: 'x', email: 'e', role: 'coach' as 'admin' });
+    setUser({ id: 'x', email: 'e', role: 'admin' });
     clearAuth();
     expect(getAccessToken()).toBeNull();
     expect(getRefreshToken()).toBeNull();

@@ -3,14 +3,14 @@ import { jest } from '@jest/globals';
 const mockGenerate = jest.fn<() => Promise<{
   rationale: string;
   days: Array<{ day_index: number; focus: string;
-    slots: Array<{ slot_index: number; exercise_id: number; role: 'principal' }> }>;
+    slots: Array<{ slot_index: number; exercise_id: number; role: 'principal', notes: null }> }>;
 }>>();
 jest.unstable_mockModule('../../src/services/openai.service.js', () => ({
   generateSkeleton: mockGenerate,
 }));
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const { regenerateSkeleton } = await import('../../src/services/skeleton-regen.service.js');
@@ -22,7 +22,7 @@ beforeEach(async () => {
   mockGenerate.mockResolvedValue({
     rationale: 'r',
     days: [{ day_index: 1, focus: 'f',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' }] }],
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null }] }],
   });
 });
 afterAll(async () => { await closePool(); });
@@ -48,7 +48,7 @@ async function ensureFirstExercise() {
 describe('regenerateSkeleton', () => {
   it('basico first regen succeeds (1 total budget)', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'basico');
     const r = await regenerateSkeleton(a);
@@ -61,7 +61,7 @@ describe('regenerateSkeleton', () => {
 
   it('basico second regen blocked', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'basico');
     await pool.query(
@@ -81,7 +81,7 @@ describe('regenerateSkeleton', () => {
 
   it('full first regen succeeds', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'full');
     const r = await regenerateSkeleton(a);
@@ -90,7 +90,7 @@ describe('regenerateSkeleton', () => {
 
   it('full second regen within 30 days is rate_limited', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'full');
     await pool.query(
@@ -104,7 +104,7 @@ describe('regenerateSkeleton', () => {
 
   it('full second regen after 31 days succeeds', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'full');
     await pool.query(
@@ -118,7 +118,7 @@ describe('regenerateSkeleton', () => {
 
   it('premium has no limit', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'premium');
     await pool.query(
@@ -135,7 +135,7 @@ describe('regenerateSkeleton', () => {
 describe('regenerateSkeleton concurrency', () => {
   it('serializes concurrent calls — second call sees first one already used budget', async () => {
     await ensureFirstExercise();
-    const c = await createCoach();
+    const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'basico');
 

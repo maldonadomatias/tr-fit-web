@@ -1,5 +1,5 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createCoach, createAthlete } from './helpers/fixtures.js';
+import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { createPendingSkeleton, approveSkeleton } from '../../src/services/skeleton.service.js';
 import { runWeeklyProgressionForAthlete } from '../../src/services/progression.service.js';
 import pool from '../../src/db/connect.js';
@@ -21,8 +21,8 @@ async function setup(coachId: string, athleteId: string) {
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: 'd',
       slots: [
-        { slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const },
-        { slot_index: 2, exercise_id: a.rows[0].id, role: 'accesorio' as const },
+        { slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const, notes: null },
+        { slot_index: 2, exercise_id: a.rows[0].id, role: 'accesorio' as const, notes: null },
       ],
     })),
   };
@@ -34,7 +34,7 @@ async function setup(coachId: string, athleteId: string) {
 }
 
 it('bumps accesorio reps when all sets completed (no weight bump on first rotation)', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { accesorioId } = await setup(coach, ath);
   await pool.query(
@@ -62,7 +62,7 @@ it('bumps accesorio reps when all sets completed (no weight bump on first rotati
 });
 
 it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { accesorioId } = await setup(coach, ath);
   await pool.query(
@@ -89,7 +89,7 @@ it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () =>
 });
 
 it('does NOT bump when set not completed', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { accesorioId } = await setup(coach, ath);
   await pool.query(
@@ -112,7 +112,7 @@ it('does NOT bump when set not completed', async () => {
 });
 
 it('advances week when compliance >= threshold', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { principalId, accesorioId } = await setup(coach, ath);
   await pool.query(
@@ -128,7 +128,7 @@ it('advances week when compliance >= threshold', async () => {
 });
 
 it('does not advance week when compliance < threshold', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { principalId, accesorioId } = await setup(coach, ath);
   await pool.query(
@@ -143,7 +143,7 @@ it('does not advance week when compliance < threshold', async () => {
 });
 
 it('sets rm_test_blocking when next week is RM test (week 9 -> 10)', async () => {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { principalId, accesorioId } = await setup(coach, ath);
   await pool.query(

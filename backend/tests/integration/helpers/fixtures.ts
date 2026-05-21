@@ -30,16 +30,26 @@ export const DAY_PRESETS: Record<2 | 3 | 4 | 5 | 6, Weekday[]> = {
   6: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab'],
 };
 
-export async function createCoach(): Promise<string> {
+export async function createAdmin(): Promise<string> {
   const hash = await bcrypt.hash('test-pass', 4);
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, role)
-     VALUES ($1, $2, 'coach') RETURNING id`,
-    [`coach-${Date.now()}@test.local`, hash],
+     VALUES ($1, $2, 'admin') RETURNING id`,
+    [`admin-${Date.now()}@test.local`, hash],
   );
   await pool.query(
     `INSERT INTO coach_profiles (user_id, name) VALUES ($1, $2)`,
-    [rows[0].id, 'Coach Test'],
+    [rows[0].id, 'Admin Test'],
+  );
+  return rows[0].id;
+}
+
+export async function createSuperadmin(): Promise<string> {
+  const hash = await bcrypt.hash('test-pass', 4);
+  const { rows } = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, password_hash, role)
+     VALUES ($1, $2, 'superadmin') RETURNING id`,
+    [`super-${Date.now()}@test.local`, hash],
   );
   return rows[0].id;
 }

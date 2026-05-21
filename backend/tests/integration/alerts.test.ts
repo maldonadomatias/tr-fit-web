@@ -12,7 +12,7 @@ type MockSend = jest.Mock<(opts: { to: string; subject: string; html: string; fr
 const resendMod = (await import('resend')) as unknown as { __mockSend: MockSend };
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
-const { createCoach, createAthlete } = await import('./helpers/fixtures.js');
+const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const {
   createPainAlert, createMachineAlert,
   listAlertsForCoach, markRead, markResolved,
@@ -29,7 +29,7 @@ beforeEach(async () => {
 afterAll(async () => { await closePool(); });
 
 async function setup() {
-  const coach = await createCoach();
+  const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const ex = await pool.query<{ id: number }>(
     `SELECT id FROM exercises LIMIT 1`,
