@@ -21,13 +21,15 @@ const levelOrder: Record<ExerciseLevel, number> = {
 };
 
 export async function listExercises(): Promise<Exercise[]> {
-  const { rows } = await pool.query<Exercise>(`SELECT * FROM exercises`);
+  const { rows } = await pool.query<Exercise>(
+    `SELECT * FROM exercises WHERE archived_at IS NULL`,
+  );
   return rows;
 }
 
 export async function findExerciseById(id: number): Promise<Exercise | null> {
   const { rows } = await pool.query<Exercise>(
-    `SELECT * FROM exercises WHERE id = $1`, [id],
+    `SELECT * FROM exercises WHERE id = $1 AND archived_at IS NULL`, [id],
   );
   return rows[0] ?? null;
 }

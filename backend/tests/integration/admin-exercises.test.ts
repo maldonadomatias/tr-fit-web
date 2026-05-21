@@ -31,7 +31,7 @@ beforeAll(async () => {
           OR name IN ('AAA Press Banca','BBB Sentadilla','Active One','Archived One',
                       'Archived Two','Active Z','Archived Z','Test Press Banca',
                       'Renamed','Existing','Other','ToRestore','AlreadyActive',
-                      'TwiceArchive')
+                      'TwiceArchive','Active Skel','Archived Skel','Visible Ath')
           OR name LIKE 'Bulk %'`,
   );
   const r = await pool.query<{ max: number | null }>(
@@ -292,5 +292,34 @@ describe('POST /api/admin/exercises/:id/restore', () => {
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(200);
     expect(r.body.exercise.archived_at).toBeNull();
+  });
+});
+
+describe('GET /api/exercises (skeleton-builder consumer)', () => {
+  it('200 for admin role, excludes archived', async () => {
+    const admin = await createAdmin();
+    const tok = signToken({ id: admin, role: 'admin' });
+    const active = await createExercise({ ...baseInput, name: 'Active Skel' });
+    const arch = await createExercise({ ...baseInput, name: 'Archived Skel' });
+    await archiveExercise(arch.id);
+    const r = await request(app)
+      .get('/api/exercises?q=Skel')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    const names = r.body.items.map((e: { name: string }) => e.name);
+    expect(names).toContain('Active Skel');
+    expect(names).not.toContain('Archived Skel');
+  });
+
+  it('200 for athlete role, excludes archived', async () => {
+    const admin = await createAdmin();
+    const ath = await createAthlete(admin);
+    const tok = signToken({ id: ath, role: 'athlete' });
+    await createExercise({ ...baseInput, name: 'Visible Ath' });
+    const r = await request(app)
+      .get('/api/exercises?q=Visible')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(r.body.items.map((e: { name: string }) => e.name)).toContain('Visible Ath');
   });
 });
