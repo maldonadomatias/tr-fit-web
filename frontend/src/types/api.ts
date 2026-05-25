@@ -41,10 +41,12 @@ export interface PendingRutina {
 
 export interface RutinaSlot {
   id: string;
+  skeleton_id?: string;
   day_of_week: number;
   slot_index: number;
   exercise_id: number;
-  role: 'principal' | 'accesorio';
+  role: 'calentamiento' | 'principal' | 'accesorio';
+  notes?: string | null;
   exercise_name?: string;
   muscle_group?: string;
   equipment?: string;
@@ -204,4 +206,50 @@ export interface Exercise {
   video_url: string | null;
   illustration_url: string | null;
   archived_at: string | null;
+}
+
+export interface ActiveAthleteRow {
+  athlete_id: string;
+  name: string;
+  skeleton_id: string;
+  reviewed_at: string | null;
+  days_per_week: number;
+}
+
+export interface RutinaDay {
+  day_of_week: number;
+  focus: string | null;
+}
+
+export interface ActiveRutinaDetail {
+  skeleton: {
+    id: string;
+    athlete_id: string;
+    status: string;
+    created_at: string;
+    reviewed_at: string | null;
+  };
+  slots: RutinaSlot[];
+  days: RutinaDay[];
+  profile: { user_id: string; name: string; days_per_week: number };
+  has_active_session: boolean;
+}
+
+export interface SlotCreateInput {
+  day_of_week: number;
+  slot_index: number;
+  exercise_id: number;
+  role: 'calentamiento' | 'principal' | 'accesorio';
+  notes: string | null;
+}
+
+export interface SlotPatchInput {
+  exercise_id?: number;
+  notes?: string | null;
+  slot_index?: number;
+  day_of_week?: number;
+}
+
+export interface ReorderInput {
+  slots: { slot_id: string; day_of_week: number; slot_index: number }[];
 }
