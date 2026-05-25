@@ -314,18 +314,46 @@ export async function reorderSlots(
       throw new AdminRutinaError('not_found', 'slot not in active skeleton');
     }
 
-    // Bump everything by 1000 to clear unique-constraint room
-    await client.query(
-      `UPDATE skeleton_slots SET slot_index = slot_index + 1000
-        WHERE skeleton_id = $1`,
-      [skId],
+    // Use a temporary unique key (skeleton_id, id) trick: set all targeted
+    // slots to (day_of_week=0, slot_index=0) to vacate the unique positions,
+    // then apply the new values. day_of_week=0 is outside CHECK (1–7) so we
+    // instead use a two-phase approach: first move slots OUT of the way by
+    // nulling their position within a deferred constraint — but since the
+    // constraint is not DEFERRABLE we delete + re-insert within the same txn.
+    //
+    // Delete the targeted slots, then re-insert with new positions to avoid
+    // any intermediate UNIQUE(skeleton_id, day_of_week, slot_index) violation.
+    const targetedSlotIds = input.slots.map((s) => s.slot_id);
+    const existing = await client.query<{
+      id: string;
+      exercise_id: number;
+      role: string;
+      notes: string | null;
+    }>(
+      `DELETE FROM skeleton_slots
+        WHERE id = ANY($1::uuid[])
+        RETURNING id, exercise_id, role, notes`,
+      [targetedSlotIds],
     );
 
+    const existingById = new Map(existing.rows.map((r) => [r.id, r]));
+
     for (const s of input.slots) {
+      const orig = existingById.get(s.slot_id);
+      if (!orig) continue; // already validated above
       await client.query(
-        `UPDATE skeleton_slots SET day_of_week = $1, slot_index = $2
-          WHERE id = $3`,
-        [s.day_of_week, s.slot_index, s.slot_id],
+        `INSERT INTO skeleton_slots
+           (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          orig.id,
+          skId,
+          s.day_of_week,
+          s.slot_index,
+          orig.exercise_id,
+          orig.role,
+          orig.notes,
+        ],
       );
     }
     await client.query('COMMIT');
