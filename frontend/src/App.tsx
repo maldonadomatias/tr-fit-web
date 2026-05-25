@@ -61,6 +61,8 @@ export default function App() {
                 />
                 <Route path="/admin/activity" element={<AdminActivity />} />
                 <Route path="/admin/rutinas" element={<AdminRutinas />} />
+                <Route path="/admin/rutinas/atleta" element={<AdminRutinas />} />
+                <Route path="/admin/rutinas/atleta/:athleteId" element={<AdminRutinas />} />
                 <Route path="/admin/rutinas/:id" element={<AdminRutinas />} />
                 <Route path="/admin/exercises" element={<AdminExercises />} />
               </Route>
