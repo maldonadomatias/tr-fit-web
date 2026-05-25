@@ -27,15 +27,20 @@ const fakePool = {
     }
     return { rows: [], rowCount: 0 };
   },
+  async connect() {
+    return {
+      query: (sql: string, params?: unknown[]) => fakePool.query(sql, params),
+      release: () => {},
+    };
+  },
 };
 
 jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { listActiveAthletes, getActiveRutina } = await import(
-  '../../src/services/admin-rutina.service.js'
-);
+const { listActiveAthletes, getActiveRutina, createSlot, AdminRutinaError } =
+  await import('../../src/services/admin-rutina.service.js');
 
 beforeEach(() => {
   handlers.length = 0;
@@ -335,5 +340,147 @@ describe('getActiveRutina', () => {
 
     const result = await getActiveRutina(athleteId);
     expect(result).toBeNull();
+  });
+});
+
+describe('createSlot', () => {
+  it('inserts slot and seeds athlete_exercise_weights', async () => {
+    const athleteId = 'athlete-uuid-cs';
+    const skId = 'skeleton-uuid-cs';
+    const exerciseId = 99;
+    const fakeSlot = {
+      id: 'slot-uuid-new',
+      skeleton_id: skId,
+      day_of_week: 2,
+      slot_index: 1,
+      exercise_id: exerciseId,
+      role: 'principal',
+      notes: null,
+    };
+
+    let weightInsertInvoked = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // active-skeleton SELECT
+    pushHandler(
+      (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
+      [{ skeleton_id: skId }],
+    );
+    // exercise availability SELECT
+    pushHandler(
+      (s) => s.includes('exercises') && s.includes('archived_at IS NULL'),
+      [{ id: exerciseId }],
+    );
+    // INSERT skeleton_slots
+    pushHandler(
+      (s) => s.includes('INSERT INTO skeleton_slots'),
+      [fakeSlot],
+    );
+    // INSERT athlete_exercise_weights
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized.includes('INSERT INTO athlete_exercise_weights')) {
+        weightInsertInvoked = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+    // COMMIT
+    pushHandler((s) => s === 'COMMIT', []);
+
+    const result = await createSlot(athleteId, {
+      day_of_week: 2,
+      slot_index: 1,
+      exercise_id: exerciseId,
+      role: 'principal',
+      notes: null,
+    });
+
+    expect(result).toMatchObject({
+      id: 'slot-uuid-new',
+      skeleton_id: skId,
+      exercise_id: exerciseId,
+      role: 'principal',
+    });
+    expect(weightInsertInvoked).toBe(true);
+  });
+
+  it('throws rutina_not_active when athlete has no approved active skeleton', async () => {
+    const athleteId = 'athlete-no-skeleton';
+    let rollbackCalled = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // active-skeleton SELECT returns empty
+    pushHandler(
+      (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
+      [],
+    );
+    // ROLLBACK
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized === 'ROLLBACK') {
+        rollbackCalled = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+
+    await expect(
+      createSlot(athleteId, {
+        day_of_week: 1,
+        slot_index: 1,
+        exercise_id: 1,
+        role: 'principal',
+      }),
+    ).rejects.toMatchObject({ code: 'rutina_not_active' });
+    await expect(
+      createSlot(athleteId, {
+        day_of_week: 1,
+        slot_index: 1,
+        exercise_id: 1,
+        role: 'principal',
+      }),
+    ).rejects.toBeInstanceOf(AdminRutinaError);
+    expect(rollbackCalled).toBe(true);
+  });
+
+  it('throws invalid_exercise when exercise is archived or missing', async () => {
+    const athleteId = 'athlete-bad-exercise';
+    const skId = 'skeleton-uuid-bad-ex';
+    let rollbackCalled = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // active-skeleton SELECT returns a skeleton
+    pushHandler(
+      (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
+      [{ skeleton_id: skId }],
+    );
+    // exercise availability SELECT returns empty (archived/missing)
+    pushHandler(
+      (s) => s.includes('exercises') && s.includes('archived_at IS NULL'),
+      [],
+    );
+    // ROLLBACK
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized === 'ROLLBACK') {
+        rollbackCalled = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+
+    await expect(
+      createSlot(athleteId, {
+        day_of_week: 3,
+        slot_index: 2,
+        exercise_id: 999,
+        role: 'accesorio',
+      }),
+    ).rejects.toMatchObject({ code: 'invalid_exercise' });
+    expect(rollbackCalled).toBe(true);
   });
 });

@@ -1,5 +1,7 @@
 import pool from '../db/connect.js';
 import type { AthleteSkeleton, SkeletonSlot } from '../domain/types.js';
+import type { AdminSlotCreate } from '../domain/schemas.js';
+import type { PoolClient } from 'pg';
 
 export type AdminRutinaErrorCode =
   | 'not_found'
@@ -131,4 +133,79 @@ export async function getActiveRutina(
     profile: profR.rows[0],
     has_active_session: sessR.rows[0].exists,
   };
+}
+
+async function assertAthleteActiveSkeleton(
+  client: PoolClient,
+  athleteId: string,
+): Promise<string> {
+  const r = await client.query<{ skeleton_id: string }>(
+    `SELECT s.id AS skeleton_id
+       FROM athlete_program_state ps
+       JOIN athlete_skeletons s
+         ON s.id = ps.active_skeleton_id AND s.status = 'approved'
+      WHERE ps.athlete_id = $1`,
+    [athleteId],
+  );
+  if (!r.rows[0]) throw new AdminRutinaError('rutina_not_active');
+  return r.rows[0].skeleton_id;
+}
+
+async function assertExerciseAvailable(
+  client: PoolClient,
+  exerciseId: number,
+): Promise<void> {
+  const r = await client.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE id = $1 AND archived_at IS NULL`,
+    [exerciseId],
+  );
+  if (!r.rows[0]) throw new AdminRutinaError('invalid_exercise');
+}
+
+async function seedAthleteExerciseWeight(
+  client: PoolClient,
+  athleteId: string,
+  exerciseId: number,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO athlete_exercise_weights
+       (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by)
+     VALUES ($1, $2, NULL, NULL, 'athlete_initial')
+     ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
+    [athleteId, exerciseId],
+  );
+}
+
+export async function createSlot(
+  athleteId: string,
+  input: AdminSlotCreate,
+): Promise<SkeletonSlot> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const skId = await assertAthleteActiveSkeleton(client, athleteId);
+    await assertExerciseAvailable(client, input.exercise_id);
+    const r = await client.query<SkeletonSlot>(
+      `INSERT INTO skeleton_slots
+         (skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING *`,
+      [
+        skId,
+        input.day_of_week,
+        input.slot_index,
+        input.exercise_id,
+        input.role,
+        input.notes ?? null,
+      ],
+    );
+    await seedAthleteExerciseWeight(client, athleteId, input.exercise_id);
+    await client.query('COMMIT');
+    return r.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
 }
