@@ -427,22 +427,15 @@ describe('createSlot', () => {
       return null;
     });
 
-    await expect(
-      createSlot(athleteId, {
-        day_of_week: 1,
-        slot_index: 1,
-        exercise_id: 1,
-        role: 'principal',
-      }),
-    ).rejects.toMatchObject({ code: 'rutina_not_active' });
-    await expect(
-      createSlot(athleteId, {
-        day_of_week: 1,
-        slot_index: 1,
-        exercise_id: 1,
-        role: 'principal',
-      }),
-    ).rejects.toBeInstanceOf(AdminRutinaError);
+    const promise = createSlot(athleteId, {
+      day_of_week: 1,
+      slot_index: 1,
+      exercise_id: 1,
+      role: 'principal',
+      notes: null,
+    });
+    await expect(promise).rejects.toBeInstanceOf(AdminRutinaError);
+    await expect(promise).rejects.toMatchObject({ code: 'rutina_not_active' });
     expect(rollbackCalled).toBe(true);
   });
 

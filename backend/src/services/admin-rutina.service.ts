@@ -203,7 +203,11 @@ export async function createSlot(
     await client.query('COMMIT');
     return r.rows[0];
   } catch (e) {
-    await client.query('ROLLBACK');
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore — preserve the original error
+    }
     throw e;
   } finally {
     client.release();
