@@ -235,6 +235,25 @@ async function assertSlotInActiveSkeleton(
   };
 }
 
+export async function deleteSlot(slotId: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await assertSlotInActiveSkeleton(client, slotId);
+    await client.query(`DELETE FROM skeleton_slots WHERE id = $1`, [slotId]);
+    await client.query('COMMIT');
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore — preserve original error
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
 export async function updateSlot(
   slotId: string,
   patch: AdminSlotPatch,

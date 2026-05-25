@@ -39,7 +39,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { listActiveAthletes, getActiveRutina, createSlot, updateSlot, AdminRutinaError } =
+const { listActiveAthletes, getActiveRutina, createSlot, updateSlot, deleteSlot, AdminRutinaError } =
   await import('../../src/services/admin-rutina.service.js');
 
 beforeEach(() => {
@@ -586,5 +586,36 @@ describe('updateSlot', () => {
     await expect(promise).rejects.toBeInstanceOf(AdminRutinaError);
     await expect(promise).rejects.toMatchObject({ code: 'rutina_not_active' });
     expect(rollbackCalled).toBe(true);
+  });
+});
+
+describe('deleteSlot', () => {
+  it('removes slot when in active skeleton', async () => {
+    const slotId = 'slot-uuid-delete';
+    const athleteId = 'athlete-uuid-delete';
+    const skeletonId = 'skeleton-uuid-delete';
+    let deleteInvoked = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // slot-in-active-skeleton SELECT returns valid
+    pushHandler(
+      (s) => s.includes('skeleton_slots sl') && s.includes('athlete_skeletons s') && s.includes('athlete_program_state ps'),
+      [{ athlete_id: athleteId, skeleton_id: skeletonId }],
+    );
+    // DELETE skeleton_slots
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized.includes('DELETE FROM skeleton_slots')) {
+        deleteInvoked = true;
+        return { rows: [], rowCount: 1 };
+      }
+      return null;
+    });
+    // COMMIT
+    pushHandler((s) => s === 'COMMIT', []);
+
+    await deleteSlot(slotId);
+    expect(deleteInvoked).toBe(true);
   });
 });
