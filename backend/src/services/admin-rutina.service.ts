@@ -92,6 +92,17 @@ export async function getActiveRutina(
   );
   if (!skR.rows[0]) return null;
 
+  const profR = await pool.query<{
+    user_id: string;
+    name: string;
+    days_per_week: number;
+  }>(
+    `SELECT user_id, name, days_per_week FROM athlete_profiles
+      WHERE user_id = $1`,
+    [athleteId],
+  );
+  if (!profR.rows[0]) return null;
+
   const slotsR = await pool.query<SkeletonSlot>(
     `SELECT s.*, e.name AS exercise_name, e.muscle_group, e.equipment
        FROM skeleton_slots s
@@ -104,15 +115,6 @@ export async function getActiveRutina(
     `SELECT day_of_week, focus FROM skeleton_days WHERE skeleton_id = $1
       ORDER BY day_of_week`,
     [skId],
-  );
-  const profR = await pool.query<{
-    user_id: string;
-    name: string;
-    days_per_week: number;
-  }>(
-    `SELECT user_id, name, days_per_week FROM athlete_profiles
-      WHERE user_id = $1`,
-    [athleteId],
   );
   const sessR = await pool.query<{ exists: boolean }>(
     `SELECT EXISTS(

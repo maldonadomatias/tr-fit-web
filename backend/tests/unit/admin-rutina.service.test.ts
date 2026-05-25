@@ -289,4 +289,51 @@ describe('getActiveRutina', () => {
     });
     expect(result!.has_active_session).toBe(true);
   });
+
+  it('returns null when athlete profile is missing', async () => {
+    const athleteId = 'athlete-uuid-no-profile';
+    const skId = 'skeleton-uuid-no-profile';
+
+    // 1. state query — returns valid active_skeleton_id
+    pushHandler(
+      (s) => s.includes('athlete_program_state'),
+      [{ active_skeleton_id: skId }],
+    );
+    // 2. skeleton query — returns an approved skeleton row
+    pushHandler(
+      (s) => s.includes('athlete_skeletons'),
+      [
+        {
+          id: skId,
+          athlete_id: athleteId,
+          status: 'approved',
+          generated_by: 'ai',
+          generation_prompt: {},
+          generation_rationale: null,
+          rejection_feedback: null,
+          created_at: '2026-01-01T00:00:00Z',
+          reviewed_at: '2026-01-02T00:00:00Z',
+          reviewed_by: 'admin-uuid',
+        },
+      ],
+    );
+    // 3. profile query — returns [] (missing profile)
+    pushHandler(
+      (s) => s.includes('athlete_profiles'),
+      [],
+    );
+    // 4. slots query — returns []
+    pushHandler(
+      (s) => s.includes('skeleton_slots'),
+      [],
+    );
+    // 5. days query — returns []
+    pushHandler(
+      (s) => s.includes('skeleton_days'),
+      [],
+    );
+
+    const result = await getActiveRutina(athleteId);
+    expect(result).toBeNull();
+  });
 });
