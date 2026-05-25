@@ -28,11 +28,13 @@ export async function listActiveAthletes(opts: {
   limit?: number;
   offset?: number;
 }): Promise<{ items: ActiveAthleteRow[]; total: number }> {
-  const limit = opts.limit ?? 50;
+  const limit = Math.min(opts.limit ?? 50, 200);
   const offset = opts.offset ?? 0;
   const q = opts.q ? `%${opts.q.toLowerCase()}%` : null;
 
   const params: unknown[] = [];
+  // Inner-joins drop athletes without active_skeleton_id / no program_state.
+  // That is intentional: this endpoint lists athletes with a fully-activated routine.
   let where = `s.status = 'approved' AND ps.active_skeleton_id = s.id`;
   if (q) {
     params.push(q);
