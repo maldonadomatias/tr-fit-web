@@ -12,6 +12,7 @@ import subscriptions from './subscriptions.js';
 import adminOps from './admin-ops.js';
 import adminAlerts from './admin-alerts.js';
 import rutinas from './rutinas.js';
+import adminRutinasRouter from './admin-rutinas.js';
 import adminExercises from './admin-exercises.js';
 import admin from './admin.js';
 
@@ -28,6 +29,7 @@ router.use('/progress', progressRouter);
 router.use('/subscriptions', subscriptions);
 router.use('/admin/operations', adminOps);
 router.use('/admin/alerts', adminAlerts);
+router.use('/admin/rutinas', adminRutinasRouter);
 router.use('/admin/rutinas', rutinas);
 router.use('/admin/exercises', adminExercises);
 router.use('/admin', admin);
