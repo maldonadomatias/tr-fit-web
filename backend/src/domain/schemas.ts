@@ -182,7 +182,7 @@ export const slotRoleEnum = z.enum(['calentamiento', 'principal', 'accesorio']);
 
 export const adminSlotCreatePayload = z.object({
   day_of_week: z.number().int().min(1).max(7),
-  slot_index: z.number().int().min(0).max(50),
+  slot_index: z.number().int().min(1).max(12),
   exercise_id: z.number().int().positive(),
   role: slotRoleEnum,
   notes: z.string().max(2000).nullable().optional(),
@@ -192,7 +192,7 @@ export const adminSlotPatchPayload = z
   .object({
     exercise_id: z.number().int().positive().optional(),
     notes: z.string().max(2000).nullable().optional(),
-    slot_index: z.number().int().min(0).max(50).optional(),
+    slot_index: z.number().int().min(1).max(12).optional(),
     day_of_week: z.number().int().min(1).max(7).optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
@@ -205,7 +205,7 @@ export const adminReorderPayload = z.object({
       z.object({
         slot_id: z.string().uuid(),
         day_of_week: z.number().int().min(1).max(7),
-        slot_index: z.number().int().min(0).max(50),
+        slot_index: z.number().int().min(1).max(12),
       }),
     )
     .min(1)
