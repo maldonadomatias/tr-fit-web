@@ -17,6 +17,17 @@ import {
   AdminRutinaError,
 } from '../services/admin-rutina.service.js';
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function requireUuid(value: string | undefined, res: Response): string | null {
+  if (!value || !UUID_RE.test(value)) {
+    res.status(400).json({ error: 'invalid_uuid' });
+    return null;
+  }
+  return value;
+}
+
 const router = Router();
 router.use(requireAuth, requireAdmin);
 
@@ -47,12 +58,20 @@ router.get('/atleta', async (req: Request, res: Response) => {
 });
 
 router.get('/atleta/:athleteId', async (req: Request, res: Response) => {
-  const r = await getActiveRutina(req.params.athleteId);
-  if (!r) return res.status(404).json({ error: 'not_found' });
-  res.json(r);
+  const athleteId = requireUuid(req.params.athleteId, res);
+  if (!athleteId) return;
+  try {
+    const r = await getActiveRutina(athleteId);
+    if (!r) return res.status(404).json({ error: 'not_found' });
+    res.json(r);
+  } catch (e) {
+    mapError(e, res);
+  }
 });
 
 router.post('/atleta/:athleteId/slots', async (req: Request, res: Response) => {
+  const athleteId = requireUuid(req.params.athleteId, res);
+  if (!athleteId) return;
   const parsed = adminSlotCreatePayload.safeParse(req.body);
   if (!parsed.success) {
     return res
@@ -60,7 +79,7 @@ router.post('/atleta/:athleteId/slots', async (req: Request, res: Response) => {
       .json({ error: 'invalid_payload', issues: parsed.error.issues });
   }
   try {
-    const slot = await createSlot(req.params.athleteId, parsed.data);
+    const slot = await createSlot(athleteId, parsed.data);
     res.status(201).json({ slot });
   } catch (e) {
     mapError(e, res);
@@ -68,6 +87,8 @@ router.post('/atleta/:athleteId/slots', async (req: Request, res: Response) => {
 });
 
 router.post('/atleta/:athleteId/reorder', async (req: Request, res: Response) => {
+  const athleteId = requireUuid(req.params.athleteId, res);
+  if (!athleteId) return;
   const parsed = adminReorderPayload.safeParse(req.body);
   if (!parsed.success) {
     return res
@@ -75,7 +96,7 @@ router.post('/atleta/:athleteId/reorder', async (req: Request, res: Response) =>
       .json({ error: 'invalid_payload', issues: parsed.error.issues });
   }
   try {
-    await reorderSlots(req.params.athleteId, parsed.data);
+    await reorderSlots(athleteId, parsed.data);
     res.status(204).end();
   } catch (e) {
     mapError(e, res);
@@ -83,6 +104,8 @@ router.post('/atleta/:athleteId/reorder', async (req: Request, res: Response) =>
 });
 
 router.patch('/slots/:slotId', async (req: Request, res: Response) => {
+  const slotId = requireUuid(req.params.slotId, res);
+  if (!slotId) return;
   const parsed = adminSlotPatchPayload.safeParse(req.body);
   if (!parsed.success) {
     return res
@@ -90,7 +113,7 @@ router.patch('/slots/:slotId', async (req: Request, res: Response) => {
       .json({ error: 'invalid_payload', issues: parsed.error.issues });
   }
   try {
-    const slot = await updateSlot(req.params.slotId, parsed.data);
+    const slot = await updateSlot(slotId, parsed.data);
     res.json({ slot });
   } catch (e) {
     mapError(e, res);
@@ -98,8 +121,10 @@ router.patch('/slots/:slotId', async (req: Request, res: Response) => {
 });
 
 router.delete('/slots/:slotId', async (req: Request, res: Response) => {
+  const slotId = requireUuid(req.params.slotId, res);
+  if (!slotId) return;
   try {
-    await deleteSlot(req.params.slotId);
+    await deleteSlot(slotId);
     res.status(204).end();
   } catch (e) {
     mapError(e, res);

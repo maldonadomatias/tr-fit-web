@@ -95,6 +95,17 @@ describe('GET /api/admin/rutinas/atleta/:athleteId', () => {
     expect(r.status).toBe(404);
     expect(r.body.error).toBe('not_found');
   });
+
+  it('returns 400 for malformed athlete UUID', async () => {
+    const adminId = await createAdmin();
+    const adminToken = signToken({ id: adminId, role: 'admin' });
+
+    const r = await request(app)
+      .get('/api/admin/rutinas/atleta/not-a-uuid')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('invalid_uuid');
+  });
 });
 
 // ── Test 4: PATCH /api/admin/rutinas/slots/:slotId updates notes ──
@@ -231,22 +242,33 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
   it('204 reorders 2 slots in the same day and persists new slot_indices', async () => {
     const { athleteId, skeletonId, tok } = await setupActiveRutina();
 
-    // Fetch the 2 slots in day 1 (aiOut has 2 slots on day_index 1)
-    const slotsR = await pool.query<{ id: string; slot_index: number }>(
-      `SELECT id, slot_index FROM skeleton_slots
-        WHERE skeleton_id = $1 AND day_of_week = 1
-        ORDER BY slot_index`,
+    // Fetch ALL slots for the skeleton — reorder requires a complete set
+    const allSlotsR = await pool.query<{
+      id: string;
+      day_of_week: number;
+      slot_index: number;
+    }>(
+      `SELECT id, day_of_week, slot_index FROM skeleton_slots
+        WHERE skeleton_id = $1
+        ORDER BY day_of_week, slot_index`,
       [skeletonId],
     );
-    expect(slotsR.rows.length).toBeGreaterThanOrEqual(2);
-    const [slotA, slotB] = slotsR.rows;
+    expect(allSlotsR.rows.length).toBeGreaterThanOrEqual(3);
 
-    // Swap their indices
+    // Fetch the 2 slots in day 1 (aiOut has 2 slots on day_index 1)
+    const day1Slots = allSlotsR.rows.filter((s) => s.day_of_week === 1);
+    expect(day1Slots.length).toBeGreaterThanOrEqual(2);
+    const [slotA, slotB] = day1Slots;
+
+    // Build payload with ALL slots; swap the two day-1 slots, keep others unchanged
     const payload = {
-      slots: [
-        { slot_id: slotA.id, day_of_week: 1, slot_index: slotB.slot_index },
-        { slot_id: slotB.id, day_of_week: 1, slot_index: slotA.slot_index },
-      ],
+      slots: allSlotsR.rows.map((s) => {
+        if (s.id === slotA.id)
+          return { slot_id: s.id, day_of_week: s.day_of_week, slot_index: slotB.slot_index };
+        if (s.id === slotB.id)
+          return { slot_id: s.id, day_of_week: s.day_of_week, slot_index: slotA.slot_index };
+        return { slot_id: s.id, day_of_week: s.day_of_week, slot_index: s.slot_index };
+      }),
     };
 
     const r = await request(app)
@@ -256,7 +278,7 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
 
     expect(r.status).toBe(204);
 
-    // Verify DB
+    // Verify DB — the two swapped slots have exchanged slot_index values
     const after = await pool.query<{ id: string; slot_index: number }>(
       `SELECT id, slot_index FROM skeleton_slots
         WHERE id = ANY($1::uuid[])`,

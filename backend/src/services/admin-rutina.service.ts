@@ -304,6 +304,17 @@ export async function reorderSlots(
     await client.query('BEGIN');
     const skId = await assertAthleteActiveSkeleton(client, athleteId);
 
+    const totalR = await client.query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM skeleton_slots WHERE skeleton_id = $1`,
+      [skId],
+    );
+    if (totalR.rows[0].c !== input.slots.length) {
+      throw new AdminRutinaError(
+        'not_found',
+        'reorder payload must include every slot of the skeleton',
+      );
+    }
+
     const slotIds = input.slots.map((s) => s.slot_id);
     const check = await client.query<{ id: string }>(
       `SELECT id FROM skeleton_slots

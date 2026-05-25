@@ -637,6 +637,11 @@ describe('reorderSlots', () => {
       (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
       [{ skeleton_id: skId }],
     );
+    // total-count SELECT — returns same count as input slots (complete set)
+    pushHandler(
+      (s) => s.includes('COUNT(*)::int AS c') && s.includes('skeleton_slots'),
+      [{ c: inputSlots.length }],
+    );
     // slot-membership check SELECT — returns same number of rows as input slots
     pushHandler(
       (s) => s.includes('skeleton_slots') && s.includes('ANY($1::uuid[])') && s.includes('skeleton_id = $2'),
@@ -682,6 +687,11 @@ describe('reorderSlots', () => {
       (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
       [{ skeleton_id: skId }],
     );
+    // total-count SELECT — returns same count as input slots (passes the complete-set check)
+    pushHandler(
+      (s) => s.includes('COUNT(*)::int AS c') && s.includes('skeleton_slots'),
+      [{ c: inputSlots.length }],
+    );
     // membership check returns FEWER rows than input slots (only 1 of 2)
     pushHandler(
       (s) => s.includes('skeleton_slots') && s.includes('ANY($1::uuid[])') && s.includes('skeleton_id = $2'),
@@ -698,6 +708,41 @@ describe('reorderSlots', () => {
     });
 
     const promise = reorderSlots(athleteId, { slots: inputSlots });
+    await expect(promise).rejects.toBeInstanceOf(AdminRutinaError);
+    await expect(promise).rejects.toMatchObject({ code: 'not_found' });
+    expect(rollbackCalled).toBe(true);
+  });
+
+  it('throws not_found when payload is a subset of the skeleton', async () => {
+    let rollbackCalled = false;
+    // BEGIN
+    pushHandler((s) => /^begin$/i.test(s.trim()), []);
+    // active-skeleton SELECT (returns skId)
+    pushHandler(
+      (s) => s.toLowerCase().includes('from athlete_program_state'),
+      [{ skeleton_id: 'sk-1' }],
+    );
+    // total-count SELECT — skeleton has 3 slots but input only has 2
+    pushHandler(
+      (s) => s.toLowerCase().includes('count(*)') && s.toLowerCase().includes('skeleton_slots'),
+      [{ c: 3 }],
+    );
+    // ROLLBACK
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (/^rollback$/i.test(normalized)) {
+        rollbackCalled = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+
+    const promise = reorderSlots('any-athlete', {
+      slots: [
+        { slot_id: '00000000-0000-0000-0000-000000000001', day_of_week: 1, slot_index: 1 },
+        { slot_id: '00000000-0000-0000-0000-000000000002', day_of_week: 1, slot_index: 2 },
+      ],
+    });
     await expect(promise).rejects.toBeInstanceOf(AdminRutinaError);
     await expect(promise).rejects.toMatchObject({ code: 'not_found' });
     expect(rollbackCalled).toBe(true);
