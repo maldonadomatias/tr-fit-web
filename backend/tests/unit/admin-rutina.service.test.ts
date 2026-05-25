@@ -628,7 +628,7 @@ describe('reorderSlots', () => {
       { slot_id: 'slot-uuid-r1', day_of_week: 2, slot_index: 1 },
       { slot_id: 'slot-uuid-r2', day_of_week: 3, slot_index: 1 },
     ];
-    let perSlotUpdateCount = 0;
+    let perSlotInsertCount = 0;
 
     // BEGIN
     pushHandler((s) => s === 'BEGIN', []);
@@ -642,16 +642,19 @@ describe('reorderSlots', () => {
       (s) => s.includes('skeleton_slots') && s.includes('ANY($1::uuid[])') && s.includes('skeleton_id = $2'),
       [{ id: 'slot-uuid-r1' }, { id: 'slot-uuid-r2' }],
     );
-    // bump UPDATE
+    // DELETE targeted slots RETURNING their data for subsequent re-insertion
     pushHandler(
-      (s) => s.includes('UPDATE skeleton_slots') && s.includes('slot_index + 1000'),
-      [],
+      (s) => s.includes('DELETE FROM skeleton_slots') && s.includes('RETURNING id, exercise_id, role, notes'),
+      [
+        { id: 'slot-uuid-r1', exercise_id: 10, role: 'principal', notes: null },
+        { id: 'slot-uuid-r2', exercise_id: 20, role: 'accesorio', notes: null },
+      ],
     );
-    // per-slot UPDATEs
+    // per-slot INSERTs preserving UUIDs with new positions
     handlers.push((sql) => {
       const normalized = sql.replace(/\s+/g, ' ').trim();
-      if (normalized.includes('UPDATE skeleton_slots') && normalized.includes('day_of_week = $1')) {
-        perSlotUpdateCount++;
+      if (normalized.includes('INSERT INTO skeleton_slots') && normalized.includes('day_of_week')) {
+        perSlotInsertCount++;
         return { rows: [], rowCount: 1 };
       }
       return null;
@@ -660,7 +663,7 @@ describe('reorderSlots', () => {
     pushHandler((s) => s === 'COMMIT', []);
 
     await reorderSlots(athleteId, { slots: inputSlots });
-    expect(perSlotUpdateCount).toBe(inputSlots.length);
+    expect(perSlotInsertCount).toBe(inputSlots.length);
   });
 
   it('throws not_found when slot does not belong to active skeleton', async () => {
