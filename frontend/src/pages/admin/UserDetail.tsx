@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   Copy,
+  Dumbbell,
   ExternalLink,
   Mail,
   MailCheck,
@@ -297,6 +298,13 @@ function IdentityCard({
                 Forzar logout
               </Button>
             </div>
+          )}
+          {user.role === 'athlete' && (
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/admin/rutinas/atleta/${user.id}`}>
+                <Dumbbell size={14} className="mr-1" /> Ver rutina activa
+              </Link>
+            </Button>
           )}
         </div>
       </div>
