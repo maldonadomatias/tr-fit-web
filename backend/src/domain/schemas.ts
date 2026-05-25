@@ -177,3 +177,47 @@ export const notificationPrefsPayload = z.object({
 
 export type PushRegisterPayload = z.infer<typeof pushRegisterPayload>;
 export type NotificationPrefsPayload = z.infer<typeof notificationPrefsPayload>;
+
+export const slotRoleEnum = z.enum(['calentamiento', 'principal', 'accesorio']);
+
+export const adminSlotCreatePayload = z.object({
+  day_of_week: z.number().int().min(1).max(7),
+  slot_index: z.number().int().min(0).max(50),
+  exercise_id: z.number().int().positive(),
+  role: slotRoleEnum,
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+export const adminSlotPatchPayload = z
+  .object({
+    exercise_id: z.number().int().positive().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+    slot_index: z.number().int().min(0).max(50).optional(),
+    day_of_week: z.number().int().min(1).max(7).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, {
+    message: 'empty_patch',
+  });
+
+export const adminReorderPayload = z.object({
+  slots: z
+    .array(
+      z.object({
+        slot_id: z.string().uuid(),
+        day_of_week: z.number().int().min(1).max(7),
+        slot_index: z.number().int().min(0).max(50),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+
+export const adminListAthletesQuery = z.object({
+  q: z.string().trim().min(1).max(120).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+export type AdminSlotCreate = z.infer<typeof adminSlotCreatePayload>;
+export type AdminSlotPatch = z.infer<typeof adminSlotPatchPayload>;
+export type AdminReorderInput = z.infer<typeof adminReorderPayload>;
