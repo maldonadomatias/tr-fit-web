@@ -1,11 +1,73 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink, AlertTriangle } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { useActiveRutina } from '@/hooks/useAdminRutina';
+import { useActiveRutina, useReorderSlots } from '@/hooks/useAdminRutina';
 import { DayCard } from './DayCard';
 
 export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
   const { data, isLoading, error } = useActiveRutina(athleteId);
+  const reorder = useReorderSlots(athleteId);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
+
+  function handleDragEnd(e: DragEndEvent) {
+    if (!e.over || !data) return;
+    const activeId = String(e.active.id);
+    const overId = String(e.over.id);
+    if (activeId === overId) return;
+
+    // Build flat list sorted by (day, slot_index)
+    const sorted = [...data.slots].sort(
+      (a, b) =>
+        a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
+    );
+    const movingIndex = sorted.findIndex((s) => s.id === activeId);
+    const targetIndex = sorted.findIndex((s) => s.id === overId);
+    if (movingIndex < 0 || targetIndex < 0) return;
+    const target = sorted[targetIndex];
+
+    const moved = sorted.splice(movingIndex, 1)[0];
+    moved.day_of_week = target.day_of_week;
+    sorted.splice(targetIndex, 0, moved);
+
+    // Reindex 1..N per day
+    const byDay = new Map<number, string[]>();
+    for (const s of sorted) {
+      if (!byDay.has(s.day_of_week)) byDay.set(s.day_of_week, []);
+      byDay.get(s.day_of_week)!.push(s.id);
+    }
+
+    // Validate no day exceeds 12 slots (DB CHECK constraint)
+    for (const ids of byDay.values()) {
+      if (ids.length > 12) {
+        toast.error('Un día no puede tener más de 12 ejercicios');
+        return;
+      }
+    }
+
+    const payload = {
+      slots: Array.from(byDay.entries()).flatMap(([day, ids]) =>
+        ids.map((id, idx) => ({
+          slot_id: id,
+          day_of_week: day,
+          slot_index: idx + 1, // 1-based per DB CHECK BETWEEN 1 AND 12
+        })),
+      ),
+    };
+    reorder.mutate(payload, {
+      onError: () => toast.error('No se pudo reordenar'),
+    });
+  }
 
   if (isLoading) {
     return (
@@ -58,15 +120,21 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
         )}
       </header>
       <div className="flex-1 space-y-4 overflow-y-auto px-7 py-6">
-        {days.map((d) => (
-          <DayCard
-            key={d}
-            athleteId={athleteId}
-            dayOfWeek={d}
-            focus={dayFocus.get(d) ?? null}
-            slots={slotsByDay.get(d) ?? []}
-          />
-        ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          {days.map((d) => (
+            <DayCard
+              key={d}
+              athleteId={athleteId}
+              dayOfWeek={d}
+              focus={dayFocus.get(d) ?? null}
+              slots={slotsByDay.get(d) ?? []}
+            />
+          ))}
+        </DndContext>
       </div>
     </div>
   );

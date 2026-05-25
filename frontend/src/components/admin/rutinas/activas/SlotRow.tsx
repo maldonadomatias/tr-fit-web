@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { useUpdateSlot, useDeleteSlot } from '@/hooks/useAdminRutina';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
@@ -13,6 +15,13 @@ export function SlotRow({
   athleteId: string;
   slot: RutinaSlot;
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: slot.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
   const update = useUpdateSlot(athleteId);
   const remove = useDeleteSlot(athleteId);
   const [swapOpen, setSwapOpen] = useState(false);
@@ -64,7 +73,19 @@ export function SlotRow({
   }
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3 text-sm">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 px-5 py-3 text-sm"
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab text-muted-foreground hover:text-foreground"
+        aria-label="Reordenar"
+      >
+        <GripVertical size={14} />
+      </button>
       <span className="rounded bg-muted px-2 py-0.5 text-xs">{slot.role}</span>
       <button
         onClick={() => setSwapOpen(true)}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { useCreateSlot } from '@/hooks/useAdminRutina';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
@@ -44,9 +45,14 @@ export function DayCard({
             Día sin ejercicios.
           </div>
         )}
-        {slots.map((s) => (
-          <SlotRow key={s.id} athleteId={athleteId} slot={s} />
-        ))}
+        <SortableContext
+          items={slots.map((s) => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          {slots.map((s) => (
+            <SlotRow key={s.id} athleteId={athleteId} slot={s} />
+          ))}
+        </SortableContext>
       </div>
       <DayFooter
         athleteId={athleteId}
