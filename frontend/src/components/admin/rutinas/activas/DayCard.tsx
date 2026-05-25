@@ -1,3 +1,9 @@
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { useCreateSlot } from '@/hooks/useAdminRutina';
+import { ExerciseSwapDialog } from './ExerciseSwapDialog';
 import { SlotRow } from './SlotRow';
 import type { RutinaSlot } from '@/types/api';
 
@@ -22,6 +28,8 @@ export function DayCard({
   focus: string | null;
   slots: RutinaSlot[];
 }) {
+  const nextIndex = slots.length + 1;
+
   return (
     <section className="rounded-2xl border border-border bg-card">
       <header className="border-b border-border px-5 py-3">
@@ -40,6 +48,61 @@ export function DayCard({
           <SlotRow key={s.id} athleteId={athleteId} slot={s} />
         ))}
       </div>
+      <DayFooter
+        athleteId={athleteId}
+        dayOfWeek={dayOfWeek}
+        nextIndex={nextIndex}
+      />
     </section>
+  );
+}
+
+function DayFooter({
+  athleteId,
+  dayOfWeek,
+  nextIndex,
+}: {
+  athleteId: string;
+  dayOfWeek: number;
+  nextIndex: number;
+}) {
+  const create = useCreateSlot(athleteId);
+  const [open, setOpen] = useState(false);
+
+  function onPick(exerciseId: number) {
+    create.mutate(
+      {
+        day_of_week: dayOfWeek,
+        slot_index: nextIndex,
+        exercise_id: exerciseId,
+        role: 'accesorio',
+        notes: null,
+      },
+      { onError: () => toast.error('No se pudo agregar el ejercicio') },
+    );
+  }
+
+  return (
+    <div className="flex items-center px-5 py-3">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpen(true)}
+        disabled={create.isPending || nextIndex > 12}
+      >
+        <Plus size={14} className="mr-1" /> Agregar ejercicio
+      </Button>
+      {nextIndex > 12 && (
+        <span className="ml-2 text-xs text-muted-foreground">
+          Máximo 12 por día.
+        </span>
+      )}
+      <ExerciseSwapDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onSelect={onPick}
+        title={`Agregar ejercicio al día ${dayOfWeek}`}
+      />
+    </div>
   );
 }
