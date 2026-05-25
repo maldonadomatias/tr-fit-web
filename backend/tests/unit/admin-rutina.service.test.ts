@@ -33,7 +33,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { listActiveAthletes } = await import(
+const { listActiveAthletes, getActiveRutina } = await import(
   '../../src/services/admin-rutina.service.js'
 );
 
@@ -158,5 +158,135 @@ describe('listActiveAthletes', () => {
 
     // No q → params are just [limit, offset]
     expect(capturedParams).toEqual([50, 0]);
+  });
+});
+
+describe('getActiveRutina', () => {
+  it('returns null when athlete has no program_state row', async () => {
+    pushHandler(
+      (s) => s.includes('athlete_program_state'),
+      [],
+    );
+
+    const result = await getActiveRutina('athlete-no-state');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when active_skeleton_id is null', async () => {
+    pushHandler(
+      (s) => s.includes('athlete_program_state'),
+      [{ active_skeleton_id: null }],
+    );
+
+    const result = await getActiveRutina('athlete-null-skeleton');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when skeleton is not approved', async () => {
+    pushHandler(
+      (s) => s.includes('athlete_program_state'),
+      [{ active_skeleton_id: 'skeleton-uuid-superseded' }],
+    );
+    // Skeleton query returns no rows because status != 'approved'
+    pushHandler(
+      (s) => s.includes('athlete_skeletons'),
+      [],
+    );
+
+    const result = await getActiveRutina('athlete-superseded-skeleton');
+    expect(result).toBeNull();
+  });
+
+  it('returns RutinaDetail with slots, days, profile, has_active_session', async () => {
+    const athleteId = 'athlete-uuid-full';
+    const skId = 'skeleton-uuid-full';
+
+    const fakeSkeleton = {
+      id: skId,
+      athlete_id: athleteId,
+      status: 'approved',
+      generated_by: 'ai',
+      generation_prompt: {},
+      generation_rationale: null,
+      rejection_feedback: null,
+      created_at: '2026-01-01T00:00:00Z',
+      reviewed_at: '2026-01-02T00:00:00Z',
+      reviewed_by: 'admin-uuid',
+    };
+
+    const fakeSlots = [
+      {
+        id: 'slot-1',
+        skeleton_id: skId,
+        day_of_week: 1,
+        slot_index: 0,
+        exercise_id: 42,
+        role: 'principal',
+        notes: null,
+        exercise_name: 'Sentadilla',
+        muscle_group: 'cuadriceps',
+        equipment: 'barra',
+      },
+    ];
+
+    const fakeDays = [
+      { day_of_week: 1, focus: 'Piernas' },
+      { day_of_week: 3, focus: 'Espalda' },
+    ];
+
+    const fakeProfile = {
+      user_id: athleteId,
+      name: 'Juan',
+      days_per_week: 3,
+    };
+
+    // 1. program_state query
+    pushHandler(
+      (s) => s.includes('athlete_program_state'),
+      [{ active_skeleton_id: skId }],
+    );
+    // 2. skeleton query
+    pushHandler(
+      (s) => s.includes('athlete_skeletons'),
+      [fakeSkeleton],
+    );
+    // 3. slots query
+    pushHandler(
+      (s) => s.includes('skeleton_slots'),
+      fakeSlots,
+    );
+    // 4. days query
+    pushHandler(
+      (s) => s.includes('skeleton_days'),
+      fakeDays,
+    );
+    // 5. profile query
+    pushHandler(
+      (s) => s.includes('athlete_profiles'),
+      [fakeProfile],
+    );
+    // 6. session_logs EXISTS query
+    pushHandler(
+      (s) => s.includes('session_logs'),
+      [{ exists: true }],
+    );
+
+    const result = await getActiveRutina(athleteId);
+
+    expect(result).not.toBeNull();
+    expect(result!.skeleton).toMatchObject({ id: skId, status: 'approved' });
+    expect(result!.slots).toHaveLength(1);
+    expect(result!.slots[0]).toMatchObject({
+      exercise_id: 42,
+      exercise_name: 'Sentadilla',
+    });
+    expect(result!.days).toHaveLength(2);
+    expect(result!.days[0]).toEqual({ day_of_week: 1, focus: 'Piernas' });
+    expect(result!.profile).toMatchObject({
+      user_id: athleteId,
+      name: 'Juan',
+      days_per_week: 3,
+    });
+    expect(result!.has_active_session).toBe(true);
   });
 });
