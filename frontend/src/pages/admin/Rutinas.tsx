@@ -3,9 +3,25 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 import { ListPane } from '@/components/admin/rutinas/ListPane';
 import { DetailPane } from '@/components/admin/rutinas/DetailPane';
+import { RutinasTabs } from '@/components/admin/rutinas/RutinasTabs';
+import { ActivasPane } from '@/components/admin/rutinas/activas/ActivasPane';
 import { usePendingRutinas } from '@/hooks/usePendingRutinas';
 
 export default function Rutinas() {
+  const loc = useLocation();
+  const isActivas = loc.pathname.startsWith('/admin/rutinas/atleta');
+
+  return (
+    <div className="-mx-7 -my-7 flex h-[calc(100vh-56px)] flex-col overflow-hidden">
+      <RutinasTabs />
+      <div className="flex-1 overflow-hidden">
+        {isActivas ? <ActivasPane /> : <ColaPane />}
+      </div>
+    </div>
+  );
+}
+
+function ColaPane() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,7 +77,7 @@ export default function Rutinas() {
   const empty = !id && queue.length === 0;
 
   return (
-    <div className="-mx-7 -my-7 grid h-[calc(100vh-56px)] grid-cols-[340px_1fr] overflow-hidden">
+    <div className="grid h-full grid-cols-[340px_1fr] overflow-hidden">
       <ListPane activeId={id} onSelect={goToId} />
       <div className="flex flex-col overflow-hidden">
         {id ? (
