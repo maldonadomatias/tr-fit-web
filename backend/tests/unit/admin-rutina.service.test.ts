@@ -39,7 +39,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { listActiveAthletes, getActiveRutina, createSlot, AdminRutinaError } =
+const { listActiveAthletes, getActiveRutina, createSlot, updateSlot, AdminRutinaError } =
   await import('../../src/services/admin-rutina.service.js');
 
 beforeEach(() => {
@@ -474,6 +474,117 @@ describe('createSlot', () => {
         role: 'accesorio',
       }),
     ).rejects.toMatchObject({ code: 'invalid_exercise' });
+    expect(rollbackCalled).toBe(true);
+  });
+});
+
+describe('updateSlot', () => {
+  it('patches notes only', async () => {
+    const slotId = 'slot-uuid-patch-notes';
+    const athleteId = 'athlete-uuid-patch';
+    const skeletonId = 'skeleton-uuid-patch';
+    const updatedSlot = {
+      id: slotId,
+      skeleton_id: skeletonId,
+      day_of_week: 1,
+      slot_index: 1,
+      exercise_id: 10,
+      role: 'principal',
+      notes: 'nueva nota',
+    };
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // slot-in-active-skeleton SELECT
+    pushHandler(
+      (s) => s.includes('skeleton_slots sl') && s.includes('athlete_skeletons s') && s.includes('athlete_program_state ps'),
+      [{ athlete_id: athleteId, skeleton_id: skeletonId }],
+    );
+    // UPDATE skeleton_slots
+    pushHandler(
+      (s) => s.includes('UPDATE skeleton_slots'),
+      [updatedSlot],
+    );
+    // COMMIT
+    pushHandler((s) => s === 'COMMIT', []);
+
+    const result = await updateSlot(slotId, { notes: 'nueva nota' });
+    expect(result.notes).toBe('nueva nota');
+  });
+
+  it('swaps exercise and seeds weight row for new exercise', async () => {
+    const slotId = 'slot-uuid-swap-ex';
+    const athleteId = 'athlete-uuid-swap';
+    const skeletonId = 'skeleton-uuid-swap';
+    const newExerciseId = 77;
+    const updatedSlot = {
+      id: slotId,
+      skeleton_id: skeletonId,
+      day_of_week: 2,
+      slot_index: 2,
+      exercise_id: newExerciseId,
+      role: 'accesorio',
+      notes: null,
+    };
+    let weightInsertInvoked = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // slot-in-active-skeleton SELECT
+    pushHandler(
+      (s) => s.includes('skeleton_slots sl') && s.includes('athlete_skeletons s') && s.includes('athlete_program_state ps'),
+      [{ athlete_id: athleteId, skeleton_id: skeletonId }],
+    );
+    // exercise availability SELECT
+    pushHandler(
+      (s) => s.includes('exercises') && s.includes('archived_at IS NULL'),
+      [{ id: newExerciseId }],
+    );
+    // UPDATE skeleton_slots
+    pushHandler(
+      (s) => s.includes('UPDATE skeleton_slots'),
+      [updatedSlot],
+    );
+    // INSERT athlete_exercise_weights
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized.includes('INSERT INTO athlete_exercise_weights')) {
+        weightInsertInvoked = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+    // COMMIT
+    pushHandler((s) => s === 'COMMIT', []);
+
+    await updateSlot(slotId, { exercise_id: newExerciseId });
+    expect(weightInsertInvoked).toBe(true);
+  });
+
+  it('throws rutina_not_active when slot is not in active approved skeleton', async () => {
+    const slotId = 'slot-uuid-inactive';
+    let rollbackCalled = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // slot-in-active-skeleton SELECT returns empty
+    pushHandler(
+      (s) => s.includes('skeleton_slots sl') && s.includes('athlete_skeletons s') && s.includes('athlete_program_state ps'),
+      [],
+    );
+    // ROLLBACK
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized === 'ROLLBACK') {
+        rollbackCalled = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+
+    const promise = updateSlot(slotId, { notes: 'test' });
+    await expect(promise).rejects.toBeInstanceOf(AdminRutinaError);
+    await expect(promise).rejects.toMatchObject({ code: 'rutina_not_active' });
     expect(rollbackCalled).toBe(true);
   });
 });

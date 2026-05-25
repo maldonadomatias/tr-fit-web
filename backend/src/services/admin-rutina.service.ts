@@ -1,6 +1,6 @@
 import pool from '../db/connect.js';
 import type { AthleteSkeleton, SkeletonSlot } from '../domain/types.js';
-import type { AdminSlotCreate } from '../domain/schemas.js';
+import type { AdminSlotCreate, AdminSlotPatch } from '../domain/schemas.js';
 import type { PoolClient } from 'pg';
 
 export type AdminRutinaErrorCode =
@@ -207,6 +207,68 @@ export async function createSlot(
       await client.query('ROLLBACK');
     } catch {
       // ignore — preserve the original error
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+async function assertSlotInActiveSkeleton(
+  client: PoolClient,
+  slotId: string,
+): Promise<{ athleteId: string; skeletonId: string }> {
+  const r = await client.query<{ athlete_id: string; skeleton_id: string }>(
+    `SELECT s.athlete_id, s.id AS skeleton_id
+       FROM skeleton_slots sl
+       JOIN athlete_skeletons s ON s.id = sl.skeleton_id
+       JOIN athlete_program_state ps
+         ON ps.athlete_id = s.athlete_id
+        AND ps.active_skeleton_id = s.id
+      WHERE sl.id = $1 AND s.status = 'approved'`,
+    [slotId],
+  );
+  if (!r.rows[0]) throw new AdminRutinaError('rutina_not_active');
+  return {
+    athleteId: r.rows[0].athlete_id,
+    skeletonId: r.rows[0].skeleton_id,
+  };
+}
+
+export async function updateSlot(
+  slotId: string,
+  patch: AdminSlotPatch,
+): Promise<SkeletonSlot> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { athleteId } = await assertSlotInActiveSkeleton(client, slotId);
+    if (patch.exercise_id !== undefined) {
+      await assertExerciseAvailable(client, patch.exercise_id);
+    }
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) continue;
+      values.push(v);
+      sets.push(`${k} = $${values.length}`);
+    }
+    values.push(slotId);
+    const r = await client.query<SkeletonSlot>(
+      `UPDATE skeleton_slots SET ${sets.join(', ')}
+        WHERE id = $${values.length} RETURNING *`,
+      values,
+    );
+    if (patch.exercise_id !== undefined) {
+      await seedAthleteExerciseWeight(client, athleteId, patch.exercise_id);
+    }
+    await client.query('COMMIT');
+    return r.rows[0];
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore — preserve original error
     }
     throw e;
   } finally {
