@@ -1,6 +1,6 @@
 import pool from '../db/connect.js';
 import type { AthleteSkeleton, SkeletonSlot } from '../domain/types.js';
-import type { AdminSlotCreate, AdminSlotPatch } from '../domain/schemas.js';
+import type { AdminSlotCreate, AdminSlotPatch, AdminReorderInput } from '../domain/schemas.js';
 import type { PoolClient } from 'pg';
 
 export type AdminRutinaErrorCode =
@@ -283,6 +283,52 @@ export async function updateSlot(
     }
     await client.query('COMMIT');
     return r.rows[0];
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore — preserve original error
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function reorderSlots(
+  athleteId: string,
+  input: AdminReorderInput,
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const skId = await assertAthleteActiveSkeleton(client, athleteId);
+
+    const slotIds = input.slots.map((s) => s.slot_id);
+    const check = await client.query<{ id: string }>(
+      `SELECT id FROM skeleton_slots
+        WHERE id = ANY($1::uuid[]) AND skeleton_id = $2`,
+      [slotIds, skId],
+    );
+    if (check.rowCount !== slotIds.length) {
+      throw new AdminRutinaError('not_found', 'slot not in active skeleton');
+    }
+
+    // Bump everything by 1000 to clear unique-constraint room
+    await client.query(
+      `UPDATE skeleton_slots SET slot_index = slot_index + 1000
+        WHERE skeleton_id = $1`,
+      [skId],
+    );
+
+    for (const s of input.slots) {
+      await client.query(
+        `UPDATE skeleton_slots SET day_of_week = $1, slot_index = $2
+          WHERE id = $3`,
+        [s.day_of_week, s.slot_index, s.slot_id],
+      );
+    }
+    await client.query('COMMIT');
   } catch (e) {
     try {
       await client.query('ROLLBACK');

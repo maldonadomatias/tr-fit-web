@@ -39,7 +39,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { listActiveAthletes, getActiveRutina, createSlot, updateSlot, deleteSlot, AdminRutinaError } =
+const { listActiveAthletes, getActiveRutina, createSlot, updateSlot, deleteSlot, reorderSlots, AdminRutinaError } =
   await import('../../src/services/admin-rutina.service.js');
 
 beforeEach(() => {
@@ -617,5 +617,86 @@ describe('deleteSlot', () => {
 
     await deleteSlot(slotId);
     expect(deleteInvoked).toBe(true);
+  });
+});
+
+describe('reorderSlots', () => {
+  it('reorders slots across days', async () => {
+    const athleteId = 'athlete-uuid-reorder';
+    const skId = 'skeleton-uuid-reorder';
+    const inputSlots = [
+      { slot_id: 'slot-uuid-r1', day_of_week: 2, slot_index: 1 },
+      { slot_id: 'slot-uuid-r2', day_of_week: 3, slot_index: 1 },
+    ];
+    let perSlotUpdateCount = 0;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // active-skeleton SELECT
+    pushHandler(
+      (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
+      [{ skeleton_id: skId }],
+    );
+    // slot-membership check SELECT — returns same number of rows as input slots
+    pushHandler(
+      (s) => s.includes('skeleton_slots') && s.includes('ANY($1::uuid[])') && s.includes('skeleton_id = $2'),
+      [{ id: 'slot-uuid-r1' }, { id: 'slot-uuid-r2' }],
+    );
+    // bump UPDATE
+    pushHandler(
+      (s) => s.includes('UPDATE skeleton_slots') && s.includes('slot_index + 1000'),
+      [],
+    );
+    // per-slot UPDATEs
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized.includes('UPDATE skeleton_slots') && normalized.includes('day_of_week = $1')) {
+        perSlotUpdateCount++;
+        return { rows: [], rowCount: 1 };
+      }
+      return null;
+    });
+    // COMMIT
+    pushHandler((s) => s === 'COMMIT', []);
+
+    await reorderSlots(athleteId, { slots: inputSlots });
+    expect(perSlotUpdateCount).toBe(inputSlots.length);
+  });
+
+  it('throws not_found when slot does not belong to active skeleton', async () => {
+    const athleteId = 'athlete-uuid-reorder-bad';
+    const skId = 'skeleton-uuid-reorder-bad';
+    const inputSlots = [
+      { slot_id: 'slot-uuid-bad1', day_of_week: 1, slot_index: 1 },
+      { slot_id: 'slot-uuid-bad2', day_of_week: 2, slot_index: 1 },
+    ];
+    let rollbackCalled = false;
+
+    // BEGIN
+    pushHandler((s) => s === 'BEGIN', []);
+    // active-skeleton SELECT
+    pushHandler(
+      (s) => s.includes('athlete_program_state') && s.includes('athlete_skeletons') && s.includes('skeleton_id'),
+      [{ skeleton_id: skId }],
+    );
+    // membership check returns FEWER rows than input slots (only 1 of 2)
+    pushHandler(
+      (s) => s.includes('skeleton_slots') && s.includes('ANY($1::uuid[])') && s.includes('skeleton_id = $2'),
+      [{ id: 'slot-uuid-bad1' }],
+    );
+    // ROLLBACK
+    handlers.push((sql) => {
+      const normalized = sql.replace(/\s+/g, ' ').trim();
+      if (normalized === 'ROLLBACK') {
+        rollbackCalled = true;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+
+    const promise = reorderSlots(athleteId, { slots: inputSlots });
+    await expect(promise).rejects.toBeInstanceOf(AdminRutinaError);
+    await expect(promise).rejects.toMatchObject({ code: 'not_found' });
+    expect(rollbackCalled).toBe(true);
   });
 });
