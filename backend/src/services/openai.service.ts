@@ -15,18 +15,33 @@ export interface GenerateSkeletonInput {
 
 const MAX_ATTEMPTS = 5;
 
+function slotRangeFor(minutes: number): { min: number; max: number } {
+  if (minutes <= 30) return { min: 5, max: 5 };
+  if (minutes <= 45) return { min: 6, max: 7 };
+  if (minutes <= 60) return { min: 8, max: 9 };
+  if (minutes <= 75) return { min: 9, max: 10 };
+  return { min: 10, max: 11 };
+}
+
 const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON.
 Reglas estrictas:
 - El array "days" DEBE tener EXACTAMENTE la cantidad N indicada en el mensaje del usuario como days_per_week. Ni más, ni menos. Si N=3, devolvé 3 días. Si N=4, devolvé 4 días. Esta regla es la más importante: violarla invalida toda la respuesta.
-- Cada día arranca con 1 o 2 slots role="calentamiento" (slot_index 1, 2) antes del trabajo principal. Elegí del muscle_group "Calentamiento" del catálogo.
-- Cada día tiene al menos 1 slot con role="principal" (compuesto pesado) después de los calentamientos.
-- Cada día tiene entre 5 y 8 slots en total contando calentamiento. slot_index empieza en 1 y es consecutivo.
+- Cada día arranca con 2 slots role="calentamiento" (slot_index 1, 2) antes del trabajo principal. Elegí del muscle_group "Calentamiento" del catálogo. Sólo bajá a 1 calentamiento si exercise_minutes <= 30.
+- Cada día debe tener 2 slots role="principal" (compuestos pesados) después de los calentamientos. Sólo usá 1 principal si exercise_minutes <= 30 o el level del atleta es 'nunca'.
+- Después de los principales, agregá 3 a 5 slots role="accesorio" para completar grupos musculares y un slot de core/abs cuando exercise_minutes >= 60.
+- Cantidad TOTAL de slots por día (calentamiento + principal + accesorio) según exercise_minutes:
+  · 30 min → 5 slots (1 calent + 1 princ + 3 acces)
+  · 45 min → 7 slots (2 calent + 2 princ + 3 acces)
+  · 60 min → 8-9 slots (2 calent + 2 princ + 4-5 acces, uno de ellos core)
+  · 75 min → 9-10 slots (2 calent + 2 princ + 5-6 acces, uno de ellos core)
+  · 90 min → 10-11 slots (2 calent + 2 princ + 6-7 acces, incluir core)
+  Este conteo es OBLIGATORIO: si exercise_minutes=60, NO devuelvas 6 slots; tenés que devolver 8 o 9.
+- slot_index empieza en 1 y es consecutivo.
 - El campo "role" SIEMPRE en español: usar exactamente "calentamiento", "principal" o "accesorio". Nunca "warmup", "accessory" ni "main".
 - Sólo podés usar exercise_id que aparezcan en el catálogo provisto.
 - No usar ejercicios contraindicados para las lesiones del atleta.
 - Distribuir grupos musculares para evitar repetir el mismo en días consecutivos.
-- Adaptar volumen según commitment (suave=menos series, exigente=más).
-- Adaptar cantidad ejercicios según exercise_minutes (30-45 min → 4 ej, 60 min → 5-6 ej, 75-90 min → 6-7 ej).
+- Adaptar volumen (series/reps) según commitment (suave=menos series, exigente=más), pero NO reduzcas la cantidad de slots por commitment: el slot count lo manda exercise_minutes.
 - Si training_mode='casa', priorizá ejercicios con equipment compatible (bw, mancuerna, elastico).
 - Campo "notes": indicación libre del coach por ejercicio (ej. "Disminuir peso cada 10 reps! son seguidas", "Aumentar peso al finalizar cada serie", "Hacer series de aproximación"). Usar null si no hay indicación.
 - Devolver SIEMPRE el JSON con TODOS los campos del schema, incluido "rationale" (string no vacío) y "notes" en cada slot (string o null).`;
@@ -37,6 +52,7 @@ export async function generateSkeleton(
   const { profile, exercises, rejectionFeedback } = input;
 
   const N = profile.days_per_week;
+  const minutes = profile.exercise_minutes ?? 60;
   const validIds = exercises.map((e) => e.id);
   const userMessage = JSON.stringify({
     REQUIRED_DAYS_COUNT: N,
@@ -50,12 +66,16 @@ export async function generateSkeleton(
       injuries: profile.injuries,
       training_mode: profile.training_mode,
       commitment: profile.commitment,
-      exercise_minutes: profile.exercise_minutes,
+      exercise_minutes: minutes,
     },
     constraints: {
       days: N,
-      slots_per_day: { min: 5, max: 8 },
-      principal_per_day: { min: 1, max: 2 },
+      slots_per_day: slotRangeFor(minutes),
+      principal_per_day: minutes <= 30 || profile.level === 'nunca'
+        ? { min: 1, max: 1 }
+        : { min: 2, max: 2 },
+      accessory_per_day_min: minutes >= 60 ? 4 : 3,
+      include_core_when_minutes_gte_60: minutes >= 60,
     },
     exercise_catalog: exercises.map((e) => ({
       id: e.id, name: e.name, muscle_group: e.muscle_group,
@@ -110,10 +130,18 @@ export async function generateSkeleton(
       logger.warn({ attempt, error: lastError }, 'openai: business constraint');
       continue;
     }
+    const expectedRange = slotRangeFor(minutes);
     let allValid = true;
     for (const day of out.days) {
       if (!day.slots.some((s: { role: string }) => s.role === 'principal')) {
         lastError = `day ${day.day_index} sin principal`;
+        allValid = false; break;
+      }
+      if (
+        day.slots.length < expectedRange.min ||
+        day.slots.length > expectedRange.max
+      ) {
+        lastError = `day ${day.day_index} tiene ${day.slots.length} slots; debe tener entre ${expectedRange.min} y ${expectedRange.max} (exercise_minutes=${profile.exercise_minutes})`;
         allValid = false; break;
       }
       for (const s of day.slots) {
