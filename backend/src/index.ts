@@ -6,10 +6,12 @@ import { startNotificationCron } from './workers/notification-cron.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5001;
+const PORT = Number(process.env.PORT) || 5001;
 
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+// Bind to '::' (IPv6 all-interfaces, dual-stack) so Railway's IPv6-only
+// private network can reach this service across containers.
+app.listen(PORT, '::', () => {
+  logger.info(`Server running on port ${PORT} (IPv6 dual-stack)`);
 });
 
 if (process.env.NODE_ENV !== 'test') {
