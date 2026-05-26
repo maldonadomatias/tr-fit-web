@@ -13,11 +13,11 @@ export interface GenerateSkeletonInput {
   rejectionFeedback?: string;
 }
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5;
 
 const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON.
 Reglas estrictas:
-- El campo "days" debe tener exactamente la cantidad indicada en "days_per_week".
+- El array "days" DEBE tener EXACTAMENTE la cantidad N indicada en el mensaje del usuario como days_per_week. Ni más, ni menos. Si N=3, devolvé 3 días. Si N=4, devolvé 4 días. Esta regla es la más importante: violarla invalida toda la respuesta.
 - Cada día arranca con 1 o 2 slots role="calentamiento" (slot_index 1, 2) antes del trabajo principal. Elegí del muscle_group "Calentamiento" del catálogo.
 - Cada día tiene al menos 1 slot con role="principal" (compuesto pesado) después de los calentamientos.
 - Cada día tiene entre 5 y 8 slots en total contando calentamiento. slot_index empieza en 1 y es consecutivo.
@@ -36,18 +36,21 @@ export async function generateSkeleton(
 ): Promise<AiSkeletonOutput> {
   const { profile, exercises, rejectionFeedback } = input;
 
+  const N = profile.days_per_week;
   const userMessage = JSON.stringify({
+    REQUIRED_DAYS_COUNT: N,
+    note: `El array "days" debe tener exactamente ${N} elementos. Cualquier otra cantidad será rechazada.`,
     athlete: {
       gender: profile.gender, age: profile.age, height_cm: profile.height_cm,
       weight_kg: profile.weight_kg, level: profile.level, goal: profile.goal,
-      days_per_week: profile.days_per_week, equipment: profile.equipment,
+      days_per_week: N, equipment: profile.equipment,
       injuries: profile.injuries,
       training_mode: profile.training_mode,
       commitment: profile.commitment,
       exercise_minutes: profile.exercise_minutes,
     },
     constraints: {
-      days: profile.days_per_week,
+      days: N,
       slots_per_day: { min: 5, max: 8 },
       principal_per_day: { min: 1, max: 2 },
     },
@@ -71,14 +74,15 @@ export async function generateSkeleton(
     if (lastError) {
       messages.push({
         role: 'user',
-        content: `Tu output anterior violó una restricción de negocio: ${lastError}. Corregilo respetando todas las reglas.`,
+        content: `ATENCIÓN: tu output anterior violó la restricción: "${lastError}". RECORDÁ: REQUIRED_DAYS_COUNT=${N}. El array "days" debe tener exactamente ${N} elementos, ni uno más ni uno menos. Generá nuevamente respetando TODAS las reglas, en especial la cantidad de días.`,
       });
     }
 
+    const isGpt5 = env.OPENAI_MODEL.startsWith('gpt-5');
     const completion = await client.chat.completions.parse({
       model: env.OPENAI_MODEL,
       messages,
-      temperature: 0.3,
+      ...(isGpt5 ? {} : { temperature: 0.2 }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       response_format: zodResponseFormat(aiSkeletonOutput as any, 'skeleton'),
     });
