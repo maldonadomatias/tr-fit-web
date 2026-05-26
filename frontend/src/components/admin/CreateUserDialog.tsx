@@ -74,15 +74,17 @@ export function CreateUserDialog({ open: openProp, onOpenChange, trigger }: Prop
     );
   }
 
+  const controlled = openProp !== undefined;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {trigger !== undefined ? (
-        trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null
-      ) : (
+      {trigger ? (
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+      ) : !controlled ? (
         <DialogTrigger asChild>
           <Button size="sm">Nuevo usuario</Button>
         </DialogTrigger>
-      )}
+      ) : null}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Crear usuario</DialogTitle>
