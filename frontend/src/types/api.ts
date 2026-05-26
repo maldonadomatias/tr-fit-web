@@ -50,6 +50,7 @@ export interface RutinaSlot {
   exercise_name?: string;
   muscle_group?: string;
   equipment?: string;
+  exercise_archived_at?: string | null;
 }
 
 export interface AthleteRutina {
@@ -233,6 +234,11 @@ export interface ActiveRutinaDetail {
   days: RutinaDay[];
   profile: { user_id: string; name: string; days_per_week: number };
   has_active_session: boolean;
+}
+
+export interface ActiveRutinaResponse {
+  rutina: ActiveRutinaDetail | null;
+  pending_skeleton_id: string | null;
 }
 
 export interface SlotCreateInput {

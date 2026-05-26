@@ -80,10 +80,10 @@ describe('GET /api/admin/rutinas/atleta', () => {
   });
 });
 
-// ── Test 3: GET /api/admin/rutinas/atleta/:athleteId 404 when no active routine ──
+// ── Test 3: GET /api/admin/rutinas/atleta/:athleteId envelope when no active routine ──
 
 describe('GET /api/admin/rutinas/atleta/:athleteId', () => {
-  it('404 when athlete has no approved active skeleton', async () => {
+  it('200 with rutina=null, pending_skeleton_id=null when athlete has no skeleton', async () => {
     const adminId = await createAdmin();
     const athleteId = await createAthlete(adminId);
     const tok = signToken({ id: adminId, role: 'admin' });
@@ -92,8 +92,39 @@ describe('GET /api/admin/rutinas/atleta/:athleteId', () => {
       .get(`/api/admin/rutinas/atleta/${athleteId}`)
       .set('Authorization', `Bearer ${tok}`);
 
-    expect(r.status).toBe(404);
-    expect(r.body.error).toBe('not_found');
+    expect(r.status).toBe(200);
+    expect(r.body).toEqual({ rutina: null, pending_skeleton_id: null });
+  });
+
+  it('200 surfaces pending_skeleton_id when athlete has pending_review skeleton but no active', async () => {
+    const adminId = await createAdmin();
+    const athleteId = await createAthlete(adminId);
+    const { skeletonId } = await createPendingSkeleton(
+      { athleteId, generationPrompt: {}, generationRationale: 'r' },
+      aiOut,
+    );
+    const tok = signToken({ id: adminId, role: 'admin' });
+
+    const r = await request(app)
+      .get(`/api/admin/rutinas/atleta/${athleteId}`)
+      .set('Authorization', `Bearer ${tok}`);
+
+    expect(r.status).toBe(200);
+    expect(r.body.rutina).toBeNull();
+    expect(r.body.pending_skeleton_id).toBe(skeletonId);
+  });
+
+  it('200 returns rutina with pending_skeleton_id=null when active routine exists', async () => {
+    const { athleteId, tok } = await setupActiveRutina();
+
+    const r = await request(app)
+      .get(`/api/admin/rutinas/atleta/${athleteId}`)
+      .set('Authorization', `Bearer ${tok}`);
+
+    expect(r.status).toBe(200);
+    expect(r.body.pending_skeleton_id).toBeNull();
+    expect(r.body.rutina).not.toBeNull();
+    expect(r.body.rutina.profile.user_id).toBe(athleteId);
   });
 
   it('returns 400 for malformed athlete UUID', async () => {

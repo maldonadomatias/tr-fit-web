@@ -39,7 +39,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { listActiveAthletes, getActiveRutina, createSlot, updateSlot, deleteSlot, reorderSlots, AdminRutinaError } =
+const { listActiveAthletes, getActiveRutina, getPendingSkeletonId, createSlot, updateSlot, deleteSlot, reorderSlots, AdminRutinaError } =
   await import('../../src/services/admin-rutina.service.js');
 
 beforeEach(() => {
@@ -231,6 +231,20 @@ describe('getActiveRutina', () => {
         exercise_name: 'Sentadilla',
         muscle_group: 'cuadriceps',
         equipment: 'barra',
+        exercise_archived_at: null,
+      },
+      {
+        id: 'slot-2',
+        skeleton_id: skId,
+        day_of_week: 1,
+        slot_index: 1,
+        exercise_id: 99,
+        role: 'accesorio',
+        notes: null,
+        exercise_name: 'Antiguo',
+        muscle_group: 'core',
+        equipment: 'maquina',
+        exercise_archived_at: '2026-05-01T00:00:00Z',
       },
     ];
 
@@ -280,10 +294,15 @@ describe('getActiveRutina', () => {
 
     expect(result).not.toBeNull();
     expect(result!.skeleton).toMatchObject({ id: skId, status: 'approved' });
-    expect(result!.slots).toHaveLength(1);
+    expect(result!.slots).toHaveLength(2);
     expect(result!.slots[0]).toMatchObject({
       exercise_id: 42,
       exercise_name: 'Sentadilla',
+      exercise_archived_at: null,
+    });
+    expect(result!.slots[1]).toMatchObject({
+      exercise_id: 99,
+      exercise_archived_at: '2026-05-01T00:00:00Z',
     });
     expect(result!.days).toHaveLength(2);
     expect(result!.days[0]).toEqual({ day_of_week: 1, focus: 'Piernas' });
@@ -293,6 +312,51 @@ describe('getActiveRutina', () => {
       days_per_week: 3,
     });
     expect(result!.has_active_session).toBe(true);
+  });
+
+  it('slots query selects exercises.archived_at AS exercise_archived_at', async () => {
+    const athleteId = 'athlete-uuid-archived-col';
+    const skId = 'skeleton-uuid-archived-col';
+    let capturedSlotsSql: string | null = null;
+
+    pushHandler(
+      (s) => s.includes('athlete_program_state'),
+      [{ active_skeleton_id: skId }],
+    );
+    pushHandler(
+      (s) => s.includes('athlete_skeletons'),
+      [
+        {
+          id: skId,
+          athlete_id: athleteId,
+          status: 'approved',
+          generated_by: 'ai',
+          generation_prompt: {},
+          generation_rationale: null,
+          rejection_feedback: null,
+          created_at: '2026-01-01T00:00:00Z',
+          reviewed_at: '2026-01-02T00:00:00Z',
+          reviewed_by: 'admin-uuid',
+        },
+      ],
+    );
+    pushHandler(
+      (s) => s.includes('athlete_profiles'),
+      [{ user_id: athleteId, name: 'X', days_per_week: 3 }],
+    );
+    handlers.push((sql) => {
+      if (sql.includes('FROM skeleton_slots s')) {
+        capturedSlotsSql = sql;
+        return { rows: [], rowCount: 0 };
+      }
+      return null;
+    });
+    pushHandler((s) => s.includes('skeleton_days'), []);
+    pushHandler((s) => s.includes('session_logs'), [{ exists: false }]);
+
+    await getActiveRutina(athleteId);
+
+    expect(capturedSlotsSql).toMatch(/e\.archived_at AS exercise_archived_at/);
   });
 
   it('returns null when athlete profile is missing', async () => {
@@ -339,6 +403,28 @@ describe('getActiveRutina', () => {
     );
 
     const result = await getActiveRutina(athleteId);
+    expect(result).toBeNull();
+  });
+});
+
+describe('getPendingSkeletonId', () => {
+  it('returns latest pending_review skeleton id', async () => {
+    pushHandler(
+      (s) =>
+        s.includes('athlete_skeletons') && s.includes("'pending_review'"),
+      [{ id: 'pending-skid' }],
+    );
+    const result = await getPendingSkeletonId('athlete-1');
+    expect(result).toBe('pending-skid');
+  });
+
+  it('returns null when no pending_review skeleton exists', async () => {
+    pushHandler(
+      (s) =>
+        s.includes('athlete_skeletons') && s.includes("'pending_review'"),
+      [],
+    );
+    const result = await getPendingSkeletonId('athlete-no-pending');
     expect(result).toBeNull();
   });
 });

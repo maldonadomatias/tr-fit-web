@@ -43,7 +43,7 @@ export async function startSession(
   const lastDay = lastR.rows[0]?.day_of_week ?? 0;
   const expectedDay = lastDay + 1;
 
-  if (dayOfWeek !== expectedDay) {
+  if (dayOfWeek !== expectedDay && process.env.ALLOW_ANY_DAY !== '1') {
     const err = new SessionError('wrong_day');
     (err as SessionError & { expectedDay?: number }).expectedDay = expectedDay;
     throw err;

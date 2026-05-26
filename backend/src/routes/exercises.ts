@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
+import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import { findAlternative } from '../services/alternatives.service.js';
@@ -24,6 +25,46 @@ router.get('/', async (req: Request, res: Response) => {
     archived: 'false',
   });
   return res.json({ items: result.items });
+});
+
+router.get('/:id/technique-video', async (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ error: 'invalid_id' });
+  }
+  const { rows } = await pool.query<{
+    id: number;
+    name: string;
+    video_url: string | null;
+    illustration_url: string | null;
+  }>(
+    `SELECT id, name, video_url, illustration_url
+       FROM exercises
+      WHERE id = $1 AND archived_at IS NULL`,
+    [id],
+  );
+  const ex = rows[0];
+  if (!ex || !ex.video_url) {
+    return res.status(404).json({ error: 'video_not_found' });
+  }
+  return res.json({
+    exerciseId: ex.id,
+    durationSeconds: 0,
+    posterUrl: ex.illustration_url ?? '',
+    angles: [
+      {
+        id: 'lateral',
+        label: 'Lateral',
+        videoUrl: ex.video_url,
+      },
+    ],
+    coach: {
+      id: 'default',
+      name: 'Coach',
+      initials: 'TR',
+    },
+    cues: [],
+  });
 });
 
 router.get('/:id/alternatives', async (req: Request, res: Response) => {

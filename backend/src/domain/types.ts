@@ -88,6 +88,7 @@ export interface SkeletonSlot {
   exercise_name?: string;
   muscle_group?: string;
   equipment?: string;
+  exercise_archived_at?: string | null;
 }
 
 export interface AthleteSkeleton {

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type {
   ActiveAthleteRow,
-  ActiveRutinaDetail,
+  ActiveRutinaResponse,
   ReorderInput,
   SlotCreateInput,
   SlotPatchInput,
@@ -35,7 +35,7 @@ export function useActiveRutina(athleteId: string | undefined) {
       : (['admin', 'rutinas', 'detail', 'none'] as const),
     enabled: !!athleteId,
     queryFn: async () => {
-      const r = await api.get<ActiveRutinaDetail>(
+      const r = await api.get<ActiveRutinaResponse>(
         `/admin/rutinas/atleta/${athleteId}`,
       );
       return r.data;

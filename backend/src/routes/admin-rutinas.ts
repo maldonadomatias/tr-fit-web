@@ -10,6 +10,7 @@ import {
 import {
   listActiveAthletes,
   getActiveRutina,
+  getPendingSkeletonId,
   createSlot,
   updateSlot,
   deleteSlot,
@@ -62,8 +63,9 @@ router.get('/atleta/:athleteId', async (req: Request, res: Response) => {
   if (!athleteId) return;
   try {
     const r = await getActiveRutina(athleteId);
-    if (!r) return res.status(404).json({ error: 'not_found' });
-    res.json(r);
+    if (r) return res.json({ rutina: r, pending_skeleton_id: null });
+    const pending = await getPendingSkeletonId(athleteId);
+    res.json({ rutina: null, pending_skeleton_id: pending });
   } catch (e) {
     mapError(e, res);
   }

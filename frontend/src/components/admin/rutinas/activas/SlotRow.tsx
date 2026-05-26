@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useUpdateSlot, useDeleteSlot } from '@/hooks/useAdminRutina';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
 import type { RutinaSlot } from '@/types/api';
@@ -87,12 +92,26 @@ export function SlotRow({
         <GripVertical size={14} />
       </button>
       <span className="rounded bg-muted px-2 py-0.5 text-xs">{slot.role}</span>
-      <button
-        onClick={() => setSwapOpen(true)}
-        className="flex-1 text-left font-medium hover:underline"
-      >
-        {slot.exercise_name}
-      </button>
+      <div className="flex flex-1 items-center gap-2">
+        <button
+          onClick={() => setSwapOpen(true)}
+          className="text-left font-medium hover:underline"
+        >
+          {slot.exercise_name}
+        </button>
+        {slot.exercise_archived_at ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                Ejercicio archivado
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              Este ejercicio fue archivado. Cambiá por una alternativa no archivada.
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
+      </div>
       <input
         value={notes}
         onChange={(e) => onNotesChange(e.target.value)}

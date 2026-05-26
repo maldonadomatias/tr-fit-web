@@ -15,19 +15,21 @@ import { DayCard } from './DayCard';
 
 export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
   const { data, isLoading, error } = useActiveRutina(athleteId);
+  const rutina = data?.rutina ?? null;
+  const pendingSkeletonId = data?.pending_skeleton_id ?? null;
   const reorder = useReorderSlots(athleteId);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
   function handleDragEnd(e: DragEndEvent) {
-    if (!e.over || !data) return;
+    if (!e.over || !rutina) return;
     const activeId = String(e.active.id);
     const overId = String(e.over.id);
     if (activeId === overId) return;
 
     // Build flat list sorted by (day, slot_index)
-    const sorted = [...data.slots].sort(
+    const sorted = [...rutina.slots].sort(
       (a, b) =>
         a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
     );
@@ -74,24 +76,32 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
       <div className="p-7 text-sm text-muted-foreground">Cargando rutina...</div>
     );
   }
-  if (error || !data) {
+  if (error || !rutina) {
     return (
-      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
-        Este atleta aún no tiene rutina activa.
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-sm text-muted-foreground">
+        <p>Este atleta aún no tiene rutina activa.</p>
+        {pendingSkeletonId && (
+          <Link
+            to={`/admin/rutinas/${pendingSkeletonId}`}
+            className="inline-flex items-center gap-1 text-primary hover:underline"
+          >
+            Ver en cola pendiente <ExternalLink size={12} />
+          </Link>
+        )}
       </div>
     );
   }
 
-  const slotsByDay = new Map<number, typeof data.slots>();
-  for (const s of data.slots) {
+  const slotsByDay = new Map<number, typeof rutina.slots>();
+  for (const s of rutina.slots) {
     if (!slotsByDay.has(s.day_of_week)) slotsByDay.set(s.day_of_week, []);
     slotsByDay.get(s.day_of_week)!.push(s);
   }
-  const dayFocus = new Map(data.days.map((d) => [d.day_of_week, d.focus]));
+  const dayFocus = new Map(rutina.days.map((d) => [d.day_of_week, d.focus]));
   const days = Array.from(
     new Set<number>([
-      ...data.days.map((d) => d.day_of_week),
-      ...data.slots.map((s) => s.day_of_week),
+      ...rutina.days.map((d) => d.day_of_week),
+      ...rutina.slots.map((s) => s.day_of_week),
     ]),
   ).sort((a, b) => a - b);
 
@@ -100,7 +110,7 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
       <header className="border-b border-border px-7 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold">{data.profile.name}</h1>
+            <h1 className="text-lg font-semibold">{rutina.profile.name}</h1>
             <div className="mt-1 text-xs text-muted-foreground">
               <Link
                 to={`/admin/users/${athleteId}`}
@@ -110,9 +120,9 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
               </Link>
             </div>
           </div>
-          <Badge variant="outline">{data.profile.days_per_week} días/sem</Badge>
+          <Badge variant="outline">{rutina.profile.days_per_week} días/sem</Badge>
         </div>
-        {data.has_active_session && (
+        {rutina.has_active_session && (
           <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <AlertTriangle size={14} />
             Atleta tiene sesión en curso. Los cambios aplicarán en la próxima sesión.

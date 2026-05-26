@@ -78,6 +78,19 @@ export interface RutinaDetail {
   has_active_session: boolean;
 }
 
+export async function getPendingSkeletonId(
+  athleteId: string,
+): Promise<string | null> {
+  const r = await pool.query<{ id: string }>(
+    `SELECT id FROM athlete_skeletons
+      WHERE athlete_id = $1 AND status = 'pending_review'
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [athleteId],
+  );
+  return r.rows[0]?.id ?? null;
+}
+
 export async function getActiveRutina(
   athleteId: string,
 ): Promise<RutinaDetail | null> {
@@ -106,7 +119,8 @@ export async function getActiveRutina(
   if (!profR.rows[0]) return null;
 
   const slotsR = await pool.query<SkeletonSlot>(
-    `SELECT s.*, e.name AS exercise_name, e.muscle_group, e.equipment
+    `SELECT s.*, e.name AS exercise_name, e.muscle_group, e.equipment,
+            e.archived_at AS exercise_archived_at
        FROM skeleton_slots s
        JOIN exercises e ON e.id = s.exercise_id
       WHERE s.skeleton_id = $1
