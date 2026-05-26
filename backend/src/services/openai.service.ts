@@ -23,12 +23,22 @@ function slotRangeFor(minutes: number): { min: number; max: number } {
   return { min: 10, max: 11 };
 }
 
+function broadMuscleGroup(mg: string): string {
+  return mg.split('-')[0].trim().toLowerCase();
+}
+
 const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON.
 Reglas estrictas:
 - El array "days" DEBE tener EXACTAMENTE la cantidad N indicada en el mensaje del usuario como days_per_week. Ni más, ni menos. Si N=3, devolvé 3 días. Si N=4, devolvé 4 días. Esta regla es la más importante: violarla invalida toda la respuesta.
 - Cada día arranca con 2 slots role="calentamiento" (slot_index 1, 2) antes del trabajo principal. Elegí del muscle_group "Calentamiento" del catálogo. Sólo bajá a 1 calentamiento si exercise_minutes <= 30.
 - Cada día debe tener 2 slots role="principal" (compuestos pesados) después de los calentamientos. Sólo usá 1 principal si exercise_minutes <= 30 o el level del atleta es 'nunca'.
+- REGLA CRÍTICA de principales: si un día tiene 2 principales, DEBEN trabajar grupos musculares base distintos. El "grupo base" es la palabra antes del guión en muscle_group (ej. "Pecho - Mayor" → "Pecho", "Piernas - Cuadriceps" → "Piernas"). NO PUEDE haber dos principales con el mismo grupo base en un mismo día. Ejemplos OK: Sentadilla (Piernas) + Press Militar (Hombros); Press Plano (Pecho) + Remo con Barra (Espalda). Ejemplos KO: Press Plano (Pecho-Mayor) + Press Inclinado (Pecho-Superior); Sentadilla (Piernas-Cuadriceps) + Peso Muerto (Piernas-Femorales).
 - Después de los principales, agregá 3 a 5 slots role="accesorio" para completar grupos musculares y un slot de core/abs cuando exercise_minutes >= 60.
+- Templates típicos de split (inspirados en rutinas de entrenadores reales) — elegí en base a days_per_week y al goal:
+  · Push/bíceps: 1 principal de Pecho + accesorios de Pecho (subgrupos Mayor/Superior/Inferior) + 2-3 accesorios de Bíceps + 1 core. (Variante: 2 principales si exercise_minutes lo permite y el segundo es de otro grupo base, ej Pecho + Hombros).
+  · Pull/tríceps: 1 principal de Espalda + accesorios de Espalda (Dorsales, Trapecios) + 2-3 accesorios de Tríceps. Sin core si ya hay otros días con core.
+  · Piernas+hombros: 1 principal de Piernas + 1 principal de Hombros + accesorios de Femorales/Pantorrillas + 1 core.
+- Foco diario: cada día tiene 1 (a lo sumo 2) grupos base como protagonistas; los accesorios apuntan a esos grupos y/o complementarios (ej. pecho ↔ bíceps, espalda ↔ tríceps, piernas ↔ hombros).
 - Cantidad TOTAL de slots por día (calentamiento + principal + accesorio) según exercise_minutes:
   · 30 min → 5 slots (1 calent + 1 princ + 3 acces)
   · 45 min → 7 slots (2 calent + 2 princ + 3 acces)
@@ -131,9 +141,13 @@ export async function generateSkeleton(
       continue;
     }
     const expectedRange = slotRangeFor(minutes);
+    const exerciseById = new Map(exercises.map((e) => [e.id, e]));
     let allValid = true;
     for (const day of out.days) {
-      if (!day.slots.some((s: { role: string }) => s.role === 'principal')) {
+      const principals = day.slots.filter(
+        (s: { role: string }) => s.role === 'principal',
+      );
+      if (principals.length === 0) {
         lastError = `day ${day.day_index} sin principal`;
         allValid = false; break;
       }
@@ -141,7 +155,7 @@ export async function generateSkeleton(
         day.slots.length < expectedRange.min ||
         day.slots.length > expectedRange.max
       ) {
-        lastError = `day ${day.day_index} tiene ${day.slots.length} slots; debe tener entre ${expectedRange.min} y ${expectedRange.max} (exercise_minutes=${profile.exercise_minutes})`;
+        lastError = `day ${day.day_index} tiene ${day.slots.length} slots; debe tener entre ${expectedRange.min} y ${expectedRange.max} (exercise_minutes=${minutes})`;
         allValid = false; break;
       }
       for (const s of day.slots) {
@@ -151,6 +165,20 @@ export async function generateSkeleton(
         }
       }
       if (!allValid) break;
+      if (principals.length >= 2) {
+        const broadGroups = principals.map((s: { exercise_id: number }) => {
+          const ex = exerciseById.get(s.exercise_id);
+          return ex ? broadMuscleGroup(ex.muscle_group) : '';
+        });
+        const uniq = new Set(broadGroups);
+        if (uniq.size !== broadGroups.length) {
+          const names = principals
+            .map((s: { exercise_id: number }) => exerciseById.get(s.exercise_id)?.name ?? `id ${s.exercise_id}`)
+            .join(', ');
+          lastError = `day ${day.day_index} tiene 2 principales del mismo grupo base (${[...uniq].join('/')}): ${names}. Los principales deben trabajar grupos base distintos.`;
+          allValid = false; break;
+        }
+      }
     }
     if (!allValid) {
       logger.warn({ attempt, error: lastError }, 'openai: business constraint');
