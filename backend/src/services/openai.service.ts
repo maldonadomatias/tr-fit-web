@@ -37,9 +37,12 @@ export async function generateSkeleton(
   const { profile, exercises, rejectionFeedback } = input;
 
   const N = profile.days_per_week;
+  const validIds = exercises.map((e) => e.id);
   const userMessage = JSON.stringify({
     REQUIRED_DAYS_COUNT: N,
     note: `El array "days" debe tener exactamente ${N} elementos. Cualquier otra cantidad será rechazada.`,
+    valid_exercise_ids: validIds,
+    valid_exercise_ids_note: `SOLO podés usar exercise_id que estén en valid_exercise_ids (${validIds.length} disponibles). Cualquier id fuera de esta lista será rechazado. NO inventes ids.`,
     athlete: {
       gender: profile.gender, age: profile.age, height_cm: profile.height_cm,
       weight_kg: profile.weight_kg, level: profile.level, goal: profile.goal,
@@ -74,7 +77,7 @@ export async function generateSkeleton(
     if (lastError) {
       messages.push({
         role: 'user',
-        content: `ATENCIÓN: tu output anterior violó la restricción: "${lastError}". RECORDÁ: REQUIRED_DAYS_COUNT=${N}. El array "days" debe tener exactamente ${N} elementos, ni uno más ni uno menos. Generá nuevamente respetando TODAS las reglas, en especial la cantidad de días.`,
+        content: `ATENCIÓN: tu output anterior violó la restricción: "${lastError}". Recordatorios:\n- REQUIRED_DAYS_COUNT=${N} (array "days" debe tener exactamente ${N} elementos)\n- valid_exercise_ids tiene ${validIds.length} ids permitidos: [${validIds.join(', ')}]\n- SOLO usar ids de esa lista. NO inventes ids.\n- Cada día debe tener al menos 1 slot role="principal".\nGenerá nuevamente respetando TODAS las reglas.`,
       });
     }
 
