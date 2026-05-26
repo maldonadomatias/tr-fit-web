@@ -4,20 +4,12 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    # Re-resolve DNS at request time so we follow backend IP changes after
-    # redeploys. Railway's private DNS is at fd12::10 (IPv6); we also list
-    # public resolvers as a fallback in case the platform changes.
-    resolver fd12::10 1.1.1.1 8.8.8.8 valid=10s ipv6=on;
-
     location / {
         try_files $uri $uri/ /index.html;
     }
 
     location /api {
-        # Assign upstream to an nginx variable so proxy_pass uses the
-        # resolver above instead of caching the IP at nginx startup.
-        set $backend_upstream "$BACKEND_URL";
-        proxy_pass $backend_upstream;
+        proxy_pass $BACKEND_URL;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
