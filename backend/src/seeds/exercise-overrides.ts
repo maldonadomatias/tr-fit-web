@@ -75,6 +75,16 @@ export const overrides: Record<string, Override> = {
   'Vuelo Lateral Unilateral en polea altura Rodilla':
     { equipment: 'polea', movement_pattern: 'isolation',
       is_unilateral: true, default_increment_kg: 1 },
+
+  // Abdomen bodyweight exercises (inferEquipment misclassified as mancuerna)
+  'Rueda Abdominal':
+    { equipment: 'bw', movement_pattern: 'core', default_increment_kg: 1 },
+  'Elevaciones de Pierna Colgado':
+    { equipment: 'bw', movement_pattern: 'core', default_increment_kg: 1 },
+  'Abdominales Cortos + Largos':
+    { equipment: 'bw', movement_pattern: 'core', default_increment_kg: 1 },
+  'Abdominales Bicicleta':
+    { equipment: 'bw', movement_pattern: 'core', default_increment_kg: 1 },
 };
 
 // Muscle groups → default movement_pattern

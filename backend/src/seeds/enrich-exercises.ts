@@ -25,7 +25,15 @@ function inferEquipment(name: string): Equipment {
     return 'maquina';
   }
   if (n.includes('flexion') || n.includes('fondos') ||
-      n.includes('dominadas') || n.includes('plancha')) {
+      n.includes('dominadas') || n.includes('plancha') ||
+      n.includes('rueda abdominal') ||
+      n.includes('elevaciones de pierna') ||
+      n.includes('abdominales cortos') ||
+      n.includes('abdominales bicicleta') ||
+      n.includes('bicho muerto') || n.includes('dead bug') ||
+      n.includes('bird dog') || n.includes('hollow') ||
+      n.includes('mountain climber') || n.includes('escalador') ||
+      n.includes('v-up') || n.includes('superman')) {
     return 'bw';
   }
   return 'mancuerna'; // safe default; will be flagged in review
