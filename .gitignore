@@ -32,3 +32,6 @@ Thumbs.db
 # Uploads
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Superpowers brainstorm scratch (visual companion sessions)
+.superpowers/

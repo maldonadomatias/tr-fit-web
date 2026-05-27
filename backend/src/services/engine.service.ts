@@ -1,6 +1,8 @@
 import pool from '../db/connect.js';
 import { roundToNearest25 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
+import { applyOverridesToSlots } from './weekly-overrides.service.js';
+import type { WeeklyOverride } from './weekly-overrides.service.js';
 import type {
   Exercise, PeriodizationConfig, SessionItem, SkeletonSlot, SlotRole,
 } from '../domain/types.js';
@@ -44,7 +46,12 @@ export async function buildTodaySession(
   );
   if (slotsR.rows.length === 0) return [];
 
-  const exerciseIds = slotsR.rows.map((s) => s.exercise_id);
+  const effectiveSlots = await applyOverridesToSlots(
+    athleteId, state.current_week, dayOfWeek, slotsR.rows,
+  );
+  if (effectiveSlots.length === 0) return [];
+
+  const exerciseIds = effectiveSlots.map((s) => s.exercise_id);
   const exR = await pool.query<Exercise>(
     `SELECT * FROM exercises WHERE id = ANY($1::int[])`, [exerciseIds],
   );
@@ -78,12 +85,12 @@ export async function buildTodaySession(
     rmByEx = new Map(rmR.rows.map((r) => [r.exercise_id, Number(r.value_kg)]));
   }
 
-  return Promise.all(slotsR.rows.map((slot) => buildItem(athleteId, slot, exById, wByEx, rmByEx, cfg)));
+  return Promise.all(effectiveSlots.map((slot) => buildItem(athleteId, slot, exById, wByEx, rmByEx, cfg)));
 }
 
 async function buildItem(
   athleteId: string,
-  slot: SkeletonSlot,
+  slot: SkeletonSlot & { _override?: WeeklyOverride },
   exById: Map<number, Exercise>,
   wByEx: Map<number, {
     current_value: number | null; unit: 'kg' | 'ladrillos' | null;
@@ -104,46 +111,87 @@ async function buildItem(
     !w?.unit || w.unit === unit ? w?.current_value ?? null : null;
   const notes = slot.notes ?? null;
 
+  let item: SessionItem;
+
   if (slot.role === 'calentamiento') {
-    return baseItem(
+    item = baseItem(
       exercise, slot.role, slot.slot_index, null, unit,
       2, '10', '1 min', notes,
     );
-  }
-
-  if (slot.role === 'principal') {
+  } else if (slot.role === 'principal') {
     if (cfg.is_rm_test) {
-      return baseItem(exercise, slot.role, slot.slot_index, null, unit,
+      item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'rm_test');
-    }
-    if (cfg.principal_pct_rm && cfg.principal_rm_source) {
+    } else if (cfg.principal_pct_rm && cfg.principal_rm_source) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
-        return baseItem(exercise, slot.role, slot.slot_index, null, unit,
+        item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
+      } else {
+        const computed = rm * Number(cfg.principal_pct_rm);
+        const weight =
+          exercise.equipment === 'barra' || exercise.equipment === 'smith'
+            ? roundToNearest25(computed)
+            : Math.round(computed);
+        item = baseItem(exercise, slot.role, slot.slot_index, weight, unit,
+          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
       }
-      const computed = rm * Number(cfg.principal_pct_rm);
-      const weight =
-        exercise.equipment === 'barra' || exercise.equipment === 'smith'
-          ? roundToNearest25(computed)
-          : Math.round(computed);
-      return baseItem(exercise, slot.role, slot.slot_index, weight, unit,
+    } else {
+      // use_casilleros for principal
+      item = baseItem(exercise, slot.role, slot.slot_index,
+        aewValue, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
     }
-    // use_casilleros for principal
-    return baseItem(exercise, slot.role, slot.slot_index,
-      aewValue, unit,
-      cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
+  } else {
+    // accesorio
+    item = baseItem(
+      exercise, slot.role, slot.slot_index, aewValue, unit,
+      cfg.accesorio_series,
+      w?.current_reps_text ?? cfg.accesorio_reps,
+      cfg.accesorio_descanso,
+      notes,
+    );
   }
 
-  // accesorio
-  return baseItem(
-    exercise, slot.role, slot.slot_index, aewValue, unit,
-    cfg.accesorio_series,
-    w?.current_reps_text ?? cfg.accesorio_reps,
-    cfg.accesorio_descanso,
-    notes,
-  );
+  return applyOverride(item, slot._override, exercise);
+}
+
+/**
+ * Applies an active weekly override to an already-built SessionItem.
+ * Only 'reduce_intensity' overrides reach here — 'swap' and 'skip' are
+ * handled upstream by applyOverridesToSlots before buildItem is called.
+ */
+function applyOverride(
+  item: SessionItem,
+  override: WeeklyOverride | undefined,
+  exercise: Exercise,
+): SessionItem {
+  if (!override || override.override_type !== 'reduce_intensity') return item;
+
+  const payload = override.intensity_payload as {
+    sets_delta?: number;
+    weight_pct?: number;
+    rpe_delta?: number;
+  };
+
+  let { series, suggested_value } = item;
+
+  if (typeof payload.sets_delta === 'number') {
+    series = Math.max(1, series + payload.sets_delta);
+  }
+
+  if (typeof payload.weight_pct === 'number' && suggested_value !== null) {
+    const adjusted = suggested_value * payload.weight_pct;
+    suggested_value =
+      exercise.equipment === 'barra' || exercise.equipment === 'smith'
+        ? roundToNearest25(adjusted)
+        : Math.round(adjusted);
+  }
+
+  // TODO: rpe_delta is recorded in weekly_overrides.intensity_payload but
+  // SessionItem does not currently expose a target_rpe field. Skip for now.
+
+  return { ...item, series, suggested_value };
 }
 
 function baseItem(

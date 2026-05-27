@@ -1,0 +1,32 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import type { CoachAlert } from '@/types/api';
+import { useResolveAlert } from '@/hooks/useAlerts';
+
+export function SkipWeekDialog({ alert, onClose }: { alert: CoachAlert; onClose: () => void }) {
+  const resolve = useResolveAlert();
+  const [note, setNote] = useState('');
+  const submit = async () => {
+    try {
+      await resolve.mutateAsync({ id: alert.id, action: 'skip_week', payload: {}, note });
+      toast.success('Skip aplicado esta semana');
+      onClose();
+    } catch { toast.error('No se pudo aplicar el skip'); }
+  };
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Skip {alert.exercise_name ?? 'ejercicio'} esta semana</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">El ejercicio desaparece del resto de sesiones de esta semana. Vuelve la próxima.</p>
+        <Textarea placeholder="Nota (opcional)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={submit} disabled={resolve.isPending}>Confirmar skip</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
