@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ALERT_RESOLUTION_ACTIONS } from './alert-actions.js';
 
 export const measurementPayload = z.object({
   chest_cm: z.number().min(30).max(200).optional(),
@@ -221,3 +222,10 @@ export const adminListAthletesQuery = z.object({
 export type AdminSlotCreate = z.infer<typeof adminSlotCreatePayload>;
 export type AdminSlotPatch = z.infer<typeof adminSlotPatchPayload>;
 export type AdminReorderInput = z.infer<typeof adminReorderPayload>;
+
+export const alertResolvePayload = z.object({
+  action: z.enum(ALERT_RESOLUTION_ACTIONS),
+  payload: z.record(z.unknown()).default({}),
+  note: z.string().max(2000).optional(),
+});
+export type AlertResolvePayload = z.infer<typeof alertResolvePayload>;
