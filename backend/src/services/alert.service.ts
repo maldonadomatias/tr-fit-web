@@ -122,21 +122,52 @@ export async function createMachineAlert(
   return { alertId: ins.rows[0].id };
 }
 
+export interface ListAlertsOpts {
+  status?: 'open' | 'resolved' | 'all';
+  type?: string;
+  severity?: string;
+  athleteId?: string;
+  limit?: number;
+  page?: number;
+}
+
 export async function listAlertsForCoach(
   coachId: string,
-  unreadOnly: boolean,
+  opts: ListAlertsOpts | boolean = {},
 ): Promise<unknown[]> {
-  const filter = unreadOnly ? `AND ca.read_at IS NULL` : '';
+  const o: ListAlertsOpts = typeof opts === 'boolean'
+    ? { status: opts ? 'open' : 'all' }
+    : opts;
+  const where: string[] = ['ca.coach_id = $1'];
+  const params: unknown[] = [coachId];
+  const push = (clause: string, value: unknown) => {
+    params.push(value);
+    where.push(clause.replace('$$', `$${params.length}`));
+  };
+  if (o.status === 'open') where.push('ca.resolved_at IS NULL');
+  if (o.status === 'resolved') where.push('ca.resolved_at IS NOT NULL');
+  if (o.type) push('ca.type = $$', o.type);
+  if (o.severity) push('ca.severity = $$', o.severity);
+  if (o.athleteId) push('ca.athlete_id = $$', o.athleteId);
+
+  const limit = Math.max(1, Math.min(o.limit ?? 50, 200));
+  const offset = ((o.page ?? 1) - 1) * limit;
+  params.push(limit, offset);
+
   const r = await pool.query(
     `SELECT ca.id, ca.type, ca.severity, ca.payload, ca.created_at,
-            ca.read_at, ca.resolved_at,
+            ca.read_at, ca.resolved_at, ca.athlete_id, ca.exercise_id,
+            ca.resolution_action, ca.resolution_note,
+            resolver.email AS resolved_by_email,
             ap.name AS athlete_name, e.name AS exercise_name
        FROM coach_alerts ca
        JOIN athlete_profiles ap ON ap.user_id = ca.athlete_id
        LEFT JOIN exercises e ON e.id = ca.exercise_id
-      WHERE ca.coach_id = $1 ${filter}
-      ORDER BY ca.created_at DESC`,
-    [coachId],
+       LEFT JOIN users resolver ON resolver.id = ca.resolved_by
+      WHERE ${where.join(' AND ')}
+      ORDER BY ca.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}`,
+    params,
   );
   return r.rows;
 }
