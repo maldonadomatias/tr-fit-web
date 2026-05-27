@@ -8,6 +8,26 @@ export class AlertError extends Error {
   }
 }
 
+// Persisted client state can carry a session_log_id whose row is gone
+// (DB reset, env switch, manual delete). FK would 500 the alert. Pain
+// content matters more than the link — drop the link if it's stale.
+async function resolveSessionLogId(
+  athleteId: string,
+  sessionLogId: string | undefined,
+): Promise<string | null> {
+  if (!sessionLogId) return null;
+  const r = await pool.query(
+    `SELECT 1 FROM session_logs WHERE id = $1 AND athlete_id = $2`,
+    [sessionLogId, athleteId],
+  );
+  if (r.rowCount) return sessionLogId;
+  logger.warn(
+    { athleteId, sessionLogId },
+    'alert references unknown session_log; storing alert with NULL session_log_id',
+  );
+  return null;
+}
+
 export interface CreatePainAlertInput {
   athleteId: string;
   exerciseId: number;
@@ -34,12 +54,15 @@ export async function createPainAlert(
   );
   if (!c.rows[0] || !ex.rows[0]) throw new AlertError('not_found');
 
+  const sessionLogId = await resolveSessionLogId(
+    input.athleteId, input.sessionLogId,
+  );
   const ins = await pool.query<{ id: string }>(
     `INSERT INTO coach_alerts
        (athlete_id, coach_id, type, severity, exercise_id, session_log_id, payload)
      VALUES ($1, $2, 'sos_pain', 'red', $3, $4, $5::jsonb) RETURNING id`,
     [input.athleteId, athlete.coach_id, input.exerciseId,
-     input.sessionLogId ?? null,
+     sessionLogId,
      JSON.stringify({ zone: input.zone, intensity: input.intensity })],
   );
 
@@ -78,12 +101,15 @@ export async function createMachineAlert(
   const coachId = a.rows[0]?.coach_id;
   if (!coachId) throw new AlertError('no_coach_assigned');
 
+  const sessionLogId = await resolveSessionLogId(
+    input.athleteId, input.sessionLogId,
+  );
   const ins = await pool.query<{ id: string }>(
     `INSERT INTO coach_alerts
        (athlete_id, coach_id, type, severity, exercise_id, session_log_id, payload)
      VALUES ($1, $2, 'sos_machine', 'info', $3, $4, $5::jsonb) RETURNING id`,
     [input.athleteId, coachId, input.exerciseId,
-     input.sessionLogId ?? null,
+     sessionLogId,
      JSON.stringify({ switched_to_exercise_id: input.switchedToExerciseId })],
   );
   return { alertId: ins.rows[0].id };

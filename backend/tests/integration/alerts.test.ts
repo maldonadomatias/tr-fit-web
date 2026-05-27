@@ -62,6 +62,24 @@ it('createMachineAlert info-severity, no email', async () => {
   expect(alerts).toHaveLength(1);
 });
 
+it('createPainAlert with stale sessionLogId stores NULL, does not throw', async () => {
+  const { coach, ath, exerciseId } = await setup();
+  // Simulate persisted client state pointing at a session_log that no
+  // longer exists in the DB (env switch / reset / manual delete).
+  const stale = '380a76dc-bcf4-4f8b-9b41-e465742caf97';
+  const out = await createPainAlert({
+    athleteId: ath, exerciseId, sessionLogId: stale,
+    zone: 'lumbar', intensity: 8,
+  });
+  expect(out.emailSendFailed).toBe(false);
+  const alerts = await listAlertsForCoach(coach, true);
+  expect(alerts).toHaveLength(1);
+  const r = await pool.query<{ session_log_id: string | null }>(
+    `SELECT session_log_id FROM coach_alerts WHERE id = $1`, [out.alertId],
+  );
+  expect(r.rows[0].session_log_id).toBeNull();
+});
+
 it('markRead + markResolved flip flags', async () => {
   const { coach, ath, exerciseId } = await setup();
   const { alertId } = await createPainAlert({
