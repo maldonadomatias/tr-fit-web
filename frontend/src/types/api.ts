@@ -170,16 +170,49 @@ export interface AdminStats {
   verified_pct: number;
 }
 
+export type AlertResolutionAction =
+  | 'swap_exercise' | 'skip_week' | 'regen_skeleton'
+  | 'approve_switch' | 'revert_switch' | 'reduce_intensity'
+  | 'reschedule_rm' | 'skip_rm_block' | 'acknowledge' | 'note_only';
+
 export interface CoachAlert {
   id: string;
   type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting';
   severity: 'red' | 'yellow' | 'info';
+  athlete_id: string;
   athlete_name: string;
+  exercise_id: number | null;
   exercise_name: string | null;
   payload: Record<string, unknown>;
   read_at: string | null;
   resolved_at: string | null;
   created_at: string;
+  resolution_action: AlertResolutionAction | null;
+  resolution_note: string | null;
+  resolved_by_email: string | null;
+}
+
+export interface AlertContext {
+  alert: CoachAlert;
+  suggestedAlternative: { id: number; name: string } | null;
+  painHistory: { zone: string; intensity: number; created_at: string }[];
+  activeSlot: {
+    skeleton_slot_id: string;
+    exercise_id: number;
+    day_of_week: number;
+  } | null;
+}
+
+export interface AlertsListResponse {
+  items: CoachAlert[];
+  total: number;
+}
+
+export interface AlertsListFilters {
+  status?: 'open' | 'resolved' | 'all';
+  type?: string;
+  severity?: string;
+  athleteId?: string;
 }
 
 export type Equipment =
