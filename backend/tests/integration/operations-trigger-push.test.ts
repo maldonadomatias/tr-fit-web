@@ -53,8 +53,9 @@ describe('admin operations push triggers', () => {
     );
     const tok = signToken({ id: coachId, role: 'admin' });
     const r = await request(app)
-      .patch(`/api/admin/operations/alerts/${alert.rows[0].id}/resolve`)
-      .set('Authorization', `Bearer ${tok}`);
+      .post(`/api/admin/alerts/${alert.rows[0].id}/resolve`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ action: 'note_only', payload: {}, note: 'resolved' });
     expect(r.status).toBeLessThan(300);
     await new Promise((res) => setTimeout(res, 50));
     expect(mockNotify).toHaveBeenCalledWith(

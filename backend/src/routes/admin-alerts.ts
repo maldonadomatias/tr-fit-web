@@ -12,6 +12,9 @@ import {
   getAlertContext, AlertContextError,
 } from '../services/alert-context.service.js';
 import { alertResolvePayload } from '../domain/schemas.js';
+import pool from '../db/connect.js';
+import logger from '../utils/logger.js';
+import { notifyUser } from '../services/notification.service.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -57,6 +60,26 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body' });
   try {
     await resolveAlert(req.params.id, req.user!.id, parsed.data);
+    // Push notification (fire-and-forget)
+    pool.query<{ athlete_id: string; exercise_id: number | null }>(
+      `SELECT athlete_id, exercise_id FROM coach_alerts WHERE id = $1`,
+      [req.params.id],
+    ).then(async (a) => {
+      if (!a.rows[0]) return;
+      let exerciseName: string | undefined;
+      if (a.rows[0].exercise_id) {
+        const ex = await pool.query<{ name: string }>(
+          `SELECT name FROM exercises WHERE id = $1`,
+          [a.rows[0].exercise_id],
+        );
+        exerciseName = ex.rows[0]?.name;
+      }
+      await notifyUser(
+        a.rows[0].athlete_id,
+        'sos_resolved',
+        exerciseName ? { exerciseName } : {},
+      );
+    }).catch((e) => logger.error({ err: e }, 'alert push notify failed'));
     const ctx = await getAlertContext(req.params.id, req.user!.id);
     return res.status(200).json(ctx.alert);
   } catch (e) {
