@@ -240,6 +240,24 @@ it('resolve regen_skeleton triggers skeleton regen + stamps audit', async () => 
   expect(ov.rowCount).toBe(0);
 });
 
+it('resolve regen_skeleton stamps audit even if regen throws post-commit', async () => {
+  const { coach, ath, exerciseId } = await setup();
+  const { alertId } = await createPainAlert({
+    athleteId: ath, exerciseId, zone: 'lumbar', intensity: 9,
+  });
+  // No athlete_program_state seeded → regenerateSkeleton will throw because
+  // it cannot find one. The audit must still be set.
+  await resolveAlert(alertId, coach, {
+    action: 'regen_skeleton', payload: {}, note: 'expected throw',
+  });
+  const r = await pool.query<{ resolution_action: string; resolved_at: string }>(
+    `SELECT resolution_action, resolved_at FROM coach_alerts WHERE id = $1`,
+    [alertId],
+  );
+  expect(r.rows[0].resolution_action).toBe('regen_skeleton');
+  expect(r.rows[0].resolved_at).toBeTruthy();
+});
+
 it('resolve sos_machine with approve_switch inserts swap override using alert payload', async () => {
   const { coach, ath, exerciseId } = await setup();
   const ex2 = await pool.query<{ id: number }>(

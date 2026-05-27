@@ -60,12 +60,13 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
   if (!parsed.success) return res.status(400).json({ error: 'invalid_body' });
   try {
     await resolveAlert(req.params.id, req.user!.id, parsed.data);
-    // Push notification (fire-and-forget)
-    pool.query<{ athlete_id: string; exercise_id: number | null }>(
-      `SELECT athlete_id, exercise_id FROM coach_alerts WHERE id = $1`,
+    // Push notification (fire-and-forget, SOS alerts only)
+    pool.query<{ athlete_id: string; exercise_id: number | null; type: string }>(
+      `SELECT athlete_id, exercise_id, type FROM coach_alerts WHERE id = $1`,
       [req.params.id],
     ).then(async (a) => {
       if (!a.rows[0]) return;
+      if (a.rows[0].type !== 'sos_pain' && a.rows[0].type !== 'sos_machine') return;
       let exerciseName: string | undefined;
       if (a.rows[0].exercise_id) {
         const ex = await pool.query<{ name: string }>(

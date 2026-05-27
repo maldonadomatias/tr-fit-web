@@ -43,7 +43,7 @@
 | `sos_pain` | `swap_exercise`, `skip_week`, `regen_skeleton`, `note_only` |
 | `sos_machine` | `approve_switch`, `revert_switch`, `swap_exercise`, `note_only` |
 | `rpe_flag` | `reduce_intensity`, `skip_week`, `note_only` |
-| `rm_skipped` | `reschedule_rm`, `skip_rm_block`, `note_only` |
+| `rm_skipped` | `reschedule_rm`, `skip_rm_block`, `note_only` | (Frontend ships `note_only` only this iteration; backend accepts the wider set for future UI expansion — see Out of Scope.) |
 | `rm_week_starting` | `acknowledge`, `note_only` |
 
 Every alert also supports `mark_read` (separate, does not resolve).
@@ -109,7 +109,7 @@ CREATE INDEX idx_weekly_overrides_lookup
   ON weekly_overrides(athlete_id, program_week);
 ```
 
-Migration file: `backend/src/db/migrations/024_alert_resolutions_and_overrides.sql`.
+Migration file: `backend/src/db/migrations/027_alert_resolutions_and_overrides.sql`.
 
 ## API
 
@@ -124,7 +124,7 @@ GET   /admin/alerts
          ?limit=50&page=1
   Response: { items: AlertRow[], total: number }
   AlertRow now includes: resolution_action, resolution_note,
-                         resolved_by_name, athlete_id, exercise_id.
+                         resolved_by_email, athlete_id, exercise_id.
 
 GET   /admin/alerts/:id/context
   Response: {
@@ -175,6 +175,8 @@ const effectiveSlots = slotsR.rows
 ```
 
 `buildItem` accepts an optional `_override`. When `override_type === 'reduce_intensity'`, it applies `intensity_payload.sets_delta`, `intensity_payload.weight_pct`, `intensity_payload.rpe_delta` to the computed `series`, `weight`, and `target_rpe` of the item respectively. Out-of-bounds values are clamped to the engine's existing limits.
+
+> **Note:** `rpe_delta` is recorded in `weekly_overrides.intensity_payload` but NOT applied at runtime — `SessionItem` has no `target_rpe` field yet. Deferred.
 
 `reconcileWithServer` on the mobile app already refetches the active session; overrides become visible on the next pull. No mobile-side change required.
 
