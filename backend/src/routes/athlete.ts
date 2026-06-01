@@ -15,6 +15,13 @@ import { buildAthleteStats } from '../services/athlete-stats.service.js';
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
 
+/**
+ * @deprecated The mobile app no longer calls this endpoint — all features are
+ * unlocked client-side and server-side tier gating was removed. No known caller
+ * remains (the admin frontend reads subscription_tier from the admin API, not
+ * this route). Kept temporarily for backward compatibility; safe to remove once
+ * access logs confirm zero traffic. See docs for the payment-reconciliation plan.
+ */
 router.get('/me/tier', async (req, res) => {
   const tier = await getUserTier(req.user!.id);
   res.json({ plan_interest: tier });
@@ -26,13 +33,8 @@ router.get('/me/stats', async (req, res) => {
 });
 
 router.post('/skeleton/regenerate', async (req, res) => {
+  // Tier gating removed — regeneration is always allowed for any enabled athlete.
   const result = await regenerateSkeleton(req.user!.id);
-  if (!result.ok) {
-    const status = result.error === 'tier_blocked' ? 403 : 429;
-    return res.status(status).json({
-      error: result.error, message: result.message,
-    });
-  }
   res.status(201).json({
     skeletonId: result.skeletonId, status: 'pending_review',
   });

@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import { requireTier } from '../middleware/require-tier.js';
 import {
   listRmHistory, listCompliance, listVolume,
   listRpeHistogram, listWeightVsSuggested,
@@ -14,7 +13,7 @@ const weeksQuery = z.object({
   weeks: z.coerce.number().int().min(1).max(52).optional(),
 });
 
-router.get('/rms', requireAuth, requireRole('athlete'), requireTier('premium'),
+router.get('/rms', requireAuth, requireRole('athlete'),
   async (req, res) => {
     res.json(await listRmHistory(req.user!.id));
   });
@@ -44,7 +43,7 @@ router.get('/rpe', requireAuth, requireRole('athlete'), async (req, res) => {
 });
 
 router.get('/weight-vs-suggested', requireAuth, requireRole('athlete'),
-  requireTier('premium'), async (req, res) => {
+  async (req, res) => {
     const parsed = weeksQuery.safeParse(req.query);
     if (!parsed.success) {
       return res.status(400).json({ error: 'invalid_query', issues: parsed.error.issues });

@@ -70,8 +70,11 @@ describe('progress routes', () => {
   });
 });
 
-describe('progress routes tier gating', () => {
-  it('basico is blocked from /rms', async () => {
+// Server-side tier gating was removed when the app unlocked all features
+// client-side. Every progress endpoint is now reachable by any tier (and by
+// athletes with no plan_interest), so no 403 'tier_insufficient'/'no_plan' fires.
+describe('progress routes (no tier gating)', () => {
+  it('basico accesses previously-gated /rms', async () => {
     const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
@@ -81,11 +84,11 @@ describe('progress routes tier gating', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/api/progress/rms')
       .set('Authorization', `Bearer ${tok}`);
-    expect(r.status).toBe(403);
-    expect(r.body.error).toBe('tier_insufficient');
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body)).toBe(true);
   });
 
-  it('basico is blocked from /weight-vs-suggested', async () => {
+  it('basico accesses previously-gated /weight-vs-suggested', async () => {
     const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
@@ -95,31 +98,18 @@ describe('progress routes tier gating', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/api/progress/weight-vs-suggested')
       .set('Authorization', `Bearer ${tok}`);
-    expect(r.status).toBe(403);
+    expect(r.status).toBe(200);
   });
 
-  it('premium accesses /rms', async () => {
+  it('athlete with no plan_interest accesses /rms', async () => {
     const c = await createAdmin();
     const a = await createAthlete(c);
     await pool.query(
-      `UPDATE athlete_profiles SET plan_interest = 'premium' WHERE user_id = $1`,
+      `UPDATE athlete_profiles SET plan_interest = NULL WHERE user_id = $1`,
       [a],
     );
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).get('/api/progress/rms')
-      .set('Authorization', `Bearer ${tok}`);
-    expect(r.status).toBe(200);
-  });
-
-  it('basico accesses /compliance (no gate)', async () => {
-    const c = await createAdmin();
-    const a = await createAthlete(c);
-    await pool.query(
-      `UPDATE athlete_profiles SET plan_interest = 'basico' WHERE user_id = $1`,
-      [a],
-    );
-    const tok = signToken({ id: a, role: 'athlete' });
-    const r = await request(app).get('/api/progress/compliance')
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(200);
   });

@@ -23,7 +23,11 @@ export const onboardingPayload = z.object({
   equipment: z.enum(['gym_completo', 'gym_basico', 'casa_basica', 'solo_bw']),
   injuries: z.array(z.string()).default([]),
   phone: z.string().regex(/^\+\d{10,15}$/),
-  plan_interest: z.enum(['basico', 'full', 'premium']),
+  // Legacy field — subscriptions are now handled outside the app and the backend
+  // no longer gates on tier. The app always sends 'full'; accept it for backward
+  // compatibility but tolerate omission (defaults to 'full') so a future app
+  // build can drop it without a backend change. Column stays nullable in the DB.
+  plan_interest: z.enum(['basico', 'full', 'premium']).optional().default('full'),
   training_mode: z.enum(['gym', 'casa', 'mixto']),
   commitment: z.enum(['suave', 'normal', 'exigente']),
   exercise_minutes: z.union([

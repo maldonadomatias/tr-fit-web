@@ -45,8 +45,10 @@ async function ensureFirstExercise() {
   );
 }
 
-describe('regenerateSkeleton', () => {
-  it('basico first regen succeeds (1 total budget)', async () => {
+// Tier-based gating was removed when the app unlocked all features client-side.
+// Regeneration is now always allowed regardless of plan_interest or prior count.
+describe('regenerateSkeleton (no tier gating)', () => {
+  it('basico regen succeeds and logs approved_gen', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -59,7 +61,7 @@ describe('regenerateSkeleton', () => {
     expect(log.rows[0].result).toBe('approved_gen');
   });
 
-  it('basico second regen blocked', async () => {
+  it('basico regen still succeeds after a prior regen (no 1-total limit)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -69,26 +71,11 @@ describe('regenerateSkeleton', () => {
       [a],
     );
     const r = await regenerateSkeleton(a);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toBe('tier_blocked');
-    const log = await pool.query<{ result: string }>(
-      `SELECT result FROM skeleton_regen_log
-        WHERE athlete_id = $1 ORDER BY requested_at DESC LIMIT 1`, [a],
-    );
-    expect(log.rows[0].result).toBe('tier_blocked');
-    expect(mockGenerate).not.toHaveBeenCalled();
-  });
-
-  it('full first regen succeeds', async () => {
-    await ensureFirstExercise();
-    const c = await createAdmin();
-    const a = await createAthlete(c);
-    await setTier(a, 'full');
-    const r = await regenerateSkeleton(a);
     expect(r.ok).toBe(true);
+    expect(mockGenerate).toHaveBeenCalled();
   });
 
-  it('full second regen within 30 days is rate_limited', async () => {
+  it('full regen still succeeds within 30 days (no monthly limit)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -98,58 +85,45 @@ describe('regenerateSkeleton', () => {
       [a],
     );
     const r = await regenerateSkeleton(a);
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toBe('rate_limited');
+    expect(r.ok).toBe(true);
   });
 
-  it('full second regen after 31 days succeeds', async () => {
+  it('regen succeeds with no plan_interest set (null tier)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
-    await setTier(a, 'full');
     await pool.query(
-      `INSERT INTO skeleton_regen_log (athlete_id, result, requested_at)
-       VALUES ($1, 'approved_gen', now() - interval '31 days')`,
-      [a],
+      `UPDATE athlete_profiles SET plan_interest = NULL WHERE user_id = $1`, [a],
     );
     const r = await regenerateSkeleton(a);
     expect(r.ok).toBe(true);
   });
 
-  it('premium has no limit', async () => {
+  it('premium regen succeeds (unchanged)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'premium');
-    await pool.query(
-      `INSERT INTO skeleton_regen_log (athlete_id, result, requested_at)
-       VALUES ($1, 'approved_gen', now()),
-              ($1, 'approved_gen', now() - interval '1 day')`,
-      [a],
-    );
     const r = await regenerateSkeleton(a);
     expect(r.ok).toBe(true);
   });
 });
 
 describe('regenerateSkeleton concurrency', () => {
-  it('serializes concurrent calls — second call sees first one already used budget', async () => {
+  it('serializes concurrent calls via advisory lock — both succeed', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'basico');
 
-    // Fire two regens at once. With advisory lock, second waits for first to commit.
-    // After serialization: first succeeds (count=0 → approved_gen), second sees count=1 → tier_blocked.
+    // Fire two regens at once. The advisory lock still serializes them so they
+    // don't race on the same athlete, but neither is blocked by a tier budget.
     const [r1, r2] = await Promise.all([
       regenerateSkeleton(a),
       regenerateSkeleton(a),
     ]);
 
-    const okCount = [r1, r2].filter((r) => r.ok).length;
-    const blockedCount = [r1, r2].filter((r) => !r.ok && r.error === 'tier_blocked').length;
-    expect(okCount).toBe(1);
-    expect(blockedCount).toBe(1);
-    expect(mockGenerate).toHaveBeenCalledTimes(1);
+    expect([r1, r2].filter((r) => r.ok).length).toBe(2);
+    expect(mockGenerate).toHaveBeenCalledTimes(2);
   });
 });

@@ -88,7 +88,8 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     expect(r.body.status).toBe('pending_review');
   });
 
-  it('basico after first regen returns 403 tier_blocked', async () => {
+  // Tier gating removed — regeneration is always allowed, no 403/429 fires.
+  it('basico after a prior regen still returns 201 (no tier_blocked)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -103,11 +104,11 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(403);
-    expect(r.body.error).toBe('tier_blocked');
+    expect(r.status).toBe(201);
+    expect(r.body.status).toBe('pending_review');
   });
 
-  it('full second regen within 30 days returns 429', async () => {
+  it('full second regen within 30 days still returns 201 (no rate_limit)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -122,8 +123,8 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(429);
-    expect(r.body.error).toBe('rate_limited');
+    expect(r.status).toBe(201);
+    expect(r.body.status).toBe('pending_review');
   });
 
   it('rejects unauth', async () => {
