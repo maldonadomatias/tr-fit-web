@@ -30,8 +30,10 @@ export const onboardingPayload = z.object({
   plan_interest: z.enum(['basico', 'full', 'premium']).optional().default('full'),
   training_mode: z.enum(['gym', 'casa', 'mixto']),
   commitment: z.enum(['suave', 'normal', 'exigente']),
+  // Session-time options shown in onboarding: 1 h, 1 h 15, 1 h 45, 2 h.
+  // (Legacy 30/45/90 remain valid in the DB CHECK for existing profiles.)
   exercise_minutes: z.union([
-    z.literal(30), z.literal(45), z.literal(60), z.literal(75), z.literal(90),
+    z.literal(60), z.literal(75), z.literal(105), z.literal(120),
   ]),
   days_specific: z.array(z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'])),
   referral_source: z.enum(['instagram', 'facebook', 'google', 'amigo', 'otro']),

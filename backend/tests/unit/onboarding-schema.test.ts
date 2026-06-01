@@ -44,6 +44,18 @@ describe('onboardingPayload', () => {
     expect(onboardingPayload.safeParse({ ...baseValid, goal: 'perdida_grasa' }).success).toBe(true);
   });
 
+  it('accepts the new exercise_minutes options (60/75/105/120)', () => {
+    for (const m of [60, 75, 105, 120]) {
+      expect(onboardingPayload.safeParse({ ...baseValid, exercise_minutes: m }).success).toBe(true);
+    }
+  });
+
+  it('rejects retired exercise_minutes values (30/45/90)', () => {
+    for (const m of [30, 45, 90]) {
+      expect(onboardingPayload.safeParse({ ...baseValid, exercise_minutes: m }).success).toBe(false);
+    }
+  });
+
   it('accepts days_per_week=2', () => {
     expect(onboardingPayload.safeParse({
       ...baseValid, days_per_week: 2, days_specific: ['lun', 'jue'],
