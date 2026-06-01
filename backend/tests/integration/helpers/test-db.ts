@@ -5,6 +5,8 @@ export async function resetDatabase(): Promise<void> {
   await pool.query(`
     TRUNCATE TABLE
       mp_webhook_log,
+      payments,
+      memberships,
       subscriptions,
       skeleton_regen_log,
       notification_log,

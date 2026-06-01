@@ -3,6 +3,7 @@ import app from './app.js';
 import logger from './utils/logger.js';
 import { startProgressionCron } from './workers/progression-cron.js';
 import { startNotificationCron } from './workers/notification-cron.js';
+import { startMembershipCron } from './workers/membership-cron.js';
 
 dotenv.config();
 
@@ -17,4 +18,5 @@ app.listen(PORT, '::', () => {
 if (process.env.NODE_ENV !== 'test') {
   startProgressionCron();
   startNotificationCron();
+  startMembershipCron();
 }

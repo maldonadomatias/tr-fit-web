@@ -104,7 +104,27 @@ export async function createAthlete(
       override.referral_source ?? profileExtras.referral_source,
     ],
   );
+  // Seed an active membership so fixture athletes can pass the login payment gate.
+  await pool.query(
+    `INSERT INTO memberships (user_id, status, paid_until)
+     VALUES ($1, 'active', 'infinity') ON CONFLICT (user_id) DO NOTHING`,
+    [id],
+  );
   return id;
+}
+
+/** Set (or upsert) an athlete's membership for tests. */
+export async function setMembership(
+  userId: string,
+  paidUntil: string | null, // ISO, 'infinity', or null
+  status: 'active' | 'expiring' | 'expired' | 'cancelled' = 'active',
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO memberships (user_id, status, paid_until)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id) DO UPDATE SET status = $2, paid_until = $3, updated_at = now()`,
+    [userId, status, paidUntil],
+  );
 }
 
 export async function signupUserInDb(
@@ -134,5 +154,11 @@ export async function verifiedAthleteUser(
 ): Promise<{ id: string; email: string; password: string }> {
   const password = 'test-pass-1234';
   const { id } = await signupUserInDb(email, password, true);
+  // Seed an active membership so this "enabled athlete" passes the login gate.
+  await pool.query(
+    `INSERT INTO memberships (user_id, status, paid_until)
+     VALUES ($1, 'active', 'infinity') ON CONFLICT (user_id) DO NOTHING`,
+    [id],
+  );
   return { id, email, password };
 }

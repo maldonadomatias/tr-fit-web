@@ -1,7 +1,10 @@
 import { Resend } from 'resend';
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
-import { verifyTemplate, resetCodeTemplate, painAlertTemplate } from './email-templates.js';
+import {
+  verifyTemplate, resetCodeTemplate, painAlertTemplate,
+  membershipExpiringTemplate, membershipExpiredTemplate,
+} from './email-templates.js';
 
 const resend = new Resend(env.RESEND_API_KEY);
 
@@ -66,5 +69,25 @@ export async function sendCoachPainAlert(opts: {
       intensity: opts.intensity,
       alertUrl,
     }),
+  });
+}
+
+export async function sendMembershipExpiringEmail(opts: {
+  email: string; name: string; paidUntil: string; daysLeft: number;
+}): Promise<void> {
+  await send({
+    to: opts.email,
+    subject: 'Tu plan TR-FIT vence pronto',
+    html: membershipExpiringTemplate({ name: opts.name, paidUntil: opts.paidUntil, daysLeft: opts.daysLeft }),
+  });
+}
+
+export async function sendMembershipExpiredEmail(opts: {
+  email: string; name: string;
+}): Promise<void> {
+  await send({
+    to: opts.email,
+    subject: 'Tu plan TR-FIT venció',
+    html: membershipExpiredTemplate({ name: opts.name }),
   });
 }

@@ -259,3 +259,30 @@ export interface NotificationLogRow {
   payload: Record<string, unknown> | null;
   delivery_status: 'sent' | 'failed' | 'token_invalid';
 }
+
+export type MembershipStatus = 'active' | 'expiring' | 'expired' | 'cancelled';
+export type PaymentMethod = 'transfer' | 'cash' | 'mercadopago' | 'other';
+
+export interface Membership {
+  id: string;
+  user_id: string;
+  status: MembershipStatus;
+  started_at: string;
+  // node-postgres returns the JS number Infinity for 'infinity'::timestamptz.
+  paid_until: string | number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Payment {
+  id: string;
+  user_id: string;
+  paid_at: string;
+  amount: string; // numeric → string from pg
+  currency: string;
+  method: PaymentMethod;
+  reference: string | null;
+  covers_until: string;
+  recorded_by: string | null;
+  created_at: string;
+}

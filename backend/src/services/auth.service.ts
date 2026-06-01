@@ -52,9 +52,12 @@ export async function signup(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // New signups start 'pending'; an admin enables the account once payment is
+    // confirmed (subscriptions are handled outside the app). The login gate
+    // returns 403 not_approved until then.
     const ins = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, role, email_verified)
-       VALUES ($1, $2, 'athlete', FALSE) RETURNING id`,
+      `INSERT INTO users (email, password_hash, role, email_verified, status)
+       VALUES ($1, $2, 'athlete', FALSE, 'pending') RETURNING id`,
       [email, passwordHash],
     );
     const userId = ins.rows[0].id;
@@ -87,7 +90,13 @@ export async function signup(
 
 // ─── Login ───────────────────────────────────────────────────────
 export class LoginError extends Error {
-  constructor(public reason: 'invalid_credentials' | 'email_not_verified') {
+  constructor(
+    public reason:
+      | 'invalid_credentials'
+      | 'email_not_verified'
+      | 'not_approved'
+      | 'rejected',
+  ) {
     super(reason);
   }
 }
@@ -105,9 +114,14 @@ export async function login(
   const r = await pool.query<{
     id: string; password_hash: string; role: 'athlete'|'admin'|'superadmin';
     email: string; email_verified: boolean;
+    status: 'pending' | 'approved' | 'rejected';
+    membership_active: boolean;
   }>(
-    `SELECT id, password_hash, role, email, email_verified
-       FROM users WHERE email = $1`,
+    `SELECT u.id, u.password_hash, u.role, u.email, u.email_verified, u.status,
+            COALESCE(m.paid_until > now(), false) AS membership_active
+       FROM users u
+       LEFT JOIN memberships m ON m.user_id = u.id
+      WHERE u.email = $1`,
     [email],
   );
   const user = r.rows[0];
@@ -120,6 +134,18 @@ export async function login(
   const ok = await comparePassword(password, user.password_hash);
   if (!ok) throw new LoginError('invalid_credentials');
   if (!user.email_verified) throw new LoginError('email_not_verified');
+  // Account-status gate — single source of truth for access (admin enables after
+  // manual payment). Checked after email verification so a brand-new signup is
+  // told to verify first, then that it is awaiting approval.
+  if (user.status === 'pending') throw new LoginError('not_approved');
+  if (user.status === 'rejected') throw new LoginError('rejected');
+  // Payment gate (athletes only — admins/superadmins need no membership). An
+  // expired or missing membership maps to 'not_approved' so the fixed mobile app
+  // shows its existing "pendiente de aprobación / te avisamos por email" screen.
+  // ('infinity' paid_until is > now() in Postgres, so backfilled athletes pass.)
+  if (user.role === 'athlete' && !user.membership_active) {
+    throw new LoginError('not_approved');
+  }
 
   const familyId = randomUUID();
   const refresh = generateToken();
@@ -193,6 +219,28 @@ export async function refresh(
       throw new RefreshError('expired');
     }
 
+    // Re-check access on refresh so a lapsed athlete can't keep minting tokens.
+    const u = await client.query<{
+      role: 'athlete'|'admin'|'superadmin'; status: string; membership_active: boolean;
+    }>(
+      `SELECT u.role, u.status, COALESCE(m.paid_until > now(), false) AS membership_active
+         FROM users u LEFT JOIN memberships m ON m.user_id = u.id
+        WHERE u.id = $1`,
+      [row.user_id],
+    );
+    const acct = u.rows[0];
+    const athleteBlocked = acct.role === 'athlete'
+      && (acct.status !== 'approved' || !acct.membership_active);
+    if (acct.status === 'rejected' || athleteBlocked) {
+      // Revoke the family and force re-login (which surfaces the gate message).
+      await client.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW() WHERE family_id = $1 AND revoked_at IS NULL`,
+        [row.family_id],
+      );
+      await client.query('COMMIT');
+      throw new RefreshError('invalid');
+    }
+
     // Rotate: revoke current, insert new in same family
     const newRefresh = generateToken();
     const newHash = hashToken(newRefresh);
@@ -208,10 +256,6 @@ export async function refresh(
       [newR.rows[0].id, row.id],
     );
 
-    // Get user role for new access token
-    const u = await client.query<{ role: 'athlete'|'admin'|'superadmin' }>(
-      `SELECT role FROM users WHERE id = $1`, [row.user_id],
-    );
     await client.query('COMMIT');
 
     const accessToken = jwt.sign(

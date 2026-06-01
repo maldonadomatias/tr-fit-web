@@ -26,6 +26,8 @@ export interface AdminUserRow {
   subscription_tier: SubTier | null;
   subscription_status: SubStatus | null;
   current_period_end: string | null;
+  membership_status: 'active' | 'expiring' | 'expired' | 'cancelled' | null;
+  paid_until: string | number | null;
 }
 
 export interface ListFilters {
@@ -59,10 +61,13 @@ export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
       COALESCE(ap.name, cp.name) AS name,
       s.tier AS subscription_tier,
       s.status AS subscription_status,
-      s.current_period_end
+      s.current_period_end,
+      mem.status AS membership_status,
+      mem.paid_until AS paid_until
     FROM users u
     LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
     LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+    LEFT JOIN memberships mem ON mem.user_id = u.id
     LEFT JOIN LATERAL (
       SELECT tier, status, current_period_end
         FROM subscriptions
@@ -86,10 +91,13 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        COALESCE(ap.name, cp.name) AS name,
        s.tier AS subscription_tier,
        s.status AS subscription_status,
-       s.current_period_end
+       s.current_period_end,
+       mem.status AS membership_status,
+       mem.paid_until AS paid_until
      FROM users u
      LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
      LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+     LEFT JOIN memberships mem ON mem.user_id = u.id
      LEFT JOIN LATERAL (
        SELECT tier, status, current_period_end
          FROM subscriptions
@@ -181,6 +189,11 @@ export interface UpsertSubInput {
 
 // Admin-managed manual subscription. Bypasses MercadoPago. Uses a synthetic
 // preapproval/plan id so we don't collide with real MP rows.
+/**
+ * @deprecated Writes the legacy MercadoPago-shaped subscriptions table with a
+ * tier. Superseded by membership.service.registerPayment (membership model);
+ * tiers no longer gate anything. Kept until the admin dashboard migrates.
+ */
 export async function upsertManualSubscription(
   userId: string,
   input: UpsertSubInput,
@@ -255,7 +268,9 @@ export type AuditType =
   | 'subscription_updated'
   | 'subscription_cancelled'
   | 'subscription_authorized'
-  | 'subscription_paused';
+  | 'subscription_paused'
+  | 'payment_registered'
+  | 'membership_cancelled';
 
 export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
+import { registerPayment, cancelMembership } from '../services/membership.service.js';
 import {
   listUsers,
   getUser,
@@ -206,6 +207,9 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
   res.json(fresh);
 });
 
+// @deprecated Superseded by POST /users/:id/payments (membership model). The
+// tier concept it carries no longer gates anything. Kept until the admin
+// dashboard switches to register-payment, then remove.
 const subBody = z.object({
   tier: z.enum(['basico', 'full', 'premium']),
   status: z.enum(['pending', 'authorized', 'paused', 'cancelled']),
@@ -272,6 +276,66 @@ router.delete('/users/:id/subscription', async (req: Request, res: Response) => 
     meta: { tier: before?.subscription_tier ?? null },
   });
   res.json(fresh);
+});
+
+// ─── Membership / manual payments ────────────────────────────────
+const paymentBody = z.object({
+  amount: z.number().positive(),
+  currency: z.string().min(1).max(8).optional(),
+  method: z.enum(['transfer', 'cash', 'mercadopago', 'other']),
+  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reference: z.string().max(200).optional(),
+  period_days: z.number().int().min(1).max(366).optional(),
+  covers_until: z.string().datetime().optional(),
+});
+
+// Register a manual payment: logs it, extends the membership, and ensures the
+// account is approved — the single admin "enable / reactivate" action.
+router.post('/users/:id/payments', async (req: Request, res: Response) => {
+  const parsed = paymentBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  const before = await getUser(req.params.id);
+  if (!before) return res.status(404).json({ error: 'not_found' });
+
+  const membership = await registerPayment(req.params.id, {
+    amount: parsed.data.amount,
+    currency: parsed.data.currency,
+    method: parsed.data.method,
+    paidAt: parsed.data.paid_at,
+    reference: parsed.data.reference ?? null,
+    periodDays: parsed.data.period_days,
+    coversUntil: parsed.data.covers_until,
+    recordedBy: req.user!.id,
+  });
+
+  await logAudit({
+    type: 'payment_registered',
+    actor: await actorEmail(req),
+    target: before.email,
+    target_id: req.params.id,
+    severity: 'brand',
+    meta: {
+      amount: parsed.data.amount,
+      method: parsed.data.method,
+      paid_until: membership.paid_until,
+    },
+  });
+
+  res.status(201).json({ membership });
+});
+
+router.post('/users/:id/membership/cancel', async (req: Request, res: Response) => {
+  const before = await getUser(req.params.id);
+  if (!before) return res.status(404).json({ error: 'not_found' });
+  await cancelMembership(req.params.id);
+  await logAudit({
+    type: 'membership_cancelled',
+    actor: await actorEmail(req),
+    target: before.email,
+    target_id: req.params.id,
+    severity: 'destructive',
+  });
+  res.json({ ok: true });
 });
 
 export default router;

@@ -44,6 +44,16 @@ it('signup duplicate email returns 409', async () => {
   expect(r.body.error).toBe('email_already_registered');
 });
 
+it('signup creates a pending-approval user (admin must enable)', async () => {
+  const r = await request(app).post('/api/auth/signup').send(signupBody);
+  expect(r.status).toBe(201);
+  const { rows } = await pool.query<{ status: string }>(
+    `SELECT status FROM users WHERE email = $1`,
+    [signupBody.email],
+  );
+  expect(rows[0].status).toBe('pending');
+});
+
 it('login blocked when email not verified', async () => {
   const { email, password } = { email: 'unver@test.local', password: 'pwd-test-1234' };
   await signupUserInDb(email, password, false);
@@ -60,6 +70,76 @@ it('login succeeds for verified user, returns access + refresh + user', async ()
   expect(typeof r.body.refreshToken).toBe('string');
   expect(r.body.user.email).toBe(u.email);
   expect(r.body.user.role).toBe('athlete');
+});
+
+it('login blocked when account is pending approval', async () => {
+  const u = await verifiedAthleteUser('pending@test.local');
+  await pool.query(`UPDATE users SET status = 'pending' WHERE id = $1`, [u.id]);
+  const r = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(r.status).toBe(403);
+  expect(r.body.error).toBe('blocked');
+  expect(r.body.reason).toBe('not_approved');
+});
+
+it('login blocked when account is rejected', async () => {
+  const u = await verifiedAthleteUser('rejected@test.local');
+  await pool.query(`UPDATE users SET status = 'rejected' WHERE id = $1`, [u.id]);
+  const r = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(r.status).toBe(403);
+  expect(r.body.error).toBe('blocked');
+  expect(r.body.reason).toBe('rejected');
+});
+
+it('login blocked when athlete approved but membership expired', async () => {
+  const u = await verifiedAthleteUser('expmem@test.local');
+  await pool.query(
+    `UPDATE memberships SET paid_until = now() - interval '1 day', status='expired' WHERE user_id=$1`,
+    [u.id],
+  );
+  const r = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(r.status).toBe(403);
+  expect(r.body.reason).toBe('not_approved');
+});
+
+it('login blocked when athlete approved but has no membership', async () => {
+  const u = await verifiedAthleteUser('nomem@test.local');
+  await pool.query(`DELETE FROM memberships WHERE user_id=$1`, [u.id]);
+  const r = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(r.status).toBe(403);
+  expect(r.body.reason).toBe('not_approved');
+});
+
+it('refresh blocked after athlete membership expires', async () => {
+  const u = await verifiedAthleteUser('refexp@test.local');
+  const loginR = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  const refreshTok = loginR.body.refreshToken;
+  await pool.query(
+    `UPDATE memberships SET paid_until = now() - interval '1 day', status='expired' WHERE user_id=$1`,
+    [u.id],
+  );
+  const r = await request(app).post('/api/auth/refresh').send({ refreshToken: refreshTok });
+  expect(r.status).toBe(401);
+});
+
+it('login succeeds again after a rejected account is re-approved', async () => {
+  const u = await verifiedAthleteUser('reapprove@test.local');
+  await pool.query(`UPDATE users SET status = 'rejected' WHERE id = $1`, [u.id]);
+  const blocked = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(blocked.status).toBe(403);
+  await pool.query(`UPDATE users SET status = 'approved' WHERE id = $1`, [u.id]);
+  const ok = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
+  expect(ok.status).toBe(200);
+  expect(typeof ok.body.accessToken).toBe('string');
+});
+
+it('verified-but-unverified-email takes precedence over status gate', async () => {
+  // A brand-new signup is both unverified AND pending; the email gate fires first.
+  const { email, password } = { email: 'unver-pending@test.local', password: 'pwd-test-1234' };
+  const { id } = await signupUserInDb(email, password, false);
+  await pool.query(`UPDATE users SET status = 'pending' WHERE id = $1`, [id]);
+  const r = await request(app).post('/api/auth/login').send({ email, password });
+  expect(r.status).toBe(403);
+  expect(r.body.reason).toBe('email_not_verified');
 });
 
 it('login wrong password returns 401 invalid_credentials', async () => {
@@ -338,7 +418,7 @@ it('rate-limit kicks in on 11th login attempt within window', async () => {
   }
 });
 
-it('E2E happy path: signup → verify → login → /api/athlete/me', async () => {
+it('E2E happy path: signup → verify → admin approves → login → /api/athlete/me', async () => {
   const r1 = await request(app).post('/api/auth/signup').send({
     email: 'e2e@test.local', password: 'pwd-test-1234',
   });
@@ -357,6 +437,15 @@ it('E2E happy path: signup → verify → login → /api/athlete/me', async () =
 
   const r2 = await request(app).get(`/api/auth/verify-email?token=${plain}`);
   expect(r2.status).toBe(200);
+
+  // Signups start 'pending'; an admin enables the account (manual-payment flow):
+  // approve + grant an active membership (both access axes).
+  await pool.query(`UPDATE users SET status = 'approved' WHERE id = $1`, [r1.body.userId]);
+  await pool.query(
+    `INSERT INTO memberships (user_id, status, paid_until) VALUES ($1, 'active', 'infinity')
+     ON CONFLICT (user_id) DO NOTHING`,
+    [r1.body.userId],
+  );
 
   const r3 = await request(app).post('/api/auth/login').send({
     email: 'e2e@test.local', password: 'pwd-test-1234',

@@ -56,3 +56,27 @@ export function painAlertTemplate(opts: {
   </p>
 </div>`;
 }
+
+export function membershipExpiringTemplate(opts: {
+  name: string; paidUntil: string; daysLeft: number;
+}): string {
+  return `
+<div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color:#111">
+  <h2 style="margin:0 0 16px 0">Tu plan vence pronto</h2>
+  <p style="line-height:1.6">Hola ${opts.name}, tu acceso a TR-FIT vence el
+    <strong>${opts.paidUntil}</strong> (en ${opts.daysLeft} días).</p>
+  <p style="line-height:1.6">Para renovar, coordiná el pago con tu coach. Una vez
+    confirmado, tu cuenta sigue activa sin interrupciones.</p>
+  <p style="color:#999;font-size:12px;margin-top:24px">— FORMA</p>
+</div>`;
+}
+
+export function membershipExpiredTemplate(opts: { name: string }): string {
+  return `
+<div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color:#111">
+  <h2 style="margin:0 0 16px 0">Tu plan venció</h2>
+  <p style="line-height:1.6">Hola ${opts.name}, tu acceso a TR-FIT venció.
+    Para renovarlo y volver a entrenar, coordiná el pago con tu coach.</p>
+  <p style="color:#999;font-size:12px;margin-top:24px">— FORMA</p>
+</div>`;
+}
