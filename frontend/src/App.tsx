@@ -22,6 +22,7 @@ import AdminActivity from '@/pages/admin/Activity';
 import AdminAlerts from '@/pages/admin/Alerts';
 import AdminRutinas from '@/pages/admin/Rutinas';
 import AdminExercises from '@/pages/admin/Exercises';
+import AdminBilling from '@/pages/admin/Billing';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -65,6 +66,7 @@ export default function App() {
                 <Route path="/admin/rutinas/atleta/:athleteId" element={<AdminRutinas />} />
                 <Route path="/admin/rutinas/:id" element={<AdminRutinas />} />
                 <Route path="/admin/exercises" element={<AdminExercises />} />
+                <Route path="/admin/billing" element={<AdminBilling />} />
               </Route>
               <Route
                 path="/admin/operations"
