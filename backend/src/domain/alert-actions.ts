@@ -23,14 +23,18 @@ export type AlertType =
   | 'sos_machine'
   | 'rpe_flag'
   | 'rm_skipped'
-  | 'rm_week_starting';
+  | 'rm_week_starting'
+  | 'membership_expiring'
+  | 'membership_overdue';
 
 export const ALERT_ACTION_MATRIX: Record<AlertType, AlertResolutionAction[]> = {
-  sos_pain:         ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
-  sos_machine:      ['approve_switch', 'revert_switch', 'swap_exercise', 'note_only'],
-  rpe_flag:         ['reduce_intensity', 'skip_week', 'note_only'],
-  rm_skipped:       ['reschedule_rm', 'skip_rm_block', 'note_only'],
-  rm_week_starting: ['acknowledge', 'note_only'],
+  sos_pain:            ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
+  sos_machine:         ['approve_switch', 'revert_switch', 'swap_exercise', 'note_only'],
+  rpe_flag:            ['reduce_intensity', 'skip_week', 'note_only'],
+  rm_skipped:          ['reschedule_rm', 'skip_rm_block', 'note_only'],
+  rm_week_starting:    ['acknowledge', 'note_only'],
+  membership_expiring: ['acknowledge', 'note_only'],
+  membership_overdue:  ['acknowledge', 'note_only'],
 };
 
 // Per-action payload schemas. Used by the resolve route to validate body.payload.
