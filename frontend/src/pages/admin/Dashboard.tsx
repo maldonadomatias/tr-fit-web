@@ -30,6 +30,7 @@ import {
   useUpdateAdminUser,
 } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useAlerts } from '@/hooks/useAlerts';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { fmtARS, fmtDelta, fmtTimeAgo } from '@/lib/format';
 import type { AdminUser, SubscriptionTier } from '@/types/api';
@@ -41,6 +42,10 @@ export default function Dashboard() {
   const stats = useAdminStats();
   const pendingQ = useAdminUsers({ status: 'pending' });
   const usersQ = useAdminUsers({});
+  const expiringQ = useAlerts({ status: 'open', type: 'membership_expiring' });
+  const overdueQ = useAlerts({ status: 'open', type: 'membership_overdue' });
+  const expiringCount = expiringQ.data?.items.length ?? 0;
+  const overdueCount = overdueQ.data?.items.length ?? 0;
 
   return (
     <div>
@@ -78,6 +83,8 @@ export default function Dashboard() {
         usersQ.data?.filter((u) => u.role === 'athlete').length ?? null
       } />
 
+      <CuotasRow expiringCount={expiringCount} overdueCount={overdueCount} />
+
       <SecondaryRow stats={stats.data} users={usersQ.data} />
 
       <div className="grid grid-cols-[1fr_320px] gap-[22px]">
@@ -89,6 +96,34 @@ export default function Dashboard() {
       </div>
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </div>
+  );
+}
+
+function CuotasRow({
+  expiringCount,
+  overdueCount,
+}: {
+  expiringCount: number;
+  overdueCount: number;
+}) {
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-4">
+      <Link to="/admin/alerts?type=membership_overdue" className="block">
+        <KpiCard
+          eyebrow="Cuotas vencidas"
+          value={String(overdueCount)}
+          highlighted={overdueCount > 0}
+          sub={overdueCount > 0 ? 'Ver alertas →' : 'Sin alertas'}
+        />
+      </Link>
+      <Link to="/admin/alerts?type=membership_expiring" className="block">
+        <KpiCard
+          eyebrow="Cuotas por vencer"
+          value={String(expiringCount)}
+          sub={expiringCount > 0 ? 'Ver alertas →' : 'Sin alertas'}
+        />
+      </Link>
     </div>
   );
 }
