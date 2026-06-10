@@ -93,12 +93,12 @@ it('login blocked when account is rejected', async () => {
 it('login blocked when athlete approved but membership expired', async () => {
   const u = await verifiedAthleteUser('expmem@test.local');
   await pool.query(
-    `UPDATE memberships SET paid_until = now() - interval '1 day', status='expired' WHERE user_id=$1`,
+    `UPDATE memberships SET paid_until = now() - interval '3 days', status='expired' WHERE user_id=$1`,
     [u.id],
   );
   const r = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
   expect(r.status).toBe(403);
-  expect(r.body.reason).toBe('not_approved');
+  expect(r.body.reason).toBe('payment_required');
 });
 
 it('login blocked when athlete approved but has no membership', async () => {
@@ -106,7 +106,7 @@ it('login blocked when athlete approved but has no membership', async () => {
   await pool.query(`DELETE FROM memberships WHERE user_id=$1`, [u.id]);
   const r = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
   expect(r.status).toBe(403);
-  expect(r.body.reason).toBe('not_approved');
+  expect(r.body.reason).toBe('payment_required');
 });
 
 it('refresh blocked after athlete membership expires', async () => {
@@ -114,7 +114,7 @@ it('refresh blocked after athlete membership expires', async () => {
   const loginR = await request(app).post('/api/auth/login').send({ email: u.email, password: u.password });
   const refreshTok = loginR.body.refreshToken;
   await pool.query(
-    `UPDATE memberships SET paid_until = now() - interval '1 day', status='expired' WHERE user_id=$1`,
+    `UPDATE memberships SET paid_until = now() - interval '3 days', status='expired' WHERE user_id=$1`,
     [u.id],
   );
   const r = await request(app).post('/api/auth/refresh').send({ refreshToken: refreshTok });

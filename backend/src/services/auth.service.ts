@@ -141,8 +141,8 @@ export async function login(
   if (user.status === 'pending') throw new LoginError('not_approved');
   if (user.status === 'rejected') throw new LoginError('rejected');
   // Payment gate (athletes only — admins/superadmins need no membership). An
-  // expired or missing membership maps to 'not_approved' so the fixed mobile app
-  // shows its existing "pendiente de aprobación / te avisamos por email" screen.
+  // expired or missing membership (past the 48h grace window) throws
+  // 'payment_required' so the mobile app shows the payment-details screen.
   // ('infinity' paid_until is > now() in Postgres, so backfilled athletes pass.)
   if (user.role === 'athlete' && !user.membership_active) {
     throw new LoginError('payment_required');
