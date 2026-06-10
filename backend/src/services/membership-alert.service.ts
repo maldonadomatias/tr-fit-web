@@ -12,7 +12,7 @@ export function membershipAlertSeverity(type: AlertType): 'yellow' | 'red' {
 export async function createMembershipAlert(
   athleteId: string,
   type: 'membership_expiring' | 'membership_overdue',
-  paidUntil: string,
+  paidUntil: string | Date,
 ): Promise<void> {
   const a = await pool.query<{ coach_id: string | null }>(
     `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`,
@@ -23,7 +23,11 @@ export async function createMembershipAlert(
   await pool.query(
     `INSERT INTO coach_alerts
        (athlete_id, coach_id, type, severity, exercise_id, session_log_id, payload)
-     VALUES ($1, $2, $3, $4, NULL, NULL, $5::jsonb)`,
+     SELECT $1, $2, $3, $4, NULL, NULL, $5::jsonb
+     WHERE NOT EXISTS (
+       SELECT 1 FROM coach_alerts
+        WHERE athlete_id = $1 AND type = $3 AND resolved_at IS NULL
+     )`,
     [athleteId, coachId, type, membershipAlertSeverity(type),
      JSON.stringify({ paid_until: paidUntil })],
   );
