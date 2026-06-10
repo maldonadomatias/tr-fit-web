@@ -11,6 +11,6 @@ CREATE TABLE IF NOT EXISTS billing_settings (
 );
 
 INSERT INTO billing_settings (id, alias, cbu, holder, amount, currency, note)
-VALUES (1, 'tato.fit', NULL, 'Tato Robles', 0, 'ARS',
+VALUES (1, 'tato.fit', NULL, 'Tato Robles', NULL, 'ARS',
         'Transferí el monto y avisá a tu coach. Te habilitamos al confirmar el pago.')
 ON CONFLICT (id) DO NOTHING;
