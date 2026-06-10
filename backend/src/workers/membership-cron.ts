@@ -5,6 +5,8 @@ import { GRACE_DAYS } from '../services/membership.service.js';
 import {
   sendMembershipExpiringEmail, sendMembershipExpiredEmail,
 } from '../services/email.service.js';
+import { notifyUser } from '../services/notification.service.js';
+import { createMembershipAlert } from '../services/membership-alert.service.js';
 
 interface Row {
   user_id: string;
@@ -69,6 +71,16 @@ export async function runMembershipTick(): Promise<void> {
     } catch (e) {
       logger.error({ err: e, userId: r.user_id }, 'membership expired email failed');
     }
+    try {
+      await notifyUser(r.user_id, 'membership_expired');
+    } catch (e) {
+      logger.error({ err: e, userId: r.user_id }, 'membership expired push failed');
+    }
+    try {
+      await createMembershipAlert(r.user_id, 'membership_overdue', r.paid_until);
+    } catch (e) {
+      logger.error({ err: e, userId: r.user_id }, 'membership overdue alert failed');
+    }
   }
   for (const r of expiring.rows) {
     const daysLeft = Math.max(
@@ -81,6 +93,16 @@ export async function runMembershipTick(): Promise<void> {
       });
     } catch (e) {
       logger.error({ err: e, userId: r.user_id }, 'membership expiring email failed');
+    }
+    try {
+      await notifyUser(r.user_id, 'membership_expiring', { days: String(daysLeft) });
+    } catch (e) {
+      logger.error({ err: e, userId: r.user_id }, 'membership expiring push failed');
+    }
+    try {
+      await createMembershipAlert(r.user_id, 'membership_expiring', r.paid_until);
+    } catch (e) {
+      logger.error({ err: e, userId: r.user_id }, 'membership expiring alert failed');
     }
   }
 
