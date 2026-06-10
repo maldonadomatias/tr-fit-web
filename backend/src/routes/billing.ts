@@ -29,7 +29,7 @@ const updateBody = z.object({
 
 router.put('/admin/info', requireAuth, requireAdmin, async (req, res) => {
   const parsed = updateBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'invalid_body' });
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
   res.json(await updateBillingInfo(parsed.data));
 });
 
