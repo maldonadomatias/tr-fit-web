@@ -6,7 +6,7 @@ import { PageHeader } from '@/components/admin/PageHeader';
 import { useBillingInfo, useUpdateBilling, type BillingInfo } from '@/hooks/useBilling';
 
 export default function Billing() {
-  const { data, isLoading } = useBillingInfo();
+  const { data, isLoading, isError } = useBillingInfo();
   const update = useUpdateBilling();
   const [form, setForm] = useState<BillingInfo>({
     alias: '',
@@ -42,6 +42,7 @@ export default function Billing() {
   }
 
   if (isLoading) return <div className="text-sm text-muted-foreground">Cargando...</div>;
+  if (isError) return <div className="text-sm text-destructive">No se pudieron cargar los datos de pago. Reintentá más tarde.</div>;
 
   return (
     <div className="max-w-lg space-y-4">
@@ -75,8 +76,9 @@ export default function Billing() {
         Monto
         <Input
           type="number"
-          value={form.amount ?? 0}
-          onChange={(e) => set('amount', Number(e.target.value))}
+          min={0}
+          value={form.amount ?? ''}
+          onChange={(e) => set('amount', e.target.value === '' ? null : Number(e.target.value))}
         />
       </label>
       <label className="block text-sm">
