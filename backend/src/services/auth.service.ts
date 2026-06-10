@@ -95,7 +95,8 @@ export class LoginError extends Error {
       | 'invalid_credentials'
       | 'email_not_verified'
       | 'not_approved'
-      | 'rejected',
+      | 'rejected'
+      | 'payment_required',
   ) {
     super(reason);
   }
@@ -118,7 +119,7 @@ export async function login(
     membership_active: boolean;
   }>(
     `SELECT u.id, u.password_hash, u.role, u.email, u.email_verified, u.status,
-            COALESCE(m.paid_until > now(), false) AS membership_active
+            COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active
        FROM users u
        LEFT JOIN memberships m ON m.user_id = u.id
       WHERE u.email = $1`,
@@ -144,7 +145,7 @@ export async function login(
   // shows its existing "pendiente de aprobación / te avisamos por email" screen.
   // ('infinity' paid_until is > now() in Postgres, so backfilled athletes pass.)
   if (user.role === 'athlete' && !user.membership_active) {
-    throw new LoginError('not_approved');
+    throw new LoginError('payment_required');
   }
 
   const familyId = randomUUID();
@@ -223,7 +224,7 @@ export async function refresh(
     const u = await client.query<{
       role: 'athlete'|'admin'|'superadmin'; status: string; membership_active: boolean;
     }>(
-      `SELECT u.role, u.status, COALESCE(m.paid_until > now(), false) AS membership_active
+      `SELECT u.role, u.status, COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active
          FROM users u LEFT JOIN memberships m ON m.user_id = u.id
         WHERE u.id = $1`,
       [row.user_id],

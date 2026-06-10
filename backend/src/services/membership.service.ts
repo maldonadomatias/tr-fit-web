@@ -2,7 +2,18 @@ import pool from '../db/connect.js';
 import type { Membership, PaymentMethod } from '../domain/types.js';
 
 export const GRACE_DAYS = 7;
+export const GRACE_HOURS = 48;
 export const DEFAULT_PERIOD_DAYS = 30;
+
+/** Access gate: paid_until + 48h grace still grants access. */
+export function isActiveWithGrace(
+  paidUntil: string | number | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (paidUntil == null) return false;
+  if (paidUntil === Infinity || paidUntil === 'infinity') return true;
+  return new Date(paidUntil).getTime() + GRACE_HOURS * 3_600_000 > now;
+}
 
 /** A membership grants access iff paid_until is in the future ('infinity' counts). */
 export function isActive(m: Pick<Membership, 'paid_until'> | null): boolean {
