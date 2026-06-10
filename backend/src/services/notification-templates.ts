@@ -39,4 +39,16 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
     body: 'Esta semana medimos tu nuevo máximo. ¡Vení preparado!',
     route: '/(app)/athlete',
   }),
+  membership_expiring: ({ days }) => ({
+    title: 'Tu cuota vence pronto',
+    body: days
+      ? `Te quedan ${days} días. Renová para seguir entrenando 💪`
+      : 'Tu cuota está por vencer. Renová para seguir entrenando 💪',
+    route: '/(app)/billing',
+  }),
+  membership_expired: () => ({
+    title: 'Tu cuota venció',
+    body: 'Reactivá tu entreno — tocá para ver cómo pagar.',
+    route: '/(app)/billing',
+  }),
 };

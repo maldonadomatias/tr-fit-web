@@ -28,11 +28,25 @@ describe('notification templates', () => {
     expect(r.title).toBe('Semana de RM (10)');
   });
 
-  it('covers all 6 types', () => {
+  it('renders membership_expiring with days', () => {
+    const r = TEMPLATES.membership_expiring({ days: '3' });
+    expect(r.title).toBe('Tu cuota vence pronto');
+    expect(r.body).toContain('3 días');
+    expect(r.route).toBe('/(app)/billing');
+  });
+
+  it('renders membership_expired', () => {
+    const r = TEMPLATES.membership_expired({});
+    expect(r.title).toBe('Tu cuota venció');
+    expect(r.route).toBe('/(app)/billing');
+  });
+
+  it('covers all 8 types', () => {
     const keys = Object.keys(TEMPLATES);
     expect(keys.sort()).toEqual([
-      'rm_test_week','session_missed','session_reminder',
-      'skeleton_approved','sos_resolved','week_start',
+      'membership_expired','membership_expiring','rm_test_week',
+      'session_missed','session_reminder','skeleton_approved',
+      'sos_resolved','week_start',
     ]);
   });
 });

@@ -11,6 +11,8 @@ const DEDUP_WINDOW_HOURS: Record<NotificationType, number> = {
   skeleton_approved: 1,
   sos_resolved: 1,
   rm_test_week: 24 * 7,
+  membership_expiring: 24 * 7,
+  membership_expired: 24,
 };
 
 export async function notifyUser(

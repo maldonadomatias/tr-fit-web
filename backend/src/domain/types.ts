@@ -238,7 +238,9 @@ export type NotificationType =
   | 'week_start'
   | 'skeleton_approved'
   | 'sos_resolved'
-  | 'rm_test_week';
+  | 'rm_test_week'
+  | 'membership_expiring'
+  | 'membership_expired';
 
 export type NotificationPrefs = Record<NotificationType, boolean>;
 
