@@ -15,11 +15,13 @@ import { ContactNoteDialog } from './dialogs/ContactNoteDialog';
 import { AcknowledgeDialog } from './dialogs/AcknowledgeDialog';
 
 const MATRIX: Record<CoachAlert['type'], AlertResolutionAction[]> = {
-  sos_pain:          ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
-  sos_machine:       ['approve_switch', 'revert_switch', 'swap_exercise', 'note_only'],
-  rpe_flag:          ['reduce_intensity', 'skip_week', 'note_only'],
-  rm_skipped:        ['note_only'],
-  rm_week_starting:  ['acknowledge', 'note_only'],
+  sos_pain:              ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
+  sos_machine:           ['approve_switch', 'revert_switch', 'swap_exercise', 'note_only'],
+  rpe_flag:              ['reduce_intensity', 'skip_week', 'note_only'],
+  rm_skipped:            ['note_only'],
+  rm_week_starting:      ['acknowledge', 'note_only'],
+  membership_expiring:   ['acknowledge', 'note_only'],
+  membership_overdue:    ['acknowledge', 'note_only'],
 };
 
 const ITEM_LABEL: Record<AlertResolutionAction, string> = {

@@ -21,12 +21,18 @@ const TYPE_LABEL: Record<CoachAlert['type'], string> = {
   rpe_flag: 'RPE alto',
   rm_skipped: 'RM salteado',
   rm_week_starting: 'Semana RM',
+  membership_expiring: 'Cuota por vencer',
+  membership_overdue: 'Cuota vencida',
 };
 
 function summary(a: CoachAlert): string {
-  const p = a.payload as { zone?: string; intensity?: number; switched_to_exercise_id?: number };
+  const p = a.payload as { zone?: string; intensity?: number; switched_to_exercise_id?: number; paid_until?: string };
   if (a.type === 'sos_pain' && p.zone) return `${p.zone} ${p.intensity ?? '?'}/10 · ${a.exercise_name ?? '?'}`;
   if (a.type === 'sos_machine') return `${a.exercise_name ?? '?'} ocupado`;
+  if (a.type === 'membership_expiring' || a.type === 'membership_overdue') {
+    const until = p.paid_until ? new Date(p.paid_until).toLocaleDateString('es-AR') : '';
+    return until ? `Vence: ${until}` : 'Cuota';
+  }
   return a.exercise_name ?? '—';
 }
 

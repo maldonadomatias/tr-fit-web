@@ -8,7 +8,7 @@ interface Props {
   onChange: (next: AlertsListFilters) => void;
 }
 
-const TYPES = ['', 'sos_pain', 'sos_machine', 'rpe_flag', 'rm_skipped', 'rm_week_starting'] as const;
+const TYPES = ['', 'sos_pain', 'sos_machine', 'rpe_flag', 'rm_skipped', 'rm_week_starting', 'membership_expiring', 'membership_overdue'] as const;
 const TYPE_LABEL: Record<string, string> = {
   '': 'Todos',
   sos_pain: 'SOS dolor',
@@ -16,6 +16,8 @@ const TYPE_LABEL: Record<string, string> = {
   rpe_flag: 'RPE alto',
   rm_skipped: 'RM salteado',
   rm_week_starting: 'Semana RM',
+  membership_expiring: 'Cuota por vencer',
+  membership_overdue: 'Cuota vencida',
 };
 
 export function AlertsFilters({ value, onChange }: Props) {
