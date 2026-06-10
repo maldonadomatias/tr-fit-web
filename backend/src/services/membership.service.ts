@@ -88,6 +88,16 @@ export async function registerPayment(
 
     await client.query(`UPDATE users SET status = 'approved' WHERE id = $1`, [userId]);
 
+    // Auto-resolve open billing alerts for this athlete (renewal clears them).
+    await client.query(
+      `UPDATE coach_alerts
+          SET resolved_at = now()
+        WHERE athlete_id = $1
+          AND type IN ('membership_expiring','membership_overdue')
+          AND resolved_at IS NULL`,
+      [userId],
+    );
+
     await client.query('COMMIT');
     return m.rows[0];
   } catch (e) {
