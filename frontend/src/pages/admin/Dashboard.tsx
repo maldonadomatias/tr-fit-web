@@ -44,8 +44,8 @@ export default function Dashboard() {
   const usersQ = useAdminUsers({});
   const expiringQ = useAlerts({ status: 'open', type: 'membership_expiring' });
   const overdueQ = useAlerts({ status: 'open', type: 'membership_overdue' });
-  const expiringCount = expiringQ.data?.items.length ?? 0;
-  const overdueCount = overdueQ.data?.items.length ?? 0;
+  const expiringCount = expiringQ.data?.total ?? 0;
+  const overdueCount = overdueQ.data?.total ?? 0;
 
   return (
     <div>
