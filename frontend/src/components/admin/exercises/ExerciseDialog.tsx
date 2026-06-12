@@ -29,6 +29,7 @@ const PATTERNS = [
   'squat', 'hinge', 'push_h', 'push_v', 'pull_h', 'pull_v', 'isolation', 'core', 'cardio',
 ] as const;
 const LEVELS = ['principiante', 'intermedio', 'avanzado'] as const;
+const MODALITIES = ['reps', 'tiempo', 'distancia'] as const;
 
 const schema = z.object({
   name: z.string().trim().min(1, 'Requerido').max(120),
@@ -43,6 +44,8 @@ const schema = z.object({
   alternatives_ids: z.string(), // comma-separated ints → parse on submit
   video_url: z.union([z.string().url(), z.literal('')]).nullable(),
   illustration_url: z.union([z.string().url(), z.literal('')]).nullable(),
+  modality: z.enum(MODALITIES),
+  default_target: z.string().trim().max(60),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -55,6 +58,7 @@ function exerciseToForm(e: Exercise | null): FormValues {
       is_principal: false, is_unilateral: false,
       contraindicated_for: '', default_increment_kg: 2.5,
       alternatives_ids: '', video_url: '', illustration_url: '',
+      modality: 'reps', default_target: '',
     };
   }
   return {
@@ -66,6 +70,8 @@ function exerciseToForm(e: Exercise | null): FormValues {
     alternatives_ids: e.alternatives_ids.join(', '),
     video_url: e.video_url ?? '',
     illustration_url: e.illustration_url ?? '',
+    modality: e.modality,
+    default_target: e.default_target ?? '',
   };
 }
 
@@ -85,6 +91,8 @@ function formToPayload(v: FormValues): CreateExerciseInput {
       .split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0),
     video_url: v.video_url && v.video_url !== '' ? v.video_url : null,
     illustration_url: v.illustration_url && v.illustration_url !== '' ? v.illustration_url : null,
+    modality: v.modality,
+    default_target: v.default_target.trim() === '' ? null : v.default_target.trim(),
   };
 }
 
@@ -239,6 +247,22 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
               <div>
                 <Label htmlFor="alts">IDs de alternativas (separados por coma)</Label>
                 <Input id="alts" {...form.register('alternatives_ids')} placeholder="12, 18, 23" />
+              </div>
+              <div>
+                <Label>Modalidad</Label>
+                <Select
+                  value={form.watch('modality')}
+                  onValueChange={(v) => form.setValue('modality', v as FormValues['modality'])}
+                >
+                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MODALITIES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="default_target">Objetivo por defecto</Label>
+                <Input id="default_target" {...form.register('default_target')} placeholder="ej. 5 min, 2 km, 10" />
               </div>
               <div>
                 <Label htmlFor="vid">Video URL</Label>
