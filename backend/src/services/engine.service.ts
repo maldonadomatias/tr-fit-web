@@ -114,10 +114,7 @@ async function buildItem(
   let item: SessionItem;
 
   if (slot.role === 'calentamiento') {
-    item = baseItem(
-      exercise, slot.role, slot.slot_index, null, unit,
-      2, '10', '1 min', notes,
-    );
+    item = buildWarmupItem(exercise, unit, slot.slot_index, notes);
   } else if (slot.role === 'principal') {
     if (cfg.is_rm_test) {
       item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
@@ -192,6 +189,20 @@ function applyOverride(
   // SessionItem does not currently expose a target_rpe field. Skip for now.
 
   return { ...item, series, suggested_value };
+}
+
+export function buildWarmupItem(
+  exercise: Exercise,
+  unit: 'kg' | 'ladrillos',
+  slotIndex: number,
+  notes: string | null,
+): SessionItem {
+  const warmupTarget =
+    exercise.default_target ?? (exercise.modality === 'reps' ? '10' : '');
+  return baseItem(
+    exercise, 'calentamiento', slotIndex, null, unit,
+    2, warmupTarget, '1 min', notes,
+  );
 }
 
 function baseItem(
