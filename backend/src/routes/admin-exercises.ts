@@ -35,6 +35,8 @@ const listQuery = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
+const ModalityEnum = z.enum(['reps', 'tiempo', 'distancia']);
+
 const createBody = z.object({
   name: z.string().trim().min(1).max(120),
   muscle_group: z.string().trim().min(1).max(60),
@@ -48,6 +50,8 @@ const createBody = z.object({
   alternatives_ids: z.array(z.number().int().positive()),
   video_url: z.string().url().nullable(),
   illustration_url: z.string().url().nullable(),
+  modality: ModalityEnum.default('reps'),
+  default_target: z.string().trim().max(60).nullable().default(null),
 });
 
 const updateBody = createBody.partial();

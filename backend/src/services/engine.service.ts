@@ -205,7 +205,7 @@ function baseItem(
     exercise: ex, role, slot_index: slotIndex,
     suggested_value: weight === null ? null : Number(weight),
     unit,
-    series, reps, descanso, notes,
+    series, reps, modality: ex.modality, descanso, notes,
     ...(flag ? { flag } : {}),
   };
 }

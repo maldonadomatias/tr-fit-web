@@ -10,6 +10,8 @@ export type MovementPattern =
 
 export type Level = 'principiante' | 'intermedio' | 'avanzado';
 
+export type ExerciseModality = 'reps' | 'tiempo' | 'distancia';
+
 export interface Exercise {
   id: number;
   name: string;
@@ -25,6 +27,8 @@ export interface Exercise {
   video_url: string | null;
   illustration_url: string | null;
   archived_at: string | null;
+  modality: ExerciseModality;
+  default_target: string | null;
 }
 
 export type CreateExerciseInput = Omit<Exercise, 'id' | 'archived_at'>;
@@ -50,7 +54,8 @@ const SELECT_COLS = `
   id, name, muscle_group, equipment, movement_pattern,
   is_principal, is_unilateral, level_min,
   contraindicated_for, default_increment_kg, alternatives_ids,
-  video_url, illustration_url, archived_at
+  video_url, illustration_url, archived_at,
+  modality, default_target
 `;
 
 export async function listExercises(
@@ -127,14 +132,14 @@ export async function createExercise(input: CreateExerciseInput): Promise<Exerci
          (name, muscle_group, equipment, movement_pattern,
           is_principal, is_unilateral, level_min,
           contraindicated_for, default_increment_kg, alternatives_ids,
-          video_url, illustration_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          video_url, illustration_url, modality, default_target)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING ${SELECT_COLS}`,
       [
         input.name, input.muscle_group, input.equipment, input.movement_pattern,
         input.is_principal, input.is_unilateral, input.level_min,
         input.contraindicated_for, input.default_increment_kg, input.alternatives_ids,
-        input.video_url, input.illustration_url,
+        input.video_url, input.illustration_url, input.modality, input.default_target,
       ],
     );
     return normalize(r.rows[0]);

@@ -60,6 +60,8 @@ const baseInput: CreateExerciseInput = {
   alternatives_ids: [],
   video_url: null,
   illustration_url: null,
+  modality: 'reps',
+  default_target: null,
 };
 
 describe('listExercises', () => {
@@ -292,6 +294,33 @@ describe('POST /api/admin/exercises/:id/restore', () => {
       .set('Authorization', `Bearer ${tok}`);
     expect(r.status).toBe(200);
     expect(r.body.exercise.archived_at).toBeNull();
+  });
+});
+
+describe('modality and default_target', () => {
+  it('persists and returns modality and default_target', async () => {
+    const created = await createExercise({
+      name: `Bici Test ${Date.now()}`,
+      muscle_group: 'cardio',
+      equipment: 'maquina',
+      movement_pattern: 'cardio',
+      is_principal: false,
+      is_unilateral: false,
+      level_min: 'principiante',
+      contraindicated_for: [],
+      default_increment_kg: 1,
+      alternatives_ids: [],
+      video_url: null,
+      illustration_url: null,
+      modality: 'tiempo',
+      default_target: '5 min',
+    });
+    expect(created.modality).toBe('tiempo');
+    expect(created.default_target).toBe('5 min');
+
+    const updated = await updateExercise(created.id, { default_target: '10 min' });
+    expect(updated.modality).toBe('tiempo');
+    expect(updated.default_target).toBe('10 min');
   });
 });
 
