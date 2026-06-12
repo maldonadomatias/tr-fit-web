@@ -44,6 +44,8 @@ export interface AthleteProfile {
 
 export type ExerciseLevel = 'principiante' | 'intermedio' | 'avanzado';
 
+export type ExerciseModality = 'reps' | 'tiempo' | 'distancia';
+
 export interface Exercise {
   id: number;
   name: string;
@@ -58,6 +60,8 @@ export interface Exercise {
   alternatives_ids: number[];
   video_url: string | null;
   illustration_url: string | null;
+  modality: ExerciseModality;
+  default_target: string | null;
 }
 
 export interface PeriodizationConfig {
@@ -112,6 +116,7 @@ export interface SessionItem {
   unit: 'kg' | 'ladrillos';
   series: number;
   reps: string;
+  modality: ExerciseModality;
   descanso: string;
   notes: string | null;
   flag?: 'rm_test' | 'missing_rm';
