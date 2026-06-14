@@ -71,7 +71,7 @@ router.post('/:id/reject', async (req, res) => {
       sk.athlete_id,
     ])
   ).rows[0];
-  const exercises = await listExercisesForAthlete(profile);
+  const exercises = await listExercisesForAthlete(profile, sk.athlete_id);
   try {
     const ai = await generateSkeleton({
       profile,

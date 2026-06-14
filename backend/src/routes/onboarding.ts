@@ -77,7 +77,7 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     `SELECT * FROM athlete_profiles WHERE user_id = $1`, [userId],
   );
   const profile = profileR.rows[0];
-  const exercises = await listExercisesForAthlete(profile);
+  const exercises = await listExercisesForAthlete(profile, userId);
 
   try {
     const ai = await generateSkeleton({ profile, exercises });

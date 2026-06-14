@@ -65,7 +65,7 @@ router.post('/skeletons/:id/reject', async (req, res) => {
   const profile = (await pool.query(
     `SELECT * FROM athlete_profiles WHERE user_id = $1`, [sk.athlete_id],
   )).rows[0];
-  const exercises = await listExercisesForAthlete(profile);
+  const exercises = await listExercisesForAthlete(profile, sk.athlete_id);
   try {
     const ai = await generateSkeleton({
       profile, exercises, rejectionFeedback: parsed.data.feedback,

@@ -25,7 +25,7 @@ export async function regenerateSkeleton(athleteId: string): Promise<RegenResult
       `SELECT * FROM athlete_profiles WHERE user_id = $1`, [athleteId],
     );
     const profile = profileR.rows[0];
-    const exercises = await listExercisesForAthlete(profile);
+    const exercises = await listExercisesForAthlete(profile, athleteId);
     const ai = await generateSkeleton({ profile, exercises });
     const { skeletonId } = await createPendingSkeleton(
       {
