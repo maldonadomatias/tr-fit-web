@@ -69,6 +69,7 @@ export interface PeriodizationConfig {
   block_label: string;
   is_rm_test: boolean;
   is_deload: boolean;
+  is_amrap: boolean;
   principal_series: number;
   principal_reps: string;
   principal_descanso: string;
@@ -119,7 +120,7 @@ export interface SessionItem {
   modality: ExerciseModality;
   descanso: string;
   notes: string | null;
-  flag?: 'rm_test' | 'missing_rm';
+  flag?: 'rm_test' | 'missing_rm' | 'amrap';
 }
 
 export interface RefreshToken {

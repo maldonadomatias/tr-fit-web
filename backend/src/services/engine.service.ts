@@ -74,7 +74,9 @@ export async function buildTodaySession(
   const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));
 
   let rmByEx = new Map<number, number>();
-  if (cfg.principal_pct_rm && cfg.principal_rm_source) {
+  // AMRAP weeks also resolve a prescribed weight from the RM source, so load
+  // the RM map for them too (their config always sets pct_rm + rm_source).
+  if (cfg.is_amrap || (cfg.principal_pct_rm && cfg.principal_rm_source)) {
     const rmR = await pool.query<{ exercise_id: number; value_kg: string }>(
       `SELECT exercise_id, value_kg::text
          FROM rm_tests
@@ -119,6 +121,16 @@ async function buildItem(
     if (cfg.is_rm_test) {
       item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'rm_test');
+    } else if (cfg.is_amrap) {
+      const rm = rmByEx.get(slot.exercise_id);
+      if (!rm) {
+        item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
+          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
+      } else {
+        const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
+        item = baseItem(exercise, slot.role, slot.slot_index, weight, unit,
+          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'amrap');
+      }
     } else if (cfg.principal_pct_rm && cfg.principal_rm_source) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
@@ -203,7 +215,7 @@ function baseItem(
   weight: number | null, unit: 'kg' | 'ladrillos',
   series: number, reps: string, descanso: string,
   notes: string | null,
-  flag?: 'rm_test' | 'missing_rm',
+  flag?: 'rm_test' | 'missing_rm' | 'amrap',
 ): SessionItem {
   return {
     exercise: ex, role, slot_index: slotIndex,
