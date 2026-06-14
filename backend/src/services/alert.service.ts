@@ -344,3 +344,54 @@ export async function resolveAlert(
     client.release();
   }
 }
+
+export interface CreateNoMachineAlertInput {
+  athleteId: string;
+  exerciseId: number;
+  replacementExerciseId: number | null;
+  sessionLogId?: string;
+}
+
+export async function createNoMachineAlert(
+  input: CreateNoMachineAlertInput,
+): Promise<{ alertId: string }> {
+  const a = await pool.query<{ coach_id: string | null }>(
+    `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`,
+    [input.athleteId],
+  );
+  const coachId = a.rows[0]?.coach_id;
+  if (!coachId) throw new AlertError('no_coach_assigned');
+
+  const sessionLogId = await resolveSessionLogId(
+    input.athleteId, input.sessionLogId,
+  );
+  // No replacement found → coach must resolve manually → bump severity.
+  const severity = input.replacementExerciseId === null ? 'yellow' : 'info';
+  const ins = await pool.query<{ id: string }>(
+    `INSERT INTO coach_alerts
+       (athlete_id, coach_id, type, severity, exercise_id, session_log_id, payload)
+     VALUES ($1, $2, 'sos_no_machine', $3, $4, $5, $6::jsonb) RETURNING id`,
+    [input.athleteId, coachId, severity, input.exerciseId, sessionLogId,
+     JSON.stringify({ replacement_exercise_id: input.replacementExerciseId })],
+  );
+  return { alertId: ins.rows[0].id };
+}
+
+export async function createProgramResetAlert(
+  athleteId: string,
+): Promise<{ alertId: string }> {
+  const a = await pool.query<{ coach_id: string | null }>(
+    `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`,
+    [athleteId],
+  );
+  const coachId = a.rows[0]?.coach_id;
+  if (!coachId) throw new AlertError('no_coach_assigned');
+
+  const ins = await pool.query<{ id: string }>(
+    `INSERT INTO coach_alerts
+       (athlete_id, coach_id, type, severity, payload)
+     VALUES ($1, $2, 'program_reset', 'info', '{}'::jsonb) RETURNING id`,
+    [athleteId, coachId],
+  );
+  return { alertId: ins.rows[0].id };
+}
