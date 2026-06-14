@@ -54,11 +54,28 @@ async function insertExercise(opts: {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
+// Unique tag per run so seeded exercises don't collide with prior runs.
+const tag = String(Date.now());
+
+// Track inserted exercise ids so we can clean them up after the suite.
+const insertedExerciseIds: number[] = [];
+
 beforeEach(async () => {
   await truncate();
 });
 
 afterAll(async () => {
+  // exercises rows must be deleted AFTER truncate() has already removed
+  // rows that reference them (coach_alerts, athlete_excluded_exercises, etc.).
+  // truncate() was called in beforeEach, so the referencing rows are gone.
+  // We do one final truncate then delete lingering exercises.
+  await truncate();
+  if (insertedExerciseIds.length > 0) {
+    await pool.query(
+      `DELETE FROM exercises WHERE id = ANY($1)`,
+      [insertedExerciseIds],
+    );
+  }
   await pool.end();
 });
 
@@ -95,23 +112,27 @@ describe('exclusions.service', () => {
     // Seed exA and exB in the SAME muscle_group — exB is the alternative for exA.
     // Both use 'mancuerna' (allowed by gym_completo), level_min=principiante,
     // no contraindications, so findAlternative(exA) → exB.
+    // Use a run-unique tag so stale rows from prior runs don't interfere.
     const exA = await insertExercise({
-      name: `ExA-${Date.now()}`,
-      muscleGroup: 'TestMuscle-excl',
+      name: `ExA-${tag}`,
+      muscleGroup: `mg-excl-${tag}`,
       equipment: 'mancuerna',
     });
+    insertedExerciseIds.push(exA.id);
     const exB = await insertExercise({
-      name: `ExB-${Date.now()}`,
-      muscleGroup: 'TestMuscle-excl',
+      name: `ExB-${tag}`,
+      muscleGroup: `mg-excl-${tag}`,
       equipment: 'mancuerna',
     });
+    insertedExerciseIds.push(exB.id);
 
     // Seed loneEx in a UNIQUE muscle_group — no alternative possible.
     const loneEx = await insertExercise({
-      name: `LoneEx-${Date.now()}`,
-      muscleGroup: `UniqueMuscle-excl-${Date.now()}`,
+      name: `LoneEx-${tag}`,
+      muscleGroup: `mg-lone-${tag}`,
       equipment: 'mancuerna',
     });
+    insertedExerciseIds.push(loneEx.id);
 
     // -----------------------------------------------------------------------
     // 1. excludeExercise: finds exB as replacement, persists, fires info alert
