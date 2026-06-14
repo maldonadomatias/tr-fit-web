@@ -40,15 +40,15 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
     route: '/(app)/athlete',
   }),
   membership_expiring: ({ days }) => ({
-    title: 'Tu cuota vence pronto',
+    title: 'Tu plan está por vencer',
     body: days
-      ? `Te quedan ${days} días. Renová para seguir entrenando 💪`
-      : 'Tu cuota está por vencer. Renová para seguir entrenando 💪',
-    route: '/(app)/billing',
+      ? `Te quedan ${days} días. Escribí a tu coach para seguir entrenando 💪`
+      : 'Tu plan está por vencer. Escribí a tu coach para seguir entrenando 💪',
+    route: '/(app)/athlete',
   }),
   membership_expired: () => ({
-    title: 'Tu cuota venció',
-    body: 'Reactivá tu entreno — tocá para ver cómo pagar.',
-    route: '/(app)/billing',
+    title: 'Tu acceso está pausado',
+    body: 'Escribí a tu coach para volver a entrenar.',
+    route: '/(app)/athlete',
   }),
 };

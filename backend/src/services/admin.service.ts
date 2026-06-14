@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import pool from '../db/connect.js';
+import { DEFAULT_PERIOD_DAYS } from './membership.service.js';
 
 const BCRYPT_COST = 10;
 
@@ -235,6 +236,39 @@ export async function upsertManualSubscription(
           input.status,
           input.current_period_end ?? null,
         ],
+      );
+    }
+    // Authorizing a subscription must also grant access. The login gate checks
+    // the memberships table (paid_until), NOT subscriptions — so without this an
+    // admin who "activates" a subscription still sees the athlete blocked with
+    // payment_required. Mirror registerPayment: create/extend the membership and
+    // flip the account to approved, in the same transaction.
+    if (input.status === 'authorized') {
+      const existingMem = await client.query<{ paid_until: string | number | null }>(
+        `SELECT paid_until FROM memberships WHERE user_id = $1 FOR UPDATE`,
+        [userId],
+      );
+      const paidUntil = (() => {
+        if (input.current_period_end) return new Date(input.current_period_end);
+        // Extend from later of current paid_until or now (renewal vs top-up).
+        const cur = existingMem.rows[0]?.paid_until;
+        const base =
+          cur != null && cur !== Infinity && cur !== 'infinity' &&
+          new Date(cur).getTime() > Date.now()
+            ? new Date(cur)
+            : new Date();
+        return new Date(base.getTime() + DEFAULT_PERIOD_DAYS * 86_400_000);
+      })();
+      await client.query(
+        `INSERT INTO memberships (user_id, status, started_at, paid_until, updated_at)
+         VALUES ($1, 'active', now(), $2, now())
+         ON CONFLICT (user_id) DO UPDATE
+           SET status = 'active', paid_until = $2, updated_at = now()`,
+        [userId, paidUntil.toISOString()],
+      );
+      await client.query(
+        `UPDATE users SET status = 'approved' WHERE id = $1`,
+        [userId],
       );
     }
     await client.query('COMMIT');
