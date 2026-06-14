@@ -1,4 +1,5 @@
 import pool from '../db/connect.js';
+import logger from '../utils/logger.js';
 import { createProgramResetAlert } from './alert.service.js';
 
 /**
@@ -26,5 +27,11 @@ export async function resetProgramForGymChange(athleteId: string): Promise<void>
   } finally {
     client.release();
   }
-  await createProgramResetAlert(athleteId);
+  // Best-effort: the reset is already committed, so an alert failure must not
+  // surface as a failed reset to the caller.
+  try {
+    await createProgramResetAlert(athleteId);
+  } catch (err) {
+    logger.error({ err, athleteId }, 'failed to create program_reset alert');
+  }
 }
