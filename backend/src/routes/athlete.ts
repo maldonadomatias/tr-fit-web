@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import { rmPayload } from '../domain/schemas.js';
+import { rmPayload, amrapPayload } from '../domain/schemas.js';
 import pool from '../db/connect.js';
 import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../services/engine.service.js';
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
-import { recordRm } from '../services/rm.service.js';
+import { recordRm, recordAmrap } from '../services/rm.service.js';
 import { getUserTier } from '../services/tier.service.js';
 import { regenerateSkeleton } from '../services/skeleton-regen.service.js';
 import { buildDashboard } from '../services/dashboard.service.js';
@@ -97,6 +97,18 @@ router.post('/rm', async (req, res) => {
     exerciseId: parsed.data.exercise_id,
     valueKg: parsed.data.value_kg,
     week: parsed.data.week,
+  });
+  res.status(201).json(out);
+});
+
+router.post('/amrap', async (req, res) => {
+  const parsed = amrapPayload.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  const out = await recordAmrap({
+    athleteId: req.user!.id,
+    exerciseId: parsed.data.exercise_id,
+    weightUsed: parsed.data.weight_used,
+    reps: parsed.data.reps,
   });
   res.status(201).json(out);
 });
