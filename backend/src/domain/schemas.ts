@@ -55,6 +55,14 @@ export const rmPayload = z.object({
   week: z.union([z.literal(10), z.literal(20), z.literal(30)]),
 });
 
+export const amrapPayload = z.object({
+  exercise_id: z.number().int().positive(),
+  weight_used: z.number().min(1).max(500),
+  reps: z.number().int().min(1).max(100),
+});
+
+export type AmrapPayload = z.infer<typeof amrapPayload>;
+
 export const skeletonRejectPayload = z.object({
   feedback: z.string().min(5).max(2000),
 });
