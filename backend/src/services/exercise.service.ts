@@ -3,6 +3,7 @@ import type {
   Exercise, AthleteProfile, ExerciseEquipment, ExerciseLevel,
 } from '../domain/types.js';
 import { athleteLevelRank } from './level-helpers.js';
+import { getExclusionMap } from './exclusions.service.js';
 
 const equipmentMatrix: Record<AthleteProfile['equipment'], ExerciseEquipment[]> = {
   gym_completo: ['barra', 'mancuerna', 'maquina', 'polea', 'smith',
@@ -36,11 +37,14 @@ export async function findExerciseById(id: number): Promise<Exercise | null> {
 
 export async function listExercisesForAthlete(
   profile: AthleteProfile,
+  athleteId?: string,
 ): Promise<Exercise[]> {
   const allowedEquipment = equipmentMatrix[profile.equipment];
   const athleteLevel = athleteLevelRank(profile.level);
+  const excluded = athleteId ? await getExclusionMap(athleteId) : new Map<number, number | null>();
   const all = await listExercises();
   return all.filter((ex) => {
+    if (excluded.has(ex.id)) return false;
     if (!allowedEquipment.includes(ex.equipment)) return false;
     if (levelOrder[ex.level_min] > athleteLevel) return false;
     if (ex.contraindicated_for.some((c) => profile.injuries.includes(c))) return false;

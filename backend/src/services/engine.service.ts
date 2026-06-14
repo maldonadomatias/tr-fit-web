@@ -3,6 +3,7 @@ import { roundWeightForEquipment } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
 import type { WeeklyOverride } from './weekly-overrides.service.js';
+import { getExclusionMap } from './exclusions.service.js';
 import type {
   Exercise, PeriodizationConfig, SessionItem, SkeletonSlot, SlotRole,
 } from '../domain/types.js';
@@ -46,8 +47,20 @@ export async function buildTodaySession(
   );
   if (slotsR.rows.length === 0) return [];
 
+  // Apply permanent exclusions first: swap excluded exercise → replacement,
+  // or drop the slot entirely when no replacement exists.
+  const exclusions = await getExclusionMap(athleteId);
+  const slotsAfterExclusion = slotsR.rows
+    .map((slot) => {
+      if (!exclusions.has(slot.exercise_id)) return slot;
+      const repl = exclusions.get(slot.exercise_id) ?? null;
+      return repl === null ? null : { ...slot, exercise_id: repl };
+    })
+    .filter((s): s is SkeletonSlot => s !== null);
+  if (slotsAfterExclusion.length === 0) return [];
+
   const effectiveSlots = await applyOverridesToSlots(
-    athleteId, state.current_week, dayOfWeek, slotsR.rows,
+    athleteId, state.current_week, dayOfWeek, slotsAfterExclusion,
   );
   if (effectiveSlots.length === 0) return [];
 

@@ -34,7 +34,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { computeNextPendingDay } = await import('../../src/services/engine.service.js');
+const { computeNextPendingDay, buildTodaySession } = await import('../../src/services/engine.service.js');
 
 beforeEach(() => {
   handlers.length = 0;
@@ -60,6 +60,124 @@ function seed(opts: {
   pushHandler(
     (s) => s.startsWith('SELECT COALESCE(MAX(day_of_week), 0)'),
     [{ last_day: opts.lastDay ?? 0 }],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared fixtures for buildTodaySession tests
+// ---------------------------------------------------------------------------
+const exA = {
+  id: 101,
+  name: 'ExA',
+  muscle_group: 'chest',
+  equipment: 'barra',
+  movement_pattern: 'push_h',
+  is_principal: true,
+  is_unilateral: false,
+  level_min: 'principiante',
+  contraindicated_for: [],
+  default_increment_kg: 2.5,
+  alternatives_ids: [],
+  video_url: null,
+  illustration_url: null,
+  modality: 'reps',
+  default_target: null,
+};
+
+const exB = {
+  id: 102,
+  name: 'ExB',
+  muscle_group: 'chest',
+  equipment: 'barra',
+  movement_pattern: 'push_h',
+  is_principal: true,
+  is_unilateral: false,
+  level_min: 'principiante',
+  contraindicated_for: [],
+  default_increment_kg: 2.5,
+  alternatives_ids: [],
+  video_url: null,
+  illustration_url: null,
+  modality: 'reps',
+  default_target: null,
+};
+
+const baseSlot = {
+  id: 'slot-1',
+  skeleton_id: 'sk-excl',
+  day_of_week: 1,
+  slot_index: 1,
+  exercise_id: exA.id,
+  role: 'principal',
+  notes: null,
+};
+
+const basePeriodizationConfig = {
+  week_number: 1,
+  block_label: 'base',
+  is_rm_test: false,
+  is_deload: false,
+  is_amrap: false,
+  principal_series: 3,
+  principal_reps: '8',
+  principal_descanso: '2 min',
+  principal_pct_rm: null,
+  principal_rm_source: null,
+  principal_use_casilleros: true,
+  accesorio_series: 3,
+  accesorio_reps: '12',
+  accesorio_descanso: '1 min',
+  notes: null,
+};
+
+/**
+ * Seeds all queries that buildTodaySession fires for a 1-slot day.
+ * exclusionRows: rows returned from athlete_excluded_exercises.
+ * exerciseRows:  rows returned from exercises WHERE id = ANY(…).
+ */
+function seedBuildSession(
+  exclusionRows: { exercise_id: number; replacement_exercise_id: number | null }[],
+  exerciseRows: unknown[],
+) {
+  // 1. program_state — week 1, active skeleton sk-excl
+  pushHandler(
+    (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
+    [{ current_week: 1, rm_test_blocking: false, active_skeleton_id: 'sk-excl' }],
+  );
+  // 2. periodization_config
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM periodization_config'),
+    [basePeriodizationConfig],
+  );
+  // 3. skeleton_slots — one slot with exA on day 1
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM skeleton_slots'),
+    [baseSlot],
+  );
+  // 4. athlete_excluded_exercises (getExclusionMap)
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'),
+    exclusionRows,
+  );
+  // 5. weekly_overrides (applyOverridesToSlots)
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM weekly_overrides'),
+    [],
+  );
+  // 6. exercises lookup
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
+    exerciseRows,
+  );
+  // 7. athlete_exercise_weights
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id,'),
+    [],
+  );
+  // 8. athlete_equipment_units (resolveUnit) — returns empty so default ('kg') is used
+  pushHandler(
+    (s) => s.startsWith('SELECT unit FROM athlete_equipment_units'),
+    [],
   );
 }
 
@@ -91,5 +209,43 @@ describe('computeNextPendingDay', () => {
     seed({ daysPerWeek: undefined, lastDay: 7 });
     // last 7, days_per_week defaults to 7 → (7 % 7) + 1 = 1
     expect(await computeNextPendingDay('athlete-1')).toBe(1);
+  });
+});
+
+describe('buildTodaySession — exclusions', () => {
+  it('excluded exercise with replacement → slot uses replacement exercise', async () => {
+    // exA excluded, replaced by exB
+    seedBuildSession(
+      [{ exercise_id: exA.id, replacement_exercise_id: exB.id }],
+      [exB],
+    );
+
+    const items = await buildTodaySession('athlete-excl', 1);
+    const ids = items.map((i) => i.exercise.id);
+    expect(ids).toContain(exB.id);
+    expect(ids).not.toContain(exA.id);
+  });
+
+  it('excluded exercise with null replacement → slot is dropped', async () => {
+    // exA excluded, no replacement (null)
+    seedBuildSession(
+      [{ exercise_id: exA.id, replacement_exercise_id: null }],
+      [],
+    );
+
+    const items = await buildTodaySession('athlete-excl', 1);
+    const ids = items.map((i) => i.exercise.id);
+    expect(ids).not.toContain(exA.id);
+    expect(items).toHaveLength(0);
+  });
+
+  it('no exclusions → slot uses original exercise', async () => {
+    // no exclusions
+    seedBuildSession([], [exA]);
+
+    const items = await buildTodaySession('athlete-excl', 1);
+    const ids = items.map((i) => i.exercise.id);
+    expect(ids).toContain(exA.id);
+    expect(ids).not.toContain(exB.id);
   });
 });
