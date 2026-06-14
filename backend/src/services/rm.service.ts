@@ -1,11 +1,14 @@
 import pool from '../db/connect.js';
 import { resolveUnit } from './equipment-units.service.js';
+import { estimateEpley1RM } from './epley.service.js';
 
 export interface RecordRmInput {
   athleteId: string;
   exerciseId: number;
   valueKg: number;
   week: 10 | 20 | 30;
+  amrapWeight?: number;
+  amrapReps?: number;
 }
 
 export async function recordRm(input: RecordRmInput): Promise<{ rmId: string }> {
@@ -22,15 +25,19 @@ export async function recordRm(input: RecordRmInput): Promise<{ rmId: string }> 
     const unit = await resolveUnit(input.athleteId, equipment);
 
     const r = await client.query<{ id: string }>(
-      `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg, value, unit)
-       VALUES ($1, $2, $3, $4, $4, $5)
+      `INSERT INTO rm_tests
+         (athlete_id, exercise_id, program_week, value_kg, value, unit, amrap_weight, amrap_reps)
+       VALUES ($1, $2, $3, $4, $4, $5, $6, $7)
        ON CONFLICT (athlete_id, exercise_id, program_week)
          DO UPDATE SET value_kg = EXCLUDED.value_kg,
                        value = EXCLUDED.value,
                        unit = EXCLUDED.unit,
+                       amrap_weight = EXCLUDED.amrap_weight,
+                       amrap_reps = EXCLUDED.amrap_reps,
                        tested_at = NOW()
        RETURNING id`,
-      [input.athleteId, input.exerciseId, input.week, input.valueKg, unit],
+      [input.athleteId, input.exerciseId, input.week, input.valueKg, unit,
+       input.amrapWeight ?? null, input.amrapReps ?? null],
     );
 
     // Unblock: if all 7 principal exercises in skeleton have an RM for this week,
@@ -74,4 +81,35 @@ export async function recordRm(input: RecordRmInput): Promise<{ rmId: string }> 
   } finally {
     client.release();
   }
+}
+
+export interface RecordAmrapInput {
+  athleteId: string;
+  exerciseId: number;
+  weightUsed: number;
+  reps: number;
+}
+
+/**
+ * Records a week-20 AMRAP test: derives the theoretical 1RM via Epley and
+ * stores it in rm_tests(program_week=20), reusing recordRm's unblock logic.
+ */
+export async function recordAmrap(
+  input: RecordAmrapInput,
+): Promise<{ rmId: string; estimated1RM: number }> {
+  const exR = await pool.query<{ equipment: string }>(
+    `SELECT equipment FROM exercises WHERE id = $1`,
+    [input.exerciseId],
+  );
+  const equipment = exR.rows[0]?.equipment ?? 'barra';
+  const estimated1RM = estimateEpley1RM(input.weightUsed, input.reps, equipment);
+  const { rmId } = await recordRm({
+    athleteId: input.athleteId,
+    exerciseId: input.exerciseId,
+    valueKg: estimated1RM,
+    week: 20,
+    amrapWeight: input.weightUsed,
+    amrapReps: input.reps,
+  });
+  return { rmId, estimated1RM };
 }
