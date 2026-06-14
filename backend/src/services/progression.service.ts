@@ -139,11 +139,11 @@ export async function runWeeklyProgressionForAthlete(
     let toWeek = fromWeek;
     if (compliance >= env.COMPLIANCE_THRESHOLD && fromWeek < 30) {
       toWeek = fromWeek + 1;
-      const nextCfg = await client.query<{ is_rm_test: boolean }>(
-        `SELECT is_rm_test FROM periodization_config WHERE week_number = $1`,
+      const nextCfg = await client.query<{ is_rm_test: boolean; is_amrap: boolean }>(
+        `SELECT is_rm_test, is_amrap FROM periodization_config WHERE week_number = $1`,
         [toWeek],
       );
-      const blocking = !!nextCfg.rows[0]?.is_rm_test;
+      const blocking = !!(nextCfg.rows[0]?.is_rm_test || nextCfg.rows[0]?.is_amrap);
       await client.query(
         `UPDATE athlete_program_state
             SET current_week = $1,
