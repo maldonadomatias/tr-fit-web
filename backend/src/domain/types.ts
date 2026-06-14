@@ -202,7 +202,7 @@ export interface CoachAlert {
   athlete_id: string;
   coach_id: string;
   // Keep in sync with AlertType in alert-actions.ts.
-  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting' | 'membership_expiring' | 'membership_overdue';
+  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting' | 'membership_expiring' | 'membership_overdue' | 'sos_no_machine' | 'program_reset';
   severity: 'red' | 'yellow' | 'info';
   exercise_id: number | null;
   session_log_id: string | null;
