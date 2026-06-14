@@ -132,7 +132,7 @@ router.get('/exclusions', async (req, res) => {
 
 router.post('/exclusions', async (req, res) => {
   const exerciseId = Number((req.body ?? {}).exercise_id);
-  if (!Number.isInteger(exerciseId)) {
+  if (!Number.isInteger(exerciseId) || exerciseId <= 0) {
     return res.status(400).json({ error: 'exercise_id required' });
   }
   const sessionLogId =
@@ -154,7 +154,7 @@ router.post('/exclusions', async (req, res) => {
 
 router.delete('/exclusions/:exerciseId', async (req, res) => {
   const exerciseId = Number(req.params.exerciseId);
-  if (!Number.isInteger(exerciseId)) {
+  if (!Number.isInteger(exerciseId) || exerciseId <= 0) {
     return res.status(400).json({ error: 'invalid exerciseId' });
   }
   await reactivateExercise(req.user!.id, exerciseId);
