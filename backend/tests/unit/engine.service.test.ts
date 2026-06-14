@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 process.env.OWNER_COACH_EMAIL ??= 'owner-test@example.local';
-process.env.DATABASE_URL ??= 'postgres://user:password@localhost:5433/mydb';
+process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/trfit_test';
 process.env.JWT_SECRET ??= 'jwt-test-secret-12345';
 process.env.OPENAI_API_KEY ??= 'sk-test-12345';
 process.env.RESEND_API_KEY ??= 'rk-test-12345';

@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 
-process.env.DATABASE_URL ??= 'postgres://user:password@localhost:5433/mydb';
+process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/trfit_test';
 
 interface FakeQueryResult {
   rows: unknown[];

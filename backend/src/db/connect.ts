@@ -7,6 +7,23 @@ if (!process.env.DATABASE_URL) {
   dotenv.config();
 }
 
+// SAFETY GUARD: a test process must never connect to a non-test database.
+// Jest sets JEST_WORKER_ID in every worker. If we are under jest and the
+// resolved DATABASE_URL does not point at a *test* database, refuse loudly —
+// integration tests TRUNCATE tables, and a misresolved URL (e.g. dotenv falling
+// back to the dev DB) once wiped real user data. The test DB name must contain
+// "test" (e.g. trfit_test).
+if (process.env.JEST_WORKER_ID !== undefined) {
+  const url = process.env.DATABASE_URL ?? '';
+  const dbName = url.split('/').pop()?.split('?')[0] ?? '';
+  if (!/test/i.test(dbName)) {
+    throw new Error(
+      `db/connect.ts: refusing to run tests against non-test database "${dbName}". ` +
+        `Point TEST_DATABASE_URL / DATABASE_URL at a *test* database before running jest.`,
+    );
+  }
+}
+
 const { Pool } = pg;
 
 function resolveSsl(): false | { rejectUnauthorized: boolean } {
