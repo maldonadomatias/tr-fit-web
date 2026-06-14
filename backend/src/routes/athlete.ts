@@ -11,6 +11,8 @@ import { regenerateSkeleton } from '../services/skeleton-regen.service.js';
 import { buildDashboard } from '../services/dashboard.service.js';
 import { buildPlan } from '../services/plan.service.js';
 import { buildAthleteStats } from '../services/athlete-stats.service.js';
+import { excludeExercise, reactivateExercise, listExclusions } from '../services/exclusions.service.js';
+import { resetProgramForGymChange } from '../services/program-reset.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -121,6 +123,47 @@ router.get('/dashboard', async (req, res) => {
 router.get('/plan', async (req, res) => {
   const payload = await buildPlan(req.user!.id);
   res.json(payload);
+});
+
+router.get('/exclusions', async (req, res) => {
+  const rows = await listExclusions(req.user!.id);
+  res.json(rows);
+});
+
+router.post('/exclusions', async (req, res) => {
+  const exerciseId = Number((req.body ?? {}).exercise_id);
+  if (!Number.isInteger(exerciseId)) {
+    return res.status(400).json({ error: 'exercise_id required' });
+  }
+  const sessionLogId =
+    typeof (req.body ?? {}).session_log_id === 'string'
+      ? (req.body as { session_log_id?: string }).session_log_id
+      : undefined;
+  const { replacement } = await excludeExercise(req.user!.id, exerciseId, sessionLogId);
+  res.json({
+    replacement: replacement
+      ? {
+          id: replacement.id,
+          name: replacement.name,
+          muscle_group: replacement.muscle_group,
+          equipment: replacement.equipment,
+        }
+      : null,
+  });
+});
+
+router.delete('/exclusions/:exerciseId', async (req, res) => {
+  const exerciseId = Number(req.params.exerciseId);
+  if (!Number.isInteger(exerciseId)) {
+    return res.status(400).json({ error: 'invalid exerciseId' });
+  }
+  await reactivateExercise(req.user!.id, exerciseId);
+  res.json({ ok: true });
+});
+
+router.post('/program/reset', async (req, res) => {
+  await resetProgramForGymChange(req.user!.id);
+  res.json({ ok: true });
 });
 
 export default router;
