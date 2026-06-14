@@ -10,7 +10,8 @@ import {
   applyIncrement,
   advanceReps,
   isExcludedFromAutoProgression,
-} from '../../src/services/progression-helpers';
+  roundWeightForEquipment,
+} from '../../src/services/progression-helpers.js';
 
 describe('roundToNearest25', () => {
   it.each([
@@ -148,6 +149,18 @@ describe('isExcludedFromAutoProgression', () => {
   });
 });
 
+describe('roundWeightForEquipment', () => {
+  it.each([
+    // 101.33: distance to 100=1.33, distance to 102.5=1.17 → rounds to 102.5
+    [101.33, 'barra', 102.5],
+    [126.67, 'smith', 127.5],
+    [80.4, 'maquina', 80],
+    [72.6, 'mancuerna', 73],
+  ])('%f (%s) → %f', (v, eq, expected) => {
+    expect(roundWeightForEquipment(v, eq)).toBe(expected);
+  });
+});
+
 function mockExercise(over: Partial<{
   name: string; equipment: string; default_increment_kg: number;
 }>) {
@@ -166,5 +179,7 @@ function mockExercise(over: Partial<{
     alternatives_ids: [],
     video_url: null,
     illustration_url: null,
+    modality: 'reps' as const,
+    default_target: null,
   };
 }

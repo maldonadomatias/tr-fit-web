@@ -1,4 +1,4 @@
-import { roundToNearest25 } from './progression-helpers.js';
+import { roundWeightForEquipment } from './progression-helpers.js';
 
 /**
  * Theoretical 1RM from an AMRAP set (Epley): peso × (1 + reps/30).
@@ -10,7 +10,5 @@ export function estimateEpley1RM(
   equipment: string,
 ): number {
   const raw = weightUsed * (1 + reps / 30);
-  return equipment === 'barra' || equipment === 'smith'
-    ? roundToNearest25(raw)
-    : Math.round(raw);
+  return roundWeightForEquipment(raw, equipment);
 }

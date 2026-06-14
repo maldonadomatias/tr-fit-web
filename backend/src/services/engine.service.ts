@@ -1,5 +1,5 @@
 import pool from '../db/connect.js';
-import { roundToNearest25 } from './progression-helpers.js';
+import { roundWeightForEquipment } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
 import type { WeeklyOverride } from './weekly-overrides.service.js';
@@ -125,11 +125,7 @@ async function buildItem(
         item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
       } else {
-        const computed = rm * Number(cfg.principal_pct_rm);
-        const weight =
-          exercise.equipment === 'barra' || exercise.equipment === 'smith'
-            ? roundToNearest25(computed)
-            : Math.round(computed);
+        const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
         item = baseItem(exercise, slot.role, slot.slot_index, weight, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
       }
@@ -179,10 +175,7 @@ function applyOverride(
 
   if (typeof payload.weight_pct === 'number' && suggested_value !== null) {
     const adjusted = suggested_value * payload.weight_pct;
-    suggested_value =
-      exercise.equipment === 'barra' || exercise.equipment === 'smith'
-        ? roundToNearest25(adjusted)
-        : Math.round(adjusted);
+    suggested_value = roundWeightForEquipment(adjusted, exercise.equipment);
   }
 
   // TODO: rpe_delta is recorded in weekly_overrides.intensity_payload but

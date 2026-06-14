@@ -63,6 +63,13 @@ export function roundToNearest25(value: number): number {
   , candidates[0]);
 }
 
+/** Round a computed weight per equipment: 2.5-step for barbell/smith, 1-step otherwise. */
+export function roundWeightForEquipment(value: number, equipment: string): number {
+  return equipment === 'barra' || equipment === 'smith'
+    ? roundToNearest25(value)
+    : Math.round(value);
+}
+
 function nextInList(
   value: number,
   list: readonly number[],
