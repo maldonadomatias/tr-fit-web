@@ -35,3 +35,6 @@ backend/uploads/*
 
 # Superpowers brainstorm scratch (visual companion sessions)
 .superpowers/
+
+# Local agent artifacts (rule 65)
+.local/
