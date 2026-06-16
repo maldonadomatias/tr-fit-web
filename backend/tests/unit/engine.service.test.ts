@@ -212,6 +212,136 @@ describe('computeNextPendingDay', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Helpers for missing-RM principal tests
+// ---------------------------------------------------------------------------
+const exRM = {
+  id: 201,
+  name: 'ExRM',
+  muscle_group: 'legs',
+  equipment: 'barra',
+  movement_pattern: 'squat',
+  is_principal: true,
+  is_unilateral: false,
+  level_min: 'principiante',
+  contraindicated_for: [],
+  default_increment_kg: 2.5,
+  alternatives_ids: [],
+  video_url: null,
+  illustration_url: null,
+  modality: 'reps',
+  default_target: null,
+};
+
+const rmSlot = {
+  id: 'slot-rm-1',
+  skeleton_id: 'sk-rm',
+  day_of_week: 1,
+  slot_index: 1,
+  exercise_id: exRM.id,
+  role: 'principal',
+  notes: null,
+};
+
+const pctRmConfig = {
+  week_number: 2,
+  block_label: 'strength',
+  is_rm_test: false,
+  is_deload: false,
+  is_amrap: false,
+  principal_series: 4,
+  principal_reps: '5',
+  principal_descanso: '3 min',
+  principal_pct_rm: 0.8,
+  principal_rm_source: 10,
+  principal_use_casilleros: false,
+  accesorio_series: 3,
+  accesorio_reps: '12',
+  accesorio_descanso: '1 min',
+  notes: null,
+};
+
+/**
+ * Seeds all queries that buildTodaySession fires for a 1-slot pct_rm day
+ * (no RM test for the exercise).
+ * @param aewRow - row to return from athlete_exercise_weights (or null for none)
+ */
+function seedMissingRmSession(aewRow: object | null) {
+  // 1. program_state
+  pushHandler(
+    (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
+    [{ current_week: 2, rm_test_blocking: false, active_skeleton_id: 'sk-rm' }],
+  );
+  // 2. periodization_config — pct_rm branch, no amrap, no rm_test
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM periodization_config'),
+    [pctRmConfig],
+  );
+  // 3. skeleton_slots
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM skeleton_slots'),
+    [rmSlot],
+  );
+  // 4. athlete_excluded_exercises (getExclusionMap)
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'),
+    [],
+  );
+  // 5. weekly_overrides (applyOverridesToSlots)
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM weekly_overrides'),
+    [],
+  );
+  // 6. exercises lookup
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
+    [exRM],
+  );
+  // 7. athlete_exercise_weights
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id,'),
+    aewRow ? [aewRow] : [],
+  );
+  // 8. rm_tests — no RM test row for this exercise
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id, value_kg'),
+    [],
+  );
+  // 9. athlete_equipment_units (resolveUnit)
+  pushHandler(
+    (s) => s.startsWith('SELECT unit FROM athlete_equipment_units'),
+    [],
+  );
+}
+
+describe('buildTodaySession — missing-RM principal fallback', () => {
+  it('Case A: uses last logged weight as suggested_value and keeps missing_rm flag', async () => {
+    seedMissingRmSession({
+      exercise_id: exRM.id,
+      current_value: 55,
+      unit: 'kg',
+      current_weight_kg: 55,
+      current_reps_text: null,
+    });
+
+    const items = await buildTodaySession('athlete-rm', 1);
+    expect(items).toHaveLength(1);
+    const item = items[0];
+    expect(item.suggested_value).toBe(55);
+    expect(item.flag).toBe('missing_rm');
+  });
+
+  it('Case B: no logged weight → suggested_value is null, flag is missing_rm', async () => {
+    seedMissingRmSession(null);
+
+    const items = await buildTodaySession('athlete-rm', 1);
+    expect(items).toHaveLength(1);
+    const item = items[0];
+    expect(item.suggested_value).toBeNull();
+    expect(item.flag).toBe('missing_rm');
+  });
+});
+
 describe('buildTodaySession — exclusions', () => {
   it('excluded exercise with replacement → slot uses replacement exercise', async () => {
     // exA excluded, replaced by exB

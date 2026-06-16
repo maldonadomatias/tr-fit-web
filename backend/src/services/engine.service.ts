@@ -147,7 +147,10 @@ async function buildItem(
     } else if (cfg.principal_pct_rm && cfg.principal_rm_source) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
-        item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
+        // No RM test yet: fall back to the athlete's last logged/corrected
+        // weight so the next session isn't blank. Keep the missing_rm flag
+        // so the "Anotá tu RM" nudge still shows.
+        item = baseItem(exercise, slot.role, slot.slot_index, aewValue, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
       } else {
         const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
