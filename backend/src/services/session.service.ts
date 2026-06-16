@@ -125,6 +125,24 @@ export async function logSet(
     [sessionId],
   );
 
+  // Persist the logged weight as the athlete's current suggestion for this
+  // exercise, so the next session pre-fills it (instead of "— kg"). Skips
+  // warmup/bodyweight/time/distance sets, where value is null.
+  if (payload.completed && payload.value != null) {
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_weight_kg, current_value, unit, current_reps_text, updated_by)
+       VALUES ($1, $2, $3, $3, $4, NULL, 'athlete_correction')
+       ON CONFLICT (athlete_id, exercise_id) DO UPDATE SET
+         current_weight_kg = EXCLUDED.current_weight_kg,
+         current_value = EXCLUDED.current_value,
+         unit = EXCLUDED.unit,
+         updated_by = 'athlete_correction',
+         updated_at = NOW()`,
+      [athleteId, payload.exercise_id, payload.value, payload.unit],
+    );
+  }
+
   return { setId: r.rows[0].id, created: r.rows[0].was_insert };
 }
 
