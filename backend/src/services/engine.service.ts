@@ -137,6 +137,9 @@ async function buildItem(
     } else if (cfg.is_amrap) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
+        // AMRAP weeks intentionally stay null (not aewValue): the athlete is
+        // meant to find their working weight in-session, not anchor to a stale
+        // logged weight. (The pct_rm branch below DOES fall back to aewValue.)
         item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
       } else {
