@@ -1,13 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, MoreHorizontal, Plus, Search } from 'lucide-react';
+import { Download, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -245,7 +240,6 @@ function UsersTable({
           <TableHead className="text-right">
             <ColLabel>Alta</ColLabel>
           </TableHead>
-          <TableHead className="w-[60px]"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -333,23 +327,6 @@ function UserRow({
         <span className="font-mono tabular-nums text-xs text-muted-foreground">
           {fmtShortDate(user.created_at)}
         </span>
-      </TableCell>
-      <TableCell>
-        <div className="invisible flex justify-end group-hover:visible">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                onClick={(e) => e.stopPropagation()}
-                aria-label="Más acciones"
-              >
-                <MoreHorizontal />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Más acciones</TooltipContent>
-          </Tooltip>
-        </div>
       </TableCell>
     </TableRow>
   );

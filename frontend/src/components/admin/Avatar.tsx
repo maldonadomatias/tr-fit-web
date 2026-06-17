@@ -5,8 +5,8 @@ type Size = 'sm' | 'md' | 'lg' | 'xl';
 const sizeMap: Record<Size, string> = {
   sm: 'h-7 w-7 text-[10px] rounded-full',
   md: 'h-9 w-9 text-[11px] rounded-full',
-  lg: 'h-14 w-14 text-[18px] rounded-2xl',
-  xl: 'h-[72px] w-[72px] text-[22px] rounded-2xl',
+  lg: 'h-14 w-14 text-[18px] rounded-full',
+  xl: 'h-[72px] w-[72px] text-[22px] rounded-full',
 };
 
 function initialsOf(name?: string | null) {
