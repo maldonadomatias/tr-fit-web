@@ -49,6 +49,30 @@ export const onboardingPayload = z.object({
 
 export type MeasurementPayload = z.infer<typeof measurementPayload>;
 
+// Post-onboarding profile edit (PATCH /athlete/me). All fields optional — the
+// mobile app sends a diff of only the changed fields. Ranges mirror
+// onboardingPayload so an edited value is never less valid than the original.
+// `days_specific` is intentionally NOT editable here: the app doesn't collect
+// it, and the DB CHECK (cardinality(days_specific) = days_per_week) means a bare
+// days_per_week change would break the row — the route nulls days_specific instead.
+export const profileUpdatePayload = z
+  .object({
+    name: z.string().min(1).max(100),
+    gender: z.enum(['male', 'female', 'other']),
+    age: z.number().int().min(12).max(100),
+    height_cm: z.number().int().min(100).max(250),
+    weight_kg: z.number().min(30).max(250),
+    goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
+    days_per_week: z.number().int().min(2).max(6),
+  })
+  .partial()
+  .strict()
+  .refine((d) => Object.keys(d).length > 0, {
+    message: 'at least one field required',
+  });
+
+export type ProfileUpdatePayload = z.infer<typeof profileUpdatePayload>;
+
 export const rmPayload = z.object({
   exercise_id: z.number().int().positive(),
   value_kg: z.number().min(1).max(500),

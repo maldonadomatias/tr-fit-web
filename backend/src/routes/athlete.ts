@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import { rmPayload, amrapPayload } from '../domain/schemas.js';
+import { rmPayload, amrapPayload, profileUpdatePayload } from '../domain/schemas.js';
 import pool from '../db/connect.js';
 import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../services/engine.service.js';
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
@@ -63,6 +63,42 @@ router.get('/me', async (req, res) => {
     skeletonStatus: skeleton.status,
     blockedReason,
   });
+});
+
+router.patch('/me', async (req, res) => {
+  const parsed = profileUpdatePayload.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  const userId = req.user!.id;
+
+  // Column names come from the schema's whitelist, never from raw input.
+  const cols = Object.keys(parsed.data) as Array<keyof typeof parsed.data>;
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  let daysParam = 0;
+  for (const col of cols) {
+    values.push(parsed.data[col]);
+    sets.push(`${col} = $${values.length}`);
+    if (col === 'days_per_week') daysParam = values.length;
+  }
+  // days_specific (the concrete weekdays) is sized to days_per_week by a DB CHECK
+  // and the app doesn't re-pick it on edit. Null it when the frequency actually
+  // changes so the row stays valid; the athlete re-picks specific days on the next
+  // onboarding pass and skeleton regeneration relies only on days_per_week. The
+  // RHS `days_per_week` here is the pre-update value (Postgres evaluates every SET
+  // expression against the old row), so an unchanged value preserves days_specific.
+  if (daysParam > 0) {
+    sets.push(
+      `days_specific = CASE WHEN $${daysParam} = days_per_week THEN days_specific ELSE NULL END`,
+    );
+  }
+
+  values.push(userId);
+  const r = await pool.query(
+    `UPDATE athlete_profiles SET ${sets.join(', ')} WHERE user_id = $${values.length}`,
+    values,
+  );
+  if (r.rowCount === 0) return res.status(404).json({ error: 'profile_not_found' });
+  res.json({ ok: true });
 });
 
 router.get('/today', async (req, res) => {

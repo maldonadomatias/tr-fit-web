@@ -71,6 +71,102 @@ describe('GET /api/athlete/me/tier', () => {
   });
 });
 
+describe('PATCH /api/athlete/me', () => {
+  it('updates scalar fields and persists them', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ name: 'Nuevo Nombre', weight_kg: 80, goal: 'fuerza' });
+    expect(r.status).toBe(200);
+    const row = await pool.query(
+      `SELECT name, weight_kg, goal, days_specific FROM athlete_profiles WHERE user_id = $1`,
+      [a],
+    );
+    expect(row.rows[0].name).toBe('Nuevo Nombre');
+    expect(Number(row.rows[0].weight_kg)).toBe(80);
+    expect(row.rows[0].goal).toBe('fuerza');
+    // days_per_week untouched → days_specific preserved
+    expect(row.rows[0].days_specific).toEqual(['lun', 'mar', 'jue', 'sab']);
+  });
+
+  it('updates days_per_week and nulls days_specific to satisfy the CHECK', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c); // defaults to 4 days
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ days_per_week: 3 });
+    expect(r.status).toBe(200);
+    const row = await pool.query(
+      `SELECT days_per_week, days_specific FROM athlete_profiles WHERE user_id = $1`,
+      [a],
+    );
+    expect(row.rows[0].days_per_week).toBe(3);
+    expect(row.rows[0].days_specific).toBeNull();
+  });
+
+  it('keeps days_specific when days_per_week is sent but unchanged', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c); // 4 days
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ days_per_week: 4 });
+    expect(r.status).toBe(200);
+    const row = await pool.query(
+      `SELECT days_specific FROM athlete_profiles WHERE user_id = $1`,
+      [a],
+    );
+    expect(row.rows[0].days_specific).toEqual(['lun', 'mar', 'jue', 'sab']);
+  });
+
+  it('rejects days_per_week below valid range (2-6)', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ days_per_week: 1 });
+    expect(r.status).toBe(400);
+  });
+
+  it('rejects days_per_week above valid range (2-6)', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ days_per_week: 7 });
+    expect(r.status).toBe(400);
+  });
+
+  it('rejects a body with no recognized fields', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ foo: 'bar' });
+    expect(r.status).toBe(400);
+  });
+
+  it('rejects unauth', async () => {
+    const r = await request(app).patch('/api/athlete/me').send({ weight_kg: 80 });
+    expect(r.status).toBe(401);
+  });
+
+  it('rejects admin role', async () => {
+    const c = await createAdmin();
+    const tok = signToken({ id: c, role: 'admin' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ weight_kg: 80 });
+    expect(r.status).toBe(403);
+  });
+});
+
 describe('POST /api/athlete/skeleton/regenerate', () => {
   it('premium returns 201', async () => {
     await ensureFirstExercise();
