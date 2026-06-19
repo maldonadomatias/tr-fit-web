@@ -8,6 +8,12 @@ export type SlotOverridePayload = {
   notes?: string;
 };
 
+export type SlotOrderPayload = {
+  slot_id: string;
+  day_of_week: number;
+  slot_index: number;
+};
+
 export function useRutina(id: string | undefined) {
   return useQuery({
     queryKey: ['admin', 'rutina', id],
@@ -23,13 +29,22 @@ export function useApproveRutina() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (
-      args: string | { id: string; slot_overrides?: SlotOverridePayload[] },
+      args:
+        | string
+        | {
+            id: string;
+            slot_overrides?: SlotOverridePayload[];
+            slot_order?: SlotOrderPayload[];
+          },
     ) => {
       const id = typeof args === 'string' ? args : args.id;
       const body =
         typeof args === 'string'
           ? undefined
-          : { slot_overrides: args.slot_overrides ?? [] };
+          : {
+              slot_overrides: args.slot_overrides ?? [],
+              slot_order: args.slot_order ?? [],
+            };
       await api.post(`/admin/rutinas/${id}/approve`, body);
     },
     onSuccess: () => {

@@ -1,7 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AxiosError } from 'axios';
 import { Pencil } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import {
   Tabs,
   TabsContent,
@@ -24,6 +32,7 @@ import { ActionFooter } from './ActionFooter';
 import { RejectDialog, type RejectPayload } from './RejectDialog';
 import { ShortcutsModal } from './ShortcutsModal';
 import type { SlotOverride } from './EditSlotPopover';
+import type { RutinaSlot } from '@/types/api';
 
 type TabKey = 'rutina' | 'contexto' | 'historial' | 'diff';
 
@@ -47,12 +56,55 @@ export function DetailPane({
   const [rejectOpen, setRejectOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, SlotOverride>>({});
+  // Local reordering of slots; null = use server order untouched.
+  const [order, setOrder] = useState<RutinaSlot[] | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  );
 
   useEffect(() => {
     setTab('rutina');
     setRejectOpen(false);
     setOverrides({});
+    setOrder(null);
   }, [id]);
+
+  const orderedSlots = useMemo(
+    () =>
+      order ??
+      [...(data?.slots ?? [])].sort(
+        (a, b) => a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
+      ),
+    [order, data],
+  );
+
+  function handleDragEnd(e: DragEndEvent) {
+    if (!e.over) return;
+    const activeId = String(e.active.id);
+    const overId = String(e.over.id);
+    if (activeId === overId) return;
+
+    const sorted = [...orderedSlots];
+    const movingIndex = sorted.findIndex((s) => s.id === activeId);
+    const targetIndex = sorted.findIndex((s) => s.id === overId);
+    if (movingIndex < 0 || targetIndex < 0) return;
+    const targetDay = sorted[targetIndex].day_of_week;
+
+    const moved = { ...sorted.splice(movingIndex, 1)[0], day_of_week: targetDay };
+    const insertAt = sorted.findIndex((s) => s.id === overId);
+    sorted.splice(insertAt, 0, moved);
+
+    // Validate no day exceeds 12 slots (DB CHECK constraint).
+    const counts = new Map<number, number>();
+    for (const s of sorted) {
+      counts.set(s.day_of_week, (counts.get(s.day_of_week) ?? 0) + 1);
+    }
+    if ([...counts.values()].some((n) => n > 12)) {
+      toast.error('Un día no puede tener más de 12 ejercicios');
+      return;
+    }
+    setOrder(sorted);
+  }
 
   const modalOpen = rejectOpen || shortcutsOpen;
 
@@ -103,7 +155,20 @@ export function DetailPane({
         exercise_id: ov.exercise_id,
         notes: ov.notes,
       }));
-      await approve.mutateAsync({ id, slot_overrides });
+      // Reindex 1..N per day, preserving the local order.
+      const perDay = new Map<number, number>();
+      const slot_order = order
+        ? order.map((s) => {
+            const idx = (perDay.get(s.day_of_week) ?? 0) + 1;
+            perDay.set(s.day_of_week, idx);
+            return {
+              slot_id: s.id,
+              day_of_week: s.day_of_week,
+              slot_index: idx,
+            };
+          })
+        : undefined;
+      await approve.mutateAsync({ id, slot_overrides, slot_order });
       toast.success('Rutina aprobada · pasando a la siguiente');
       onAdvance();
     } catch (e) {
@@ -173,10 +238,13 @@ export function DetailPane({
       <DetailHeader data={data} />
 
       <div className="flex-1 overflow-y-auto px-7 py-5">
-        {modCount > 0 && (
+        {(modCount > 0 || order !== null) && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
             <Pencil size={12} />
-            Modificada por admin · {modCount} cambio{modCount === 1 ? '' : 's'}
+            Modificada por admin
+            {modCount > 0 &&
+              ` · ${modCount} cambio${modCount === 1 ? '' : 's'}`}
+            {order !== null && ' · orden reordenado'}
           </div>
         )}
 
@@ -189,12 +257,19 @@ export function DetailPane({
           </TabsList>
           <div className="mt-5">
             <TabsContent value="rutina">
-              <TabRutina
-                slots={data.slots}
-                daysSpecific={data.profile.days_specific}
-                overrides={overrides}
-                onOverride={setOverride}
-              />
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <TabRutina
+                  slots={orderedSlots}
+                  daysSpecific={data.profile.days_specific}
+                  periodization={data.periodization}
+                  overrides={overrides}
+                  onOverride={setOverride}
+                />
+              </DndContext>
             </TabsContent>
             <TabsContent value="contexto">
               <TabContexto profile={data.profile} />

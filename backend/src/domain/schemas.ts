@@ -91,6 +91,31 @@ export const skeletonRejectPayload = z.object({
   feedback: z.string().min(5).max(2000),
 });
 
+export const skeletonApprovePayload = z.object({
+  slot_overrides: z
+    .array(
+      z.object({
+        slot_id: z.string().uuid(),
+        exercise_id: z.number().int().positive(),
+        notes: z.string().max(2000).nullable().optional(),
+      }),
+    )
+    .max(200)
+    .optional(),
+  slot_order: z
+    .array(
+      z.object({
+        slot_id: z.string().uuid(),
+        day_of_week: z.number().int().min(1).max(7),
+        slot_index: z.number().int().min(1).max(12),
+      }),
+    )
+    .max(200)
+    .optional(),
+});
+
+export type SkeletonApprovePayload = z.infer<typeof skeletonApprovePayload>;
+
 // IA structured output schema (also used for runtime validation)
 export const aiSkeletonOutput = z.object({
   rationale: z.string(),

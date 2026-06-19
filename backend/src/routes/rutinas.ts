@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { skeletonRejectPayload } from '../domain/schemas.js';
+import {
+  skeletonRejectPayload,
+  skeletonApprovePayload,
+} from '../domain/schemas.js';
 import {
   approveSkeleton,
   rejectSkeleton,
@@ -33,11 +36,34 @@ router.get('/:id', async (req, res) => {
       sk.athlete_id,
     ])
   ).rows[0] ?? null;
-  res.json({ skeleton: sk, slots, profile });
+
+  // Series/reps shown at approval reflect the week the athlete will run on:
+  // their current_week if a program already exists, else week 1 (fresh start).
+  const stateR = await pool.query<{ current_week: number }>(
+    `SELECT current_week FROM athlete_program_state WHERE athlete_id = $1`,
+    [sk.athlete_id],
+  );
+  const week = stateR.rows[0]?.current_week ?? 1;
+  const cfgR = await pool.query(
+    `SELECT week_number, block_label,
+            principal_series, principal_reps,
+            accesorio_series, accesorio_reps
+       FROM periodization_config WHERE week_number = $1`,
+    [week],
+  );
+  const periodization = cfgR.rows[0] ?? null;
+
+  res.json({ skeleton: sk, slots, profile, periodization });
 });
 
 router.post('/:id/approve', async (req, res) => {
-  await approveSkeleton(req.params.id, req.user!.id);
+  const parsed = skeletonApprovePayload.safeParse(req.body ?? {});
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
+  await approveSkeleton(req.params.id, req.user!.id, {
+    slotOverrides: parsed.data.slot_overrides,
+    slotOrder: parsed.data.slot_order,
+  });
   pool
     .query<{ athlete_id: string }>(
       `SELECT athlete_id FROM athlete_skeletons WHERE id = $1`,

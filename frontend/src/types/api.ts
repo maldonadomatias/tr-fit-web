@@ -65,9 +65,19 @@ export interface AthleteRutina {
   reviewed_by: string | null;
 }
 
+export interface RutinaPeriodization {
+  week_number: number;
+  block_label: string;
+  principal_series: number;
+  principal_reps: string;
+  accesorio_series: number;
+  accesorio_reps: string;
+}
+
 export interface RutinaDetail {
   skeleton: AthleteRutina;
   slots: RutinaSlot[];
+  periodization: RutinaPeriodization | null;
   profile: {
     name: string;
     gender: 'male' | 'female' | 'other';

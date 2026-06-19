@@ -85,11 +85,28 @@ export async function listSlots(skeletonId: string): Promise<SkeletonSlot[]> {
   return rows;
 }
 
+export interface ApproveSkeletonOptions {
+  startDate?: Date;
+  /** Exercise/notes edits made by the admin before approving. */
+  slotOverrides?: {
+    slot_id: string;
+    exercise_id: number;
+    notes?: string | null;
+  }[];
+  /** Full reordering of the skeleton's slots (every slot, new day/index). */
+  slotOrder?: {
+    slot_id: string;
+    day_of_week: number;
+    slot_index: number;
+  }[];
+}
+
 export async function approveSkeleton(
   skeletonId: string,
   reviewerId: string,
-  startDate: Date = new Date(),
+  opts: ApproveSkeletonOptions = {},
 ): Promise<void> {
+  const startDate = opts.startDate ?? new Date();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -102,6 +119,51 @@ export async function approveSkeleton(
       throw new Error(`cannot approve skeleton in status=${sk.rows[0].status}`);
     }
     const athleteId = sk.rows[0].athlete_id;
+
+    // Apply admin edits (exercise swap / notes) before reorder & seeding so
+    // downstream queries (weight seeding) see the final exercise set.
+    for (const ov of opts.slotOverrides ?? []) {
+      await client.query(
+        `UPDATE skeleton_slots
+            SET exercise_id = $1, notes = $2
+          WHERE id = $3 AND skeleton_id = $4`,
+        [ov.exercise_id, ov.notes ?? null, ov.slot_id, skeletonId],
+      );
+    }
+
+    // Apply admin reordering. Delete + re-insert (preserving the final
+    // exercise_id/role/notes) to avoid intermediate
+    // UNIQUE(skeleton_id, day_of_week, slot_index) violations.
+    if (opts.slotOrder && opts.slotOrder.length > 0) {
+      const orderIds = opts.slotOrder.map((s) => s.slot_id);
+      const moved = await client.query<{
+        id: string;
+        exercise_id: number;
+        role: string;
+        notes: string | null;
+      }>(
+        `DELETE FROM skeleton_slots
+          WHERE id = ANY($1::uuid[]) AND skeleton_id = $2
+          RETURNING id, exercise_id, role, notes`,
+        [orderIds, skeletonId],
+      );
+      if (moved.rowCount !== orderIds.length) {
+        throw new Error('slot_order references slot not in skeleton');
+      }
+      const byId = new Map(moved.rows.map((r) => [r.id, r]));
+      for (const s of opts.slotOrder) {
+        const orig = byId.get(s.slot_id)!;
+        await client.query(
+          `INSERT INTO skeleton_slots
+             (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            orig.id, skeletonId, s.day_of_week, s.slot_index,
+            orig.exercise_id, orig.role, orig.notes,
+          ],
+        );
+      }
+    }
 
     // Supersede previous approved skeleton (if any)
     await client.query(

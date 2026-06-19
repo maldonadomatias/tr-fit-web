@@ -61,6 +61,71 @@ it('approve sets program_state and seeds weights', async () => {
   expect(w.rows[0].n).toBe(2); // exercises 1 and 2
 });
 
+it('approve persists slot overrides and reorder', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { skeletonId } = await createPendingSkeleton(
+    { athleteId: ath, generationPrompt: {}, generationRationale: 'r' },
+    aiOut,
+  );
+  const before = await pool.query<{
+    id: string;
+    day_of_week: number;
+    slot_index: number;
+    exercise_id: number;
+  }>(
+    `SELECT id, day_of_week, slot_index, exercise_id
+       FROM skeleton_slots WHERE skeleton_id = $1
+      ORDER BY day_of_week, slot_index`,
+    [skeletonId],
+  );
+  // Day 1 has two slots: [ex1 @ idx1, ex2 @ idx2]. Swap their order and
+  // override the first slot's exercise to ex3 with a note.
+  const day1 = before.rows.filter((s) => s.day_of_week === 1);
+  const others = before.rows.filter((s) => s.day_of_week !== 1);
+  const slotOrder = [
+    // day 1 reversed
+    { slot_id: day1[1].id, day_of_week: 1, slot_index: 1 },
+    { slot_id: day1[0].id, day_of_week: 1, slot_index: 2 },
+    ...others.map((s) => ({
+      slot_id: s.id,
+      day_of_week: s.day_of_week,
+      slot_index: s.slot_index,
+    })),
+  ];
+  await approveSkeleton(skeletonId, coach, {
+    slotOverrides: [
+      { slot_id: day1[0].id, exercise_id: 3, notes: 'usar mancuernas' },
+    ],
+    slotOrder,
+  });
+
+  const after = await pool.query<{
+    id: string;
+    day_of_week: number;
+    slot_index: number;
+    exercise_id: number;
+    notes: string | null;
+  }>(
+    `SELECT id, day_of_week, slot_index, exercise_id, notes
+       FROM skeleton_slots WHERE skeleton_id = $1
+        AND day_of_week = 1
+      ORDER BY slot_index`,
+    [skeletonId],
+  );
+  // idx1 is now the previously-2nd slot (ex2); idx2 is the overridden slot (ex3).
+  expect(after.rows[0].id).toBe(day1[1].id);
+  expect(after.rows[0].exercise_id).toBe(2);
+  expect(after.rows[1].id).toBe(day1[0].id);
+  expect(after.rows[1].exercise_id).toBe(3);
+  expect(after.rows[1].notes).toBe('usar mancuernas');
+
+  const s = await pool.query(
+    `SELECT status FROM athlete_skeletons WHERE id = $1`, [skeletonId],
+  );
+  expect(s.rows[0].status).toBe('approved');
+});
+
 it('approve supersedes prior approved skeleton', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);
