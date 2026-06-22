@@ -1,10 +1,10 @@
 # Shared mechanics — gender-neutral
 
-These rules are observed identically across all women samples and are expected
-(pending men samples) to be **gender-independent**: they describe HOW a slot is
-prescribed, not WHICH muscles a gender prioritizes. Split selection & muscle
+These rules are observed identically across **all women (001-005) AND men
+(001-006) samples** — confirmed **gender-independent**. They describe HOW a slot
+is prescribed, not WHICH muscles a gender prioritizes. Split selection & muscle
 emphasis are gender-specific — see [mujer/LOGIC.md](mujer/LOGIC.md) /
-`hombre/LOGIC.md`.
+[hombre/LOGIC.md](hombre/LOGIC.md).
 
 ## M1 — Set-scheme vocabulary (the `Reps` string encodes set type)
 
@@ -16,7 +16,8 @@ emphasis are gender-specific — see [mujer/LOGIC.md](mujer/LOGIC.md) /
 | `10x10x10` | drop set (carga/descarga) | - | 2 min | DISMINUIR PESO CADA 10 REPES |
 | `10 - 8 - 6` | ascending pyramid | 2 | 1:45-2 min | AUMENTAR PESO AL FINALIZAR CADA SERIE |
 | `8x6x4x6x8` | superserie carga/descarga | - | 2 min | (no intra-rest) |
-| `30 seg` / `30 seg + 10 cad` / `10 C/L` | time / time+reps / per-side core | - | 1 min | technique cue |
+| `30 seg` / `40 seg` / `30 seg + 10 cad` / `10 C/L` | time / time+reps / per-side core | - | 1 min | technique cue |
+| `fallo` | to-failure (forearms, men) | - | 2 min | — |
 
 ## M2 — RIR by slot-role (descends through a muscle block)
 principal compound `6a8` → **RIR 2**; second compound → RIR 2 or 1; isolation
@@ -48,7 +49,10 @@ is the missing half: it doesn't *assign* schemes/RIR/rest/comentario by role at
 creation time. Closing that gap (M1-M5) makes generation and progression speak
 the same vocabulary.
 
-## M7 — Optional CARDIO HIIT finisher
-Structured `N × (work interval / rest interval)` appended after lifting. The
-filename time budget ("15-30 MIN" / "30MIN") is THIS block's length, not the
-lifting session's. The lifting body stays ~8-10 slots.
+## M7 — Cardio (two forms)
+- **HIIT finisher** (women): structured `N × (work interval / rest interval)`
+  appended after lifting (Excel column P). The filename time budget
+  ("15-30 MIN" / "30MIN") is THIS block's length, not the lifting session's.
+- **Steady-state slot** (men, 1-leg-day variants): a single cardio slot inside
+  the leg day ("Bicicleta Fija 15 min, CONSTANTE NO SUAVE NO INTENSO").
+- Either way the lifting body stays ~8-10 slots; cardio is the variable add-on.
