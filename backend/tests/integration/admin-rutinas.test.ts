@@ -21,15 +21,18 @@ const aiOut = {
       day_index: 1,
       focus: 'pecho',
       slots: [
-        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null },
-        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const, notes: null },
+        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null,
+          series: null, reps: null, descanso: null },
+        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const, notes: null,
+          series: 2, reps: '10x10x10', descanso: '2 min' },
       ],
     },
     {
       day_index: 2,
       focus: 'espalda',
       slots: [
-        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null },
+        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null,
+          series: null, reps: null, descanso: null },
       ],
     },
   ],

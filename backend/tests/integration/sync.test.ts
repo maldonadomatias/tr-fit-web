@@ -20,7 +20,7 @@ async function setupSession() {
     rationale: 'r',
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: 'd',
-      slots: [{ slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const, notes: null }],
+      slots: [{ slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null }],
     })),
   };
   const sk = await createPendingSkeleton(

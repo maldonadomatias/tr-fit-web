@@ -13,7 +13,7 @@ async function setup(coachId: string, athleteId: string, principals: number[]) {
     rationale: 'r',
     days: principals.map((id, i) => ({
       day_index: i + 1, focus: 'd',
-      slots: [{ slot_index: 1, exercise_id: id, role: 'principal' as const, notes: null }],
+      slots: [{ slot_index: 1, exercise_id: id, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null }],
     })),
   };
   const { skeletonId } = await createPendingSkeleton(

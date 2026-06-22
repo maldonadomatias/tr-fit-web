@@ -108,6 +108,13 @@ Reglas estrictas:
 
 - ACCESORIOS: después de cada principal agregá accesorios role="accesorio" que completen ese bloque muscular, bajando la intensidad (compuesto pesado → accesorio → aislado → finisher metabólico). Cerrá la mayoría de los días con 1-2 slots de core/abs cuando exercise_minutes >= 60.
 
+- PRESCRIPCIÓN POR ACCESORIO (campos "series", "reps", "descanso"): en CADA slot role="accesorio" completá estos 3 campos según el tipo de serie. En slots role="principal" y role="calentamiento" dejalos en null (esos usan su propia periodización). Esquemas típicos del entrenador:
+  · Accesorio compuesto/efectivo: series 2-3, reps "8" o "8 a 10" o "10 a 12", descanso "1:45 a 2 min".
+  · Finisher metabólico (drop-set, último accesorio del bloque): series 2, reps "10x10x10", descanso "2 min".
+  · Pirámide: series 2-3, reps "10 - 8 - 6", descanso "1:45 a 2 min".
+  · Core/abs: series 3, reps "10" o "30 seg" o "30 seg + 10 cad", descanso "1 min".
+  Bajá la intensidad a lo largo del bloque: el primer accesorio más pesado/efectivo, el último un finisher "10x10x10".
+
 - Cantidad TOTAL de slots por día (calentamiento + principal + accesorio) según exercise_minutes:
   · 30 min → 5-6 slots · 45 min → 6-8 · 60 min → 8-10 · 75 min → 9-11 · 90 min → 10-12.
   Este conteo es OBLIGATORIO: si exercise_minutes=60, devolvé entre 8 y 10 slots.

@@ -35,13 +35,21 @@ export async function createPendingSkeleton(
 
     for (const day of aiOutput.days) {
       for (const slot of day.slots) {
+        // Per-slot prescription only applies to accessories; null it out for
+        // principals/warmups so they keep periodization / warmup defaults even
+        // if the model returned stray values.
+        const isAccessory = slot.role === 'accesorio';
         await client.query(
           `INSERT INTO skeleton_slots
-             (skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+             (skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+              series, reps, descanso)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             skeletonId, day.day_index, slot.slot_index,
             slot.exercise_id, slot.role, slot.notes,
+            isAccessory ? slot.series ?? null : null,
+            isAccessory ? slot.reps ?? null : null,
+            isAccessory ? slot.descanso ?? null : null,
           ],
         );
       }
@@ -141,10 +149,13 @@ export async function approveSkeleton(
         exercise_id: number;
         role: string;
         notes: string | null;
+        series: number | null;
+        reps: string | null;
+        descanso: string | null;
       }>(
         `DELETE FROM skeleton_slots
           WHERE id = ANY($1::uuid[]) AND skeleton_id = $2
-          RETURNING id, exercise_id, role, notes`,
+          RETURNING id, exercise_id, role, notes, series, reps, descanso`,
         [orderIds, skeletonId],
       );
       if (moved.rowCount !== orderIds.length) {
@@ -155,11 +166,13 @@ export async function approveSkeleton(
         const orig = byId.get(s.slot_id)!;
         await client.query(
           `INSERT INTO skeleton_slots
-             (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+             (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+              series, reps, descanso)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             orig.id, skeletonId, s.day_of_week, s.slot_index,
             orig.exercise_id, orig.role, orig.notes,
+            orig.series, orig.reps, orig.descanso,
           ],
         );
       }

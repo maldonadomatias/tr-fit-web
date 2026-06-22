@@ -167,12 +167,16 @@ async function buildItem(
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
     }
   } else {
-    // accesorio
+    // accesorio. Per-slot prescription (migration 038) is the coach-designed
+    // set-scheme for this accessory; it takes precedence over the block-level
+    // periodization defaults. The athlete's progressed reps (current_reps_text)
+    // still win once progression has run — slot.reps is only the seed/week-1
+    // value. Principals are unaffected: they keep periodization above.
     item = baseItem(
       exercise, slot.role, slot.slot_index, aewValue, unit,
-      cfg.accesorio_series,
-      w?.current_reps_text ?? cfg.accesorio_reps,
-      cfg.accesorio_descanso,
+      slot.series ?? cfg.accesorio_series,
+      w?.current_reps_text ?? slot.reps ?? cfg.accesorio_reps,
+      slot.descanso ?? cfg.accesorio_descanso,
       notes,
     );
   }

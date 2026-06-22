@@ -94,16 +94,22 @@ rewritten `SYSTEM_PROMPT` + validators) and the H0 data-model plumbing:
 5. **slotRangeFor widened** to the real ~8-10 (60min) corpus range.
 6. **notes guidance** (M4 partial): prompt derives comentario from set-scheme.
 
-### ⏳ DEFERRED — next phase (bigger change, schema + engine)
-- **M1-M3 + M5-reps (set-scheme + RIR + rest assigned per slot-role at generation
-  time)**. Today the skeleton carries only exercise+role+notes; reps/series/RIR/
-  descanso come from `periodization_config` per block (global), applied in
-  `engine.service`. Per-role schemes need either per-slot scheme storage or
-  engine-side derivation by role — a separate feature, not done in this branch.
+### ✅ APPLIED — phase 2: per-accessory set-scheme (M1, M3 partial)
+Implemented (branch `feat/per-slot-accessory-prescription`):
+- Migration `038_skeleton_slot_prescription.sql`: nullable `series`/`reps`/
+  `descanso` on `skeleton_slots`.
+- Generator emits per-accessory `series`/`reps`/`descanso` (drop-set `10x10x10`
+  finisher, pyramid `10-8-6`, straight reps, core time) via the `aiSkeletonOutput`
+  schema + SYSTEM_PROMPT scheme table; nulled for principals/warmups.
+- `skeleton.service` persists them (create + reorder-preserve).
+- `engine.service`: accessories use the slot prescription over periodization
+  defaults; the athlete's progressed `current_reps_text` still wins once
+  progression runs. **Principals untouched — they keep the 30-week periodization
+  (RM/AMRAP/pct).**
+- ✅ Frontend `leg_days` collected (tr-fit-app, branch `feat/onboarding-leg-days`).
+
+### ⏳ STILL DEFERRED
+- **M2 RIR per slot-role**: `SessionItem` has no `target_rir` field and the mobile
+  app doesn't render RIR — surfacing it is a cross-repo change.
 - **M7 cardio** as a first-class block/slot (HIIT finisher ♀ / steady-state ♂).
 - Day-pairing stays model-driven (W1c/H1: pairings vary), not hardcoded.
-
-### Frontend follow-up (not in this branch)
-- The onboarding app must collect **`leg_days` (1 or 2) for men** and send it in
-  the `/onboarding/complete` payload. Backend accepts it (optional, nullable);
-  until the app sends it, men default to 1 leg day (PPL-leaning).

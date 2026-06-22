@@ -25,8 +25,8 @@ async function setup() {
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: 'd',
       slots: [
-        { slot_index: 1, exercise_id: pid, role: 'principal' as const, notes: null },
-        { slot_index: 2, exercise_id: aid, role: 'accesorio' as const, notes: null },
+        { slot_index: 1, exercise_id: pid, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
+        { slot_index: 2, exercise_id: aid, role: 'accesorio' as const, notes: null, series: null, reps: null, descanso: null },
       ],
     })),
   };

@@ -10,20 +10,22 @@ beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => { await resetDatabase(); });
 afterAll(async () => { await closePool(); });
 
+const P = { series: null, reps: null, descanso: null };
 const aiOut = {
   rationale: 'split test',
   days: [
     { day_index: 1, focus: 'p',
       slots: [
-        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null },
-        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const, notes: null },
+        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null, ...P },
+        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const, notes: null,
+          series: 2, reps: '10x10x10', descanso: '2 min' },
       ] },
     { day_index: 2, focus: 'q',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }] },
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null, ...P }] },
     { day_index: 3, focus: 'r',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }] },
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null, ...P }] },
     { day_index: 4, focus: 's',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }] },
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null, ...P }] },
   ],
 };
 

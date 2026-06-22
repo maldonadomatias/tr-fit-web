@@ -143,6 +143,13 @@ export const aiSkeletonOutput = z.object({
           exercise_id: z.number().int().positive(),
           role: z.enum(['calentamiento', 'principal', 'accesorio']),
           notes: z.string().nullable(),
+          // Per-slot prescription. Filled for role="accesorio" (the set-scheme:
+          // series, reps string like "8" / "10x10x10", and descanso). Left null
+          // for principals/warmups — they keep the 30-week periodization /
+          // warmup defaults. The engine only consumes these for accessories.
+          series: z.number().int().min(1).max(6).nullable(),
+          reps: z.string().min(1).max(40).nullable(),
+          descanso: z.string().min(1).max(40).nullable(),
         }),
       ).min(1).max(12),
     }),

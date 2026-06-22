@@ -25,8 +25,8 @@ async function setup4DaySkeleton(athleteId: string, coachId: string) {
     days: [1, 2, 3, 4].map((d) => ({
       day_index: d, focus: `Day${d}`,
       slots: [
-        { slot_index: 1, exercise_id: principalId, role: 'principal' as const, notes: null },
-        { slot_index: 2, exercise_id: accesorioId, role: 'accesorio' as const, notes: null },
+        { slot_index: 1, exercise_id: principalId, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
+        { slot_index: 2, exercise_id: accesorioId, role: 'accesorio' as const, notes: null, series: null, reps: null, descanso: null },
       ],
     })),
   };
@@ -144,8 +144,8 @@ it('profile equipment-units override stale AEW.unit and drop suggested value', a
       day_index: d,
       focus: `Day${d}`,
       slots: [
-        { slot_index: 1, exercise_id: principalId, role: 'principal' as const, notes: null },
-        { slot_index: 2, exercise_id: poleaId, role: 'accesorio' as const, notes: null },
+        { slot_index: 1, exercise_id: principalId, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
+        { slot_index: 2, exercise_id: poleaId, role: 'accesorio' as const, notes: null, series: null, reps: null, descanso: null },
       ],
     })),
   };

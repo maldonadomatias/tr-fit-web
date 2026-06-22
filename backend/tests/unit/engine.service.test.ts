@@ -379,3 +379,52 @@ describe('buildTodaySession — exclusions', () => {
     expect(ids).not.toContain(exB.id);
   });
 });
+
+describe('buildTodaySession — per-accessory prescription (migration 038)', () => {
+  // Seeds a single accessory slot with the given prescription + optional logged
+  // reps, mirroring seedBuildSession's query order.
+  function seedAccessory(
+    prescription: { series: number | null; reps: string | null; descanso: string | null },
+    weightRows: unknown[] = [],
+  ) {
+    pushHandler(
+      (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
+      [{ current_week: 1, rm_test_blocking: false, active_skeleton_id: 'sk-acc' }],
+    );
+    pushHandler((s) => s.startsWith('SELECT * FROM periodization_config'), [basePeriodizationConfig]);
+    pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [
+      { ...baseSlot, id: 'slot-acc', role: 'accesorio', exercise_id: exA.id, ...prescription },
+    ]);
+    pushHandler((s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'), []);
+    pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
+    pushHandler((s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'), [exA]);
+    pushHandler((s) => s.startsWith('SELECT exercise_id,'), weightRows);
+    pushHandler((s) => s.startsWith('SELECT unit FROM athlete_equipment_units'), []);
+  }
+
+  it('uses the slot prescription over periodization defaults', async () => {
+    seedAccessory({ series: 2, reps: '10x10x10', descanso: '2 min' });
+    const [item] = await buildTodaySession('athlete-acc', 1);
+    expect(item!.series).toBe(2);
+    expect(item!.reps).toBe('10x10x10');
+    expect(item!.descanso).toBe('2 min');
+  });
+
+  it('falls back to periodization defaults when prescription is null', async () => {
+    seedAccessory({ series: null, reps: null, descanso: null });
+    const [item] = await buildTodaySession('athlete-acc', 1);
+    expect(item!.series).toBe(basePeriodizationConfig.accesorio_series);
+    expect(item!.reps).toBe(basePeriodizationConfig.accesorio_reps);
+    expect(item!.descanso).toBe(basePeriodizationConfig.accesorio_descanso);
+  });
+
+  it('progressed current_reps_text still wins over the slot reps', async () => {
+    seedAccessory(
+      { series: 2, reps: '10x10x10', descanso: '2 min' },
+      [{ exercise_id: exA.id, current_value: null, unit: null, current_weight_kg: null, current_reps_text: '12x12x12' }],
+    );
+    const [item] = await buildTodaySession('athlete-acc', 1);
+    expect(item!.reps).toBe('12x12x12'); // progression overrides the seed
+    expect(item!.series).toBe(2); // series still from the slot
+  });
+});

@@ -95,6 +95,12 @@ export interface SkeletonSlot {
   exercise_id: number;
   role: SlotRole;
   notes: string | null;
+  // Per-slot prescription for accessories (migration 038). NULL for principals/
+  // warmups/legacy slots — those keep periodization / warmup defaults. The engine
+  // only reads these for role='accesorio'.
+  series: number | null;
+  reps: string | null;
+  descanso: string | null;
   exercise_name?: string;
   muscle_group?: string;
   equipment?: string;
