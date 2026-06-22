@@ -62,6 +62,17 @@ describe('onboardingPayload', () => {
     }).success).toBe(true);
   });
 
+  it('accepts leg_days 1 or 2, and omitted', () => {
+    expect(onboardingPayload.safeParse({ ...baseValid, leg_days: 1 }).success).toBe(true);
+    expect(onboardingPayload.safeParse({ ...baseValid, leg_days: 2 }).success).toBe(true);
+    expect(onboardingPayload.safeParse(baseValid).success).toBe(true); // omitted ok
+  });
+
+  it('rejects leg_days other than 1 or 2', () => {
+    expect(onboardingPayload.safeParse({ ...baseValid, leg_days: 3 }).success).toBe(false);
+    expect(onboardingPayload.safeParse({ ...baseValid, leg_days: 0 }).success).toBe(false);
+  });
+
   it('accepts optional sport_focus + measurements', () => {
     const r = onboardingPayload.safeParse({
       ...baseValid, sport_focus: 'futbol',

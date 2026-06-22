@@ -16,44 +16,109 @@ export interface GenerateSkeletonInput {
 const MAX_ATTEMPTS = 5;
 
 function slotRangeFor(minutes: number): { min: number; max: number } {
-  if (minutes <= 30) return { min: 5, max: 5 };
-  if (minutes <= 45) return { min: 6, max: 7 };
-  if (minutes <= 60) return { min: 8, max: 9 };
-  if (minutes <= 75) return { min: 9, max: 10 };
-  return { min: 10, max: 11 };
+  // The coach's gym session body is roughly constant (~8-10 working slots) for a
+  // 1-hour session regardless of the cardio add-on; ranges below are widened to
+  // fit the real corpus (docs/routine-corpus/shared-mechanics.md, M7).
+  if (minutes <= 30) return { min: 5, max: 6 };
+  if (minutes <= 45) return { min: 6, max: 8 };
+  if (minutes <= 60) return { min: 8, max: 10 };
+  if (minutes <= 75) return { min: 9, max: 11 };
+  return { min: 10, max: 12 };
 }
 
 function broadMuscleGroup(mg: string): string {
   return mg.split('-')[0].trim().toLowerCase();
 }
 
-const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON.
+// Min/max principal (heavy compound) slots per day. The coach runs 1-3 heavy
+// compounds at 3×6a8 RIR 2 per day depending on how many regions the day spans
+// (docs/routine-corpus: P3 revised). Never exactly-2-only.
+const PRINCIPAL_MIN = 1;
+const PRINCIPAL_MAX = 3;
+
+export type SplitStrategy = 'full_body' | 'split';
+
+// Picks the split shape from gender + frequency + leg-day choice. This is the
+// gender-specific layer the corpus established:
+//   women  → lower-biased; men → upper-biased; leg_days (men) sets leg frequency.
+//   days ≤3 → full-body (rotating emphasis); ≥4 → split.
+// See docs/routine-corpus/{mujer,hombre}/LOGIC.md.
+export function buildSplitGuidance(profile: AthleteProfile): {
+  strategy: SplitStrategy;
+  bias: 'lower' | 'upper' | 'balanced';
+  leg_days: number;
+  text: string;
+} {
+  const days = profile.days_per_week;
+  const strategy: SplitStrategy = days <= 3 ? 'full_body' : 'split';
+  if (profile.gender === 'female') {
+    const legDays = days <= 3 ? days : days >= 5 ? 3 : 2;
+    return {
+      strategy,
+      bias: 'lower',
+      leg_days: legDays,
+      text:
+        strategy === 'full_body'
+          ? `MUJER, ${days} días: FULL-BODY cada día (no PPL), con énfasis de tren inferior rotando entre Glúteos / Cuádriceps / Femorales. Hip Thrust es el principal estrella de glúteo. Cada día toca pierna + algo de tren superior (espalda/pecho/hombros) + core.`
+          : `MUJER, ${days} días: SPLIT con sesgo a tren inferior. Dedicá ${legDays} días a pierna (repartidos en énfasis Cuádriceps / Glúteos / Femorales) y el resto a tren superior (un día push: pecho/hombros/tríceps; un día pull: espalda/bíceps). Distribuí hombros y brazos entre los días; NO hagas un día de brazo puro. Hip Thrust como principal de glúteo. NUNCA PPL clásico.`,
+    };
+  }
+  if (profile.gender === 'male') {
+    const legDays = profile.leg_days ?? 1;
+    if (strategy === 'full_body') {
+      return {
+        strategy,
+        bias: 'upper',
+        leg_days: legDays,
+        text:
+          legDays >= 2
+            ? `HOMBRE, ${days} días, ${legDays} días de pierna: split con prioridad de pierna — un día de Cuádriceps (Sentadilla principal) y otro de Femorales (Peso Muerto principal), el día restante tren superior. SIN Hip Thrust; pierna centrada en sentadilla/peso muerto.`
+            : `HOMBRE, ${days} días, 1 día de pierna: usá PPL — Push (pecho/hombros/tríceps) / Pierna (cuádriceps+femoral+pantorrilla) / Pull (espalda/bíceps). Sesgo a tren superior. SIN Hip Thrust; pierna centrada en sentadilla/peso muerto.`,
+      };
+    }
+    return {
+      strategy,
+      bias: 'upper',
+      leg_days: legDays,
+      text: `HOMBRE, ${days} días, ${legDays} día(s) de pierna: SPLIT con sesgo a tren superior. Asigná ${legDays} día(s) a pierna (si son 2: uno Cuádriceps, otro Femorales) y el resto a push (pecho/hombros/tríceps) y pull (espalda/bíceps), repartiendo hombros y brazos. SIN Hip Thrust; pierna centrada en sentadilla/peso muerto. La emphasis general es pecho/espalda/hombros.`,
+    };
+  }
+  return {
+    strategy,
+    bias: 'balanced',
+    leg_days: days <= 3 ? days : 2,
+    text: `${days} días: ${strategy === 'full_body' ? 'full-body cada día con énfasis rotativo' : 'split balanceado entre tren superior e inferior'}.`,
+  };
+}
+
+const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON, replicando el estilo de un entrenador real.
 Reglas estrictas:
 - El array "days" DEBE tener EXACTAMENTE la cantidad N indicada en el mensaje del usuario como days_per_week. Ni más, ni menos. Si N=3, devolvé 3 días. Si N=4, devolvé 4 días. Esta regla es la más importante: violarla invalida toda la respuesta.
-- Cada día arranca con 2 slots role="calentamiento" (slot_index 1, 2) antes del trabajo principal. Elegí del muscle_group "Calentamiento" del catálogo. Sólo bajá a 1 calentamiento si exercise_minutes <= 30.
-- Cada día debe tener 2 slots role="principal" (compuestos pesados) después de los calentamientos. Sólo usá 1 principal si exercise_minutes <= 30 o el level del atleta es 'nunca'.
-- REGLA CRÍTICA de principales: si un día tiene 2 principales, DEBEN trabajar grupos musculares base distintos. El "grupo base" es la palabra antes del guión en muscle_group (ej. "Pecho - Mayor" → "Pecho", "Piernas - Cuadriceps" → "Piernas"). NO PUEDE haber dos principales con el mismo grupo base en un mismo día. Ejemplos OK: Sentadilla (Piernas) + Press Militar (Hombros); Press Plano (Pecho) + Remo con Barra (Espalda). Ejemplos KO: Press Plano (Pecho-Mayor) + Press Inclinado (Pecho-Superior); Sentadilla (Piernas-Cuadriceps) + Peso Muerto (Piernas-Femorales).
-- Después de los principales, agregá 3 a 5 slots role="accesorio" para completar grupos musculares y un slot de core/abs cuando exercise_minutes >= 60.
-- Templates típicos de split (inspirados en rutinas de entrenadores reales) — elegí en base a days_per_week y al goal:
-  · Push/bíceps: 1 principal de Pecho + accesorios de Pecho (subgrupos Mayor/Superior/Inferior) + 2-3 accesorios de Bíceps + 1 core. (Variante: 2 principales si exercise_minutes lo permite y el segundo es de otro grupo base, ej Pecho + Hombros).
-  · Pull/tríceps: 1 principal de Espalda + accesorios de Espalda (Dorsales, Trapecios) + 2-3 accesorios de Tríceps. Sin core si ya hay otros días con core.
-  · Piernas+hombros: 1 principal de Piernas + 1 principal de Hombros + accesorios de Femorales/Pantorrillas + 1 core.
-- Foco diario: cada día tiene 1 (a lo sumo 2) grupos base como protagonistas; los accesorios apuntan a esos grupos y/o complementarios (ej. pecho ↔ bíceps, espalda ↔ tríceps, piernas ↔ hombros).
+
+- ESTRUCTURA DEL SPLIT (depende de sexo + días + leg_days): seguí EXACTAMENTE el objeto "split_guidance" del mensaje del usuario. Resumen del criterio:
+  · days_per_week <= 3 → FULL-BODY cada día (cada día toca varias regiones), con énfasis rotativo. NO uses un split Push/Pull/Legs salvo que split_guidance lo indique explícitamente (sólo hombre con 1 día de pierna).
+  · days_per_week >= 4 → SPLIT (días enfocados por región).
+  · MUJER: sesgo a tren INFERIOR (glúteos/femoral/cuádriceps son prioridad). Hip Thrust es el principal estrella de glúteo. NUNCA PPL clásico.
+  · HOMBRE: sesgo a tren SUPERIOR (pecho/espalda/hombros/brazos). La cantidad de días de pierna la fija leg_days (1 o 2). Pierna centrada en Sentadilla/Peso Muerto; NO uses Hip Thrust como principal en hombre. Con 2 días de pierna: uno de Cuádriceps y otro de Femorales.
+  Respetá el "bias" y el "leg_days" de split_guidance al repartir los días.
+
+- CALENTAMIENTO intercalado: cada día arranca con 1-2 slots role="calentamiento" (del muscle_group "Calentamiento"). Si el día cruza de un bloque de tren inferior a uno de tren superior (o viceversa), poné un SEGUNDO calentamiento JUSTO ANTES del segundo bloque (no ambos al inicio). Si el día trabaja una sola región o exercise_minutes <= 30, usá 1 solo calentamiento al inicio.
+
+- PRINCIPALES: cada día debe tener entre 1 y 3 slots role="principal" (compuestos pesados, abren cada bloque muscular). Cantidad según cuántas regiones grandes toque el día (full-body suele tener 2-3; un día enfocado en 1 región suele tener 1-2). REGLA CRÍTICA: todos los principales de un mismo día DEBEN trabajar grupos base distintos. El "grupo base" es la palabra antes del guión en muscle_group (ej. "Pecho - Mayor" → "Pecho", "Piernas - Cuadriceps" → "Piernas"). NO puede haber dos principales con el mismo grupo base en un día. OK: Sentadilla (Piernas) + Press Militar (Hombros); Hip Thrust (Piernas) + Jalón (Espalda) + Press Militar (Hombros). KO: Press Plano (Pecho) + Press Inclinado (Pecho).
+
+- ACCESORIOS: después de cada principal agregá accesorios role="accesorio" que completen ese bloque muscular, bajando la intensidad (compuesto pesado → accesorio → aislado → finisher metabólico). Cerrá la mayoría de los días con 1-2 slots de core/abs cuando exercise_minutes >= 60.
+
 - Cantidad TOTAL de slots por día (calentamiento + principal + accesorio) según exercise_minutes:
-  · 30 min → 5 slots (1 calent + 1 princ + 3 acces)
-  · 45 min → 7 slots (2 calent + 2 princ + 3 acces)
-  · 60 min → 8-9 slots (2 calent + 2 princ + 4-5 acces, uno de ellos core)
-  · 75 min → 9-10 slots (2 calent + 2 princ + 5-6 acces, uno de ellos core)
-  · 90 min → 10-11 slots (2 calent + 2 princ + 6-7 acces, incluir core)
-  Este conteo es OBLIGATORIO: si exercise_minutes=60, NO devuelvas 6 slots; tenés que devolver 8 o 9.
+  · 30 min → 5-6 slots · 45 min → 6-8 · 60 min → 8-10 · 75 min → 9-11 · 90 min → 10-12.
+  Este conteo es OBLIGATORIO: si exercise_minutes=60, devolvé entre 8 y 10 slots.
+
 - slot_index empieza en 1 y es consecutivo.
-- El campo "role" SIEMPRE en español: usar exactamente "calentamiento", "principal" o "accesorio". Nunca "warmup", "accessory" ni "main".
+- El campo "role" SIEMPRE en español: exactamente "calentamiento", "principal" o "accesorio". Nunca "warmup", "accessory" ni "main".
 - Sólo podés usar exercise_id que aparezcan en el catálogo provisto.
 - No usar ejercicios contraindicados para las lesiones del atleta.
-- Distribuir grupos musculares para evitar repetir el mismo en días consecutivos.
-- Adaptar volumen (series/reps) según commitment (suave=menos series, exigente=más), pero NO reduzcas la cantidad de slots por commitment: el slot count lo manda exercise_minutes.
+- Evitá repetir el mismo grupo base como protagonista en días consecutivos (salvo que el sesgo del sexo lo requiera, ej. mujer con varios días de pierna).
 - Si training_mode='casa', priorizá ejercicios con equipment compatible (bw, mancuerna, elastico).
-- Campo "notes": indicación libre del coach por ejercicio (ej. "Disminuir peso cada 10 reps! son seguidas", "Aumentar peso al finalizar cada serie", "Hacer series de aproximación"). Usar null si no hay indicación.
+- Campo "notes": indicación del coach por ejercicio, derivada del tipo de serie cuando aplique: drop-set ("DISMINUIR PESO CADA 10 REPES"), pirámide ("AUMENTAR PESO AL FINALIZAR CADA SERIE"), principal pesado ("HACER SERIES DE APROXIMACIÓN"), o cue técnico ("CONTROLAR VELOCIDAD EN LA BAJADA"). Usar null si no hay indicación.
 - Devolver SIEMPRE el JSON con TODOS los campos del schema, incluido "rationale" (string no vacío) y "notes" en cada slot (string o null).`;
 
 export async function generateSkeleton(
@@ -64,6 +129,7 @@ export async function generateSkeleton(
   const N = profile.days_per_week;
   const minutes = profile.exercise_minutes ?? 60;
   const validIds = exercises.map((e) => e.id);
+  const split = buildSplitGuidance(profile);
   const userMessage = JSON.stringify({
     REQUIRED_DAYS_COUNT: N,
     note: `El array "days" debe tener exactamente ${N} elementos. Cualquier otra cantidad será rechazada.`,
@@ -72,18 +138,25 @@ export async function generateSkeleton(
     athlete: {
       gender: profile.gender, age: profile.age, height_cm: profile.height_cm,
       weight_kg: profile.weight_kg, level: profile.level, goal: profile.goal,
-      days_per_week: N, equipment: profile.equipment,
+      days_per_week: N, leg_days: profile.leg_days, equipment: profile.equipment,
       injuries: profile.injuries,
       training_mode: profile.training_mode,
       commitment: profile.commitment,
       exercise_minutes: minutes,
     },
+    split_guidance: {
+      strategy: split.strategy,
+      bias: split.bias,
+      leg_days: split.leg_days,
+      instruction: split.text,
+    },
     constraints: {
       days: N,
       slots_per_day: slotRangeFor(minutes),
-      principal_per_day: minutes <= 30 || profile.level === 'nunca'
-        ? { min: 1, max: 1 }
-        : { min: 2, max: 2 },
+      principal_per_day:
+        minutes <= 30 || profile.level === 'nunca'
+          ? { min: 1, max: 1 }
+          : { min: PRINCIPAL_MIN, max: PRINCIPAL_MAX },
       accessory_per_day_min: minutes >= 60 ? 4 : 3,
       include_core_when_minutes_gte_60: minutes >= 60,
     },
@@ -151,6 +224,10 @@ export async function generateSkeleton(
         lastError = `day ${day.day_index} sin principal`;
         allValid = false; break;
       }
+      if (principals.length > PRINCIPAL_MAX) {
+        lastError = `day ${day.day_index} tiene ${principals.length} principales; el máximo es ${PRINCIPAL_MAX}`;
+        allValid = false; break;
+      }
       if (
         day.slots.length < expectedRange.min ||
         day.slots.length > expectedRange.max
@@ -175,7 +252,7 @@ export async function generateSkeleton(
           const names = principals
             .map((s: { exercise_id: number }) => exerciseById.get(s.exercise_id)?.name ?? `id ${s.exercise_id}`)
             .join(', ');
-          lastError = `day ${day.day_index} tiene 2 principales del mismo grupo base (${[...uniq].join('/')}): ${names}. Los principales deben trabajar grupos base distintos.`;
+          lastError = `day ${day.day_index} tiene principales del mismo grupo base (${[...uniq].join('/')}): ${names}. Los principales deben trabajar grupos base distintos.`;
           allValid = false; break;
         }
       }

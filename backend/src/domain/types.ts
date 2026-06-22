@@ -28,6 +28,11 @@ export interface AthleteProfile {
   level: Level;
   goal: Goal;
   days_per_week: number;
+  // Men only: how many of the weekly sessions are leg days (1 or 2). Chosen by
+  // the athlete in onboarding — it reshapes the whole split (see
+  // docs/routine-corpus/hombre/LOGIC.md, H0). Null for women (their split is
+  // lower-biased implicitly) and legacy profiles.
+  leg_days: number | null;
   equipment: Equipment;
   injuries: string[];
   coach_id: string | null;

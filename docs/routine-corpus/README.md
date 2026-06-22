@@ -49,7 +49,7 @@ routine-corpus/
 | M2 | RIR per slot-role; intensity descends through a muscle block (2→1→-) | **confirmed (both)** | ♀+♂ all |
 | M3 | Rest by role (2-3 / 2 / 1:45-2 / 1:30 / 1 min) | **confirmed (both)** | ♀+♂ all |
 | M4 | Comentario = scheme-rule ⊕ exercise-cue, not free text | **confirmed (both)** | ♀+♂ all |
-| M5 | Warmup count = (lower↔upper transitions) + 1; contextual warmups | **confirmed (both)** | ♀+♂ all |
+| M5 | Warmup count = (lower↔upper transitions) + 1; contextual warmups | **✅ applied (prompt)** | ♀+♂ all |
 | M6 | Schemes already match progression-helpers; generator is the missing half | n/a (code fact) | — |
 | M7 | Cardio = HIIT finisher (♀) or steady-state leg-day slot (♂); time label = cardio budget | **confirmed (both)** | ♀001,005 ♂001,003,005 |
 
@@ -57,48 +57,53 @@ routine-corpus/
 
 | # | Pattern | Status | Samples |
 |---|---------|--------|---------|
-| W1 | days ≤3 ⇒ full-body rotating emphasis; ≥4 ⇒ **lower-biased split** (never PPL) | **confirmed + threshold** | 001-005 |
+| W1 | days ≤3 ⇒ full-body rotating emphasis; ≥4 ⇒ **lower-biased split** (never PPL) | **✅ applied** | 001-005 |
 | W1b | Lower-day count scales: 4d→2 lower, 5d→3 lower; upper stays ~2 | **confirmed** | 003,004,005 |
 | W1c | Split day-pairing **varies** between plans (003≠005) → codify the bias, not a fixed template | **confirmed** | 003 vs 005 |
-| W2 | Day opens with `3×6a8` RIR2 compound (Hip Thrust/Sentadilla/PM/Press/Jalón); 1-3 principals/day | **confirmed** | 001-005 |
+| W2 | Day opens with a heavy compound; 1-3 principals/day | **✅ applied (range)** | 001-005 |
 | W3 | Hip Thrust is the staple glute principal; glutes/hams prioritized | **confirmed** | 001-005 |
 
 ### Men-specific (→ hombre/LOGIC.md)
 
 | # | Pattern | Status | Samples |
 |---|---------|--------|---------|
-| H0 | **Leg-day count is a USER CHOICE** (1 vs 2 leg days) — needs a new profile input | **confirmed** | ♂001-006 (variant pairs) |
-| H1 | Split by (frequency × leg-choice): 3d/1leg = **PPL**; men **upper-biased** by default | **confirmed** | ♂001-006 |
+| H0 | **Leg-day count is a USER CHOICE** (1 vs 2 leg days) — new `leg_days` field | **✅ applied** | ♂001-006 (variant pairs) |
+| H1 | Split by (frequency × leg-choice): 3d/1leg = **PPL**; men **upper-biased** by default | **✅ applied** | ♂001-006 |
 | H2 | 2 leg days → quad-day + ham-day; 1 leg day → one full-leg day | **confirmed** | ♂ all |
-| H3 | **No Hip Thrust**; legs are squat/deadlift-centric; emphasis = chest/delts/back/arms | **confirmed** | ♂ all |
+| H3 | **No Hip Thrust** (men); legs squat/deadlift-centric | **✅ applied (prompt)** | ♂ all |
 | H4 | Steady-state cardio embedded as a leg-day slot (1-leg variants) | **confirmed** | ♂001,003,005 |
 
 **Men vs Women**: women lower-biased (glute/ham, Hip Thrust, no leg-choice);
 men upper-biased (chest/delt/back, squat/deadlift legs, leg-count is user choice).
 
-## Codification gate — OPEN (both genders covered)
-Eligible to fold into the generator now:
-- **M1-M7** (shared mechanics) — gender-neutral, confirmed ♀+♂, safe.
-- **Women W1/W1b** (≤3 full-body, ≥4 lower-biased split).
-- **Men H1/H2/H3** (split by frequency×leg-choice, upper-biased, no Hip Thrust).
-- Codify the **bias + leg rules**, NOT fixed day-pairing templates (W1c/H1 both
-  show pairings vary between plans).
+## Codification status
 
-### Generator changes this implies (`openai.service.ts`)
-1. Branch split logic by **gender**: ♀ lower-biased, ♂ upper-biased. Today it
-   builds one PPL template for everyone. [:37-40]
-2. ≤3 days → full-body (♀) / PPL-or-full-body (♂); ≥4 → split. Not always PPL. [:37-40]
-3. Principal cap = exactly 2 → range **1-3**. [:168]
-4. Warmups clustered at start → **interleave** by region transition. [:33]
-5. Slot count off `exercise_minutes` → coach holds session ~constant (8-10),
-   varies cardio. Reconsider `slotRangeFor`. [slotRangeFor]
-6. Assign **set-scheme + RIR + rest + comentario by role** at generation time
-   (M1-M5) — today the skeleton has none of this; periodization fills it globally.
+### ✅ APPLIED (branch `feat/gender-aware-routine-generation`)
+Implemented in `backend/src/services/openai.service.ts` (`buildSplitGuidance` +
+rewritten `SYSTEM_PROMPT` + validators) and the H0 data-model plumbing:
+1. **Gender-aware split** (W1, H1): `buildSplitGuidance(profile)` → ♀ lower-biased,
+   ♂ upper-biased; days ≤3 full-body / ≥4 split; men 3d/1-leg = PPL. Passed to the
+   model as `split_guidance` + enforced via the prompt.
+2. **H0 leg_days**: new `leg_days` (1|2, nullable) — `AthleteProfile` type,
+   `onboardingPayload` + `profileUpdatePayload`, migration `037_leg_days.sql`,
+   onboarding INSERT. Drives the men split.
+3. **Principal range 1-3** (P3/W2): validator cap raised from exactly-2 to 1-3,
+   distinct-base-group rule kept.
+4. **Interleaved warmups** (M5): prompt now places a 2nd warmup before a
+   lower↔upper transition instead of clustering at the start.
+5. **slotRangeFor widened** to the real ~8-10 (60min) corpus range.
+6. **notes guidance** (M4 partial): prompt derives comentario from set-scheme.
 
-### Product gap (needs schema + onboarding work, not just the prompt)
-- **H0 — men need a `leg_days` preference (1 vs 2)**. No such field exists in
-  `AthleteProfile`. Women don't need it (lower-bias implicit). This is the one
-  finding that touches the data model / onboarding, not only the generator.
+### ⏳ DEFERRED — next phase (bigger change, schema + engine)
+- **M1-M3 + M5-reps (set-scheme + RIR + rest assigned per slot-role at generation
+  time)**. Today the skeleton carries only exercise+role+notes; reps/series/RIR/
+  descanso come from `periodization_config` per block (global), applied in
+  `engine.service`. Per-role schemes need either per-slot scheme storage or
+  engine-side derivation by role — a separate feature, not done in this branch.
+- **M7 cardio** as a first-class block/slot (HIIT finisher ♀ / steady-state ♂).
+- Day-pairing stays model-driven (W1c/H1: pairings vary), not hardcoded.
 
-**All structural patterns now confirmed across both genders. Pending coach
-go-ahead to start codifying.**
+### Frontend follow-up (not in this branch)
+- The onboarding app must collect **`leg_days` (1 or 2) for men** and send it in
+  the `/onboarding/complete` payload. Backend accepts it (optional, nullable);
+  until the app sends it, men default to 1 leg day (PPL-leaning).

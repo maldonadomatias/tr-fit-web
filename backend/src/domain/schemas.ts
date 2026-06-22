@@ -20,6 +20,9 @@ export const onboardingPayload = z.object({
   level: z.enum(['nunca', 'bajo', 'medio', 'avanzado', 'muy_avanzado']),
   goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
   days_per_week: z.number().int().min(2).max(6),
+  // Men choose 1 or 2 leg days; this drives the split shape. Women omit it
+  // (their split is lower-biased by default). Optional + nullable for legacy.
+  leg_days: z.union([z.literal(1), z.literal(2)]).nullish(),
   equipment: z.enum(['gym_completo', 'gym_basico', 'casa_basica', 'solo_bw']),
   injuries: z.array(z.string()).default([]),
   phone: z.string().regex(/^\+\d{10,15}$/),
@@ -45,6 +48,9 @@ export const onboardingPayload = z.object({
 }).refine((d) => new Set(d.days_specific).size === d.days_specific.length, {
   message: 'days_specific must not contain duplicates',
   path: ['days_specific'],
+}).refine((d) => d.leg_days == null || d.leg_days <= d.days_per_week, {
+  message: 'leg_days must not exceed days_per_week',
+  path: ['leg_days'],
 });
 
 export type MeasurementPayload = z.infer<typeof measurementPayload>;
@@ -64,12 +70,20 @@ export const profileUpdatePayload = z
     weight_kg: z.number().min(30).max(250),
     goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
     days_per_week: z.number().int().min(2).max(6),
+    leg_days: z.union([z.literal(1), z.literal(2)]).nullable(),
   })
   .partial()
   .strict()
   .refine((d) => Object.keys(d).length > 0, {
     message: 'at least one field required',
-  });
+  })
+  .refine(
+    (d) =>
+      d.leg_days == null ||
+      d.days_per_week == null ||
+      d.leg_days <= d.days_per_week,
+    { message: 'leg_days must not exceed days_per_week', path: ['leg_days'] },
+  );
 
 export type ProfileUpdatePayload = z.infer<typeof profileUpdatePayload>;
 
