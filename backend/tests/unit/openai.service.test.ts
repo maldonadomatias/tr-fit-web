@@ -66,7 +66,16 @@ const exercises = [
   ex(4, 'Sentadilla con Barra', 'Piernas - Cuadriceps', true),
   ex(5, 'Movimiento Articular', 'Calentamiento', false),
   ex(6, 'Press Militar', 'Hombros', true),
+  // Accessory pool spread across distinct base muscles so padded days stay
+  // under the per-muscle volume cap (≤10 working series / base muscle / day).
+  ex(7, 'Extensión Triceps en Polea', 'Triceps', false),
+  ex(8, 'Elevaciones Laterales', 'Hombros - Lateral', false),
+  ex(9, 'Curl Femoral Acostado', 'Piernas - Femoral', false),
 ];
+
+// Accessory exercise_ids cycled when padding a day. Distinct base muscles keep
+// any single muscle's series under the cap.
+const ACCESSORY_IDS = [2, 7, 8, 9];
 
 // Build a day with `principalIds` principals + accessories padded to `total`
 // slots (default 8, valid for the 60-min range 8-10).
@@ -86,8 +95,10 @@ const mkDay = (
     slot_index: i + 1, exercise_id: id, role: 'principal', notes: null,
   }));
   while (slots.length < total) {
+    const accIdx = slots.length - principalIds.length;
     slots.push({
-      slot_index: slots.length + 1, exercise_id: 2,
+      slot_index: slots.length + 1,
+      exercise_id: ACCESSORY_IDS[accIdx % ACCESSORY_IDS.length],
       role: 'accesorio', notes: null,
     });
   }
@@ -169,6 +180,45 @@ it('rejects two principals sharing a base group', async () => {
     days: [mkDay(1, [1, 1]), mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
   }));
   await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
+});
+
+it('rejects a day exceeding 10 working series for one muscle', async () => {
+  // 1 principal + 7 biceps accessories → biceps = 7×2 = 14 series (> 10).
+  const accSlots = Array.from({ length: 7 }, (_, i) => ({
+    slot_index: i + 2, exercise_id: 2, role: 'accesorio' as const, notes: null,
+  }));
+  const heavyBiceps = {
+    day_index: 1, focus: 'f',
+    slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }, ...accSlots],
+  };
+  openaiMod.__mockParse.mockResolvedValue(ok({
+    rationale: 'r',
+    days: [heavyBiceps, mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
+  }));
+  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow(/series/);
+});
+
+it('rejects a day exceeding 20 total working series', async () => {
+  // 3 principals (9 series) + 6 accessories spread across muscles (12 series)
+  // = 21 total (> 20), while no single muscle breaks the per-muscle cap.
+  const accSlots = Array.from({ length: 6 }, (_, i) => ({
+    slot_index: i + 4, exercise_id: ACCESSORY_IDS[i % ACCESSORY_IDS.length],
+    role: 'accesorio' as const, notes: null,
+  }));
+  const heavyDay = {
+    day_index: 1, focus: 'f',
+    slots: [
+      { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null },
+      { slot_index: 2, exercise_id: 3, role: 'principal' as const, notes: null },
+      { slot_index: 3, exercise_id: 4, role: 'principal' as const, notes: null },
+      ...accSlots,
+    ],
+  };
+  openaiMod.__mockParse.mockResolvedValue(ok({
+    rationale: 'r',
+    days: [heavyDay, mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
+  }));
+  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow(/series/);
 });
 
 it('includes commitment + training_mode + exercise_minutes in user prompt', async () => {

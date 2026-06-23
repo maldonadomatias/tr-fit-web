@@ -36,6 +36,14 @@ function broadMuscleGroup(mg: string): string {
 const PRINCIPAL_MIN = 1;
 const PRINCIPAL_MAX = 3;
 
+// Volume caps ("ley de entrenamiento"). Working-series count per day uses 3
+// sets per principal (week-1 hypertrophy base) and each accessory's own series
+// (2 by default); warmups are excluded.
+const PRINCIPAL_SERIES_FOR_VOLUME = 3;
+const ACCESSORY_SERIES_DEFAULT = 2;
+const MAX_SERIES_PER_MUSCLE_PER_DAY = 10;
+const MAX_SERIES_PER_DAY = 20;
+
 export type SplitStrategy = 'full_body' | 'split';
 
 // Picks the split shape from gender + frequency + leg-day choice. This is the
@@ -108,16 +116,18 @@ Reglas estrictas:
 
 - ACCESORIOS: después de cada principal agregá accesorios role="accesorio" que completen ese bloque muscular, bajando la intensidad (compuesto pesado → accesorio → aislado → finisher metabólico). Cerrá la mayoría de los días con 1-2 slots de core/abs cuando exercise_minutes >= 60.
 
-- PRESCRIPCIÓN POR ACCESORIO (campos "series", "reps", "descanso"): en CADA slot role="accesorio" completá estos 3 campos según el tipo de serie. En slots role="principal" y role="calentamiento" dejalos en null (esos usan su propia periodización). Esquemas típicos del entrenador:
-  · Accesorio compuesto/efectivo: series 2-3, reps "8" o "8 a 10" o "10 a 12", descanso "1:45 a 2 min".
+- PRESCRIPCIÓN POR ACCESORIO (campos "series", "reps", "descanso"): en CADA slot role="accesorio" completá estos 3 campos según el tipo de serie. En slots role="principal" y role="calentamiento" dejalos en null (esos usan su propia periodización). Arrancamos CONSERVADOR: pocas series y reps bajas; el sistema progresa las reps solo cuando el atleta completa todas las series. Esquemas típicos del entrenador:
+  · Accesorio compuesto/efectivo (por defecto): series 2, reps "6 a 8", descanso "1:45 a 2 min".
   · Finisher metabólico (drop-set, último accesorio del bloque): series 2, reps "10x10x10", descanso "2 min".
-  · Pirámide: series 2-3, reps "10 - 8 - 6", descanso "1:45 a 2 min".
-  · Core/abs: series 3, reps "10" o "30 seg" o "30 seg + 10 cad", descanso "1 min".
+  · Pirámide: series 2, reps "10 - 8 - 6", descanso "1:45 a 2 min".
+  · Core/abs: series 2, reps "10" o "30 seg" o "30 seg + 10 cad", descanso "1 min".
   Bajá la intensidad a lo largo del bloque: el primer accesorio más pesado/efectivo, el último un finisher "10x10x10".
 
 - Cantidad TOTAL de slots por día (calentamiento + principal + accesorio) según exercise_minutes:
   · 30 min → 5-6 slots · 45 min → 6-8 · 60 min → 8-10 · 75 min → 9-11 · 90 min → 10-12.
   Este conteo es OBLIGATORIO: si exercise_minutes=60, devolvé entre 8 y 10 slots.
+
+- LÍMITES DE VOLUMEN (LEY DE ENTRENAMIENTO, OBLIGATORIO): contá las SERIES de trabajo por día. Cada principal hace 3 series; cada accesorio hace las series que le asignes (2 por defecto); el calentamiento NO cuenta. (a) Máximo 10 series por grupo muscular base por día (el "grupo base" es la palabra antes del guión en muscle_group, ej. "Pecho - Mayor" → "Pecho"). (b) Máximo 20 series de trabajo (principal + accesorio) por día. Si te pasás de cualquiera de los dos topes, quitá accesorios o bajá series. Preferimos arrancar con poco volumen.
 
 - slot_index empieza en 1 y es consecutivo.
 - El campo "role" SIEMPRE en español: exactamente "calentamiento", "principal" o "accesorio". Nunca "warmup", "accessory" ni "main".
@@ -262,6 +272,37 @@ export async function generateSkeleton(
           lastError = `day ${day.day_index} tiene principales del mismo grupo base (${[...uniq].join('/')}): ${names}. Los principales deben trabajar grupos base distintos.`;
           allValid = false; break;
         }
+      }
+
+      // Volume caps (ley de entrenamiento): ≤10 working series per base muscle
+      // per day and ≤20 working series total per day. Warmups don't count.
+      const seriesByMuscle = new Map<string, number>();
+      let daySeries = 0;
+      for (const s of day.slots as Array<{
+        role: string;
+        exercise_id: number;
+        series: number | null;
+      }>) {
+        if (s.role === 'calentamiento') continue;
+        const series =
+          s.role === 'principal'
+            ? PRINCIPAL_SERIES_FOR_VOLUME
+            : s.series ?? ACCESSORY_SERIES_DEFAULT;
+        daySeries += series;
+        const ex = exerciseById.get(s.exercise_id);
+        const g = ex ? broadMuscleGroup(ex.muscle_group) : 'otros';
+        seriesByMuscle.set(g, (seriesByMuscle.get(g) ?? 0) + series);
+      }
+      if (daySeries > MAX_SERIES_PER_DAY) {
+        lastError = `day ${day.day_index} tiene ${daySeries} series de trabajo; el máximo es ${MAX_SERIES_PER_DAY} por día.`;
+        allValid = false; break;
+      }
+      const overMuscle = [...seriesByMuscle.entries()].find(
+        ([, n]) => n > MAX_SERIES_PER_MUSCLE_PER_DAY,
+      );
+      if (overMuscle) {
+        lastError = `day ${day.day_index}: el grupo "${overMuscle[0]}" tiene ${overMuscle[1]} series; el máximo es ${MAX_SERIES_PER_MUSCLE_PER_DAY} por músculo por día.`;
+        allValid = false; break;
       }
     }
     if (!allValid) {
