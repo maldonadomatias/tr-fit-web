@@ -6,6 +6,9 @@ export type SlotOverridePayload = {
   slot_id: string;
   exercise_id: number;
   notes?: string;
+  series?: number | null;
+  reps?: string | null;
+  descanso?: string | null;
 };
 
 export type SlotOrderPayload = {
@@ -35,6 +38,7 @@ export function useApproveRutina() {
             id: string;
             slot_overrides?: SlotOverridePayload[];
             slot_order?: SlotOrderPayload[];
+            deleted_slot_ids?: string[];
           },
     ) => {
       const id = typeof args === 'string' ? args : args.id;
@@ -44,6 +48,7 @@ export function useApproveRutina() {
           : {
               slot_overrides: args.slot_overrides ?? [],
               slot_order: args.slot_order ?? [],
+              deleted_slot_ids: args.deleted_slot_ids ?? [],
             };
       await api.post(`/admin/rutinas/${id}/approve`, body);
     },

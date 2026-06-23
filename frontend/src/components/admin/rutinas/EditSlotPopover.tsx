@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Pencil, Search } from 'lucide-react';
+import { Check, Pencil, Search, Trash2 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useExercisesSearch } from '@/hooks/useAdminExercises';
-import type { Exercise } from '@/types/api';
+import type { Exercise, RutinaSlot } from '@/types/api';
 import { cn } from '@/lib/utils';
 
 export type SlotOverride = {
@@ -16,25 +16,45 @@ export type SlotOverride = {
   exercise_name: string;
   muscle_group: string;
   notes?: string;
+  // Per-slot set scheme (accessories only). null clears back to periodization.
+  series?: number | null;
+  reps?: string | null;
+  descanso?: string | null;
 };
 
 export function EditSlotPopover({
+  role,
   currentExerciseId,
   currentExerciseName,
   currentMuscleGroup,
   currentNotes,
+  currentSeries,
+  currentReps,
+  currentDescanso,
   onSave,
+  onDelete,
 }: {
+  role: RutinaSlot['role'];
   currentExerciseId: number;
   currentExerciseName: string;
   currentMuscleGroup?: string;
   currentNotes?: string;
+  currentSeries?: number | null;
+  currentReps?: string | null;
+  currentDescanso?: string | null;
   onSave: (payload: SlotOverride) => void;
+  onDelete: () => void;
 }) {
+  // Set scheme is only meaningful for accessories at runtime; principals and
+  // warmups follow the week's periodization, so we don't expose those fields.
+  const editableScheme = role === 'accesorio';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(currentExerciseName);
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [notes, setNotes] = useState(currentNotes ?? '');
+  const [series, setSeries] = useState(currentSeries != null ? String(currentSeries) : '');
+  const [reps, setReps] = useState(currentReps ?? '');
+  const [descanso, setDescanso] = useState(currentDescanso ?? '');
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -42,9 +62,12 @@ export function EditSlotPopover({
       setQuery(currentExerciseName);
       setSelected(null);
       setNotes(currentNotes ?? '');
+      setSeries(currentSeries != null ? String(currentSeries) : '');
+      setReps(currentReps ?? '');
+      setDescanso(currentDescanso ?? '');
       setTimeout(() => searchRef.current?.focus(), 30);
     }
-  }, [open, currentExerciseName, currentNotes]);
+  }, [open, currentExerciseName, currentNotes, currentSeries, currentReps, currentDescanso]);
 
   const { data: results = [] } = useExercisesSearch(query, {
     enabled: open,
@@ -54,13 +77,21 @@ export function EditSlotPopover({
   function commit() {
     const ex =
       selected ?? results.find((r) => r.name === query.trim()) ?? null;
+    const scheme = editableScheme
+      ? {
+          series: series.trim() ? Number(series) : null,
+          reps: reps.trim() || null,
+          descanso: descanso.trim() || null,
+        }
+      : {};
     if (!ex) {
-      // user kept current name; save only notes change
+      // user kept current name; save only notes / scheme change
       onSave({
         exercise_id: currentExerciseId,
         exercise_name: currentExerciseName,
         muscle_group: currentMuscleGroup ?? '',
         notes: notes.trim() || undefined,
+        ...scheme,
       });
     } else {
       onSave({
@@ -68,8 +99,15 @@ export function EditSlotPopover({
         exercise_name: ex.name,
         muscle_group: ex.muscle_group,
         notes: notes.trim() || undefined,
+        ...scheme,
       });
     }
+    setOpen(false);
+  }
+
+  function handleDelete() {
+    if (!confirm('¿Eliminar este ejercicio de la rutina?')) return;
+    onDelete();
     setOpen(false);
   }
 
@@ -144,6 +182,56 @@ export function EditSlotPopover({
           </ul>
         </div>
 
+        {editableScheme ? (
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Series
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={6}
+                value={series}
+                onChange={(e) => setSeries(e.target.value)}
+                placeholder="3"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Reps
+              </label>
+              <input
+                type="text"
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
+                placeholder="8 a 10 · 10x10x10 · 10 - 8 - 6"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="col-span-3">
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Descanso
+              </label>
+              <input
+                type="text"
+                value={descanso}
+                onChange={(e) => setDescanso(e.target.value)}
+                placeholder="Ej: 1:30 a 2 min"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <p className="col-span-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
+              Vacío = usa la periodización de la semana. Superserie: 10x10x10 · Pirámide: 10 - 8 - 6.
+            </p>
+          </div>
+        ) : (
+          <p className="rounded-md border border-border bg-muted/30 px-2.5 py-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+            Series, reps y descanso de los ejercicios principales los define la periodización de la semana.
+          </p>
+        )}
+
         <div>
           <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Notas (opcional)
@@ -156,18 +244,30 @@ export function EditSlotPopover({
           />
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex items-center justify-between gap-2">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => setOpen(false)}
+            onClick={handleDelete}
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
-            Cancelar
+            <Trash2 size={13} className="mr-1" />
+            Eliminar
           </Button>
-          <Button type="button" size="sm" onClick={commit}>
-            Guardar
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" size="sm" onClick={commit}>
+              Guardar
+            </Button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>

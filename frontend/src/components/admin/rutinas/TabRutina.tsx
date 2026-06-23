@@ -19,17 +19,30 @@ const DAY_LABEL: Record<string, string> = {
 
 type DayCode = keyof typeof DAY_LABEL;
 
-/** Series × reps prescription for a slot, derived from the week config. */
+/**
+ * Resolved set scheme for a slot. Accessories use their per-slot prescription
+ * (or the admin's local edit) and fall back to the week config; principals and
+ * warmups always follow the week config.
+ */
 function prescription(
-  role: RutinaSlot['role'],
+  s: RutinaSlot,
+  ov: SlotOverride | undefined,
   cfg: RutinaPeriodization | null,
-): string | null {
-  if (role === 'calentamiento') return '2 series';
+): { sets: string; descanso: string | null } | null {
+  if (s.role === 'calentamiento') return { sets: '2 series', descanso: null };
   if (!cfg) return null;
-  if (role === 'principal') {
-    return `${cfg.principal_series} × ${cfg.principal_reps}`;
+  if (s.role === 'principal') {
+    return {
+      sets: `${cfg.principal_series} × ${cfg.principal_reps}`,
+      descanso: cfg.principal_descanso ?? null,
+    };
   }
-  return `${cfg.accesorio_series} × ${cfg.accesorio_reps}`;
+  // accesorio: an active override fully replaces the slot's stored scheme.
+  const edited = ov && 'series' in ov;
+  const series = (edited ? ov!.series : s.series) ?? cfg.accesorio_series;
+  const reps = (edited ? ov!.reps : s.reps) ?? cfg.accesorio_reps;
+  const descanso = (edited ? ov!.descanso : s.descanso) ?? cfg.accesorio_descanso;
+  return { sets: `${series} × ${reps}`, descanso: descanso ?? null };
 }
 
 export function TabRutina({
@@ -38,12 +51,14 @@ export function TabRutina({
   periodization,
   overrides,
   onOverride,
+  onDelete,
 }: {
   slots: RutinaSlot[];
   daysSpecific?: DayCode[] | null;
   periodization: RutinaPeriodization | null;
   overrides: Record<string, SlotOverride>;
   onOverride: (slotId: string, payload: SlotOverride) => void;
+  onDelete: (slotId: string) => void;
 }) {
   // Preserve incoming array order (the parent owns it); group by day.
   const byDay = new Map<number, RutinaSlot[]>();
@@ -97,6 +112,7 @@ export function TabRutina({
                     periodization={periodization}
                     override={overrides[s.id]}
                     onOverride={onOverride}
+                    onDelete={onDelete}
                   />
                 ))}
               </ul>
@@ -113,11 +129,13 @@ function SlotRow({
   periodization,
   override: ov,
   onOverride,
+  onDelete,
 }: {
   slot: RutinaSlot;
   periodization: RutinaPeriodization | null;
   override: SlotOverride | undefined;
   onOverride: (slotId: string, payload: SlotOverride) => void;
+  onDelete: (slotId: string) => void;
 }) {
   const {
     attributes,
@@ -136,7 +154,7 @@ function SlotRow({
   const name = ov?.exercise_name ?? s.exercise_name ?? 'Ejercicio sin nombre';
   const muscle = ov?.muscle_group ?? s.muscle_group;
   const isModified = !!ov;
-  const presc = prescription(s.role, periodization);
+  const presc = prescription(s, ov, periodization);
 
   return (
     <li
@@ -166,8 +184,15 @@ function SlotRow({
         )}
       </span>
       {presc && (
-        <span className="whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] tabular-nums text-foreground">
-          {presc}
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="whitespace-nowrap rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] tabular-nums text-foreground">
+            {presc.sets}
+          </span>
+          {presc.descanso && (
+            <span className="whitespace-nowrap font-mono text-[10px] text-muted-foreground">
+              ⏱ {presc.descanso}
+            </span>
+          )}
         </span>
       )}
       {muscle && (
@@ -185,11 +210,16 @@ function SlotRow({
         {s.role}
       </span>
       <EditSlotPopover
+        role={s.role}
         currentExerciseId={ov?.exercise_id ?? s.exercise_id}
         currentExerciseName={name}
         currentMuscleGroup={muscle}
         currentNotes={ov?.notes}
+        currentSeries={(ov && 'series' in ov ? ov.series : s.series) ?? null}
+        currentReps={(ov && 'reps' in ov ? ov.reps : s.reps) ?? null}
+        currentDescanso={(ov && 'descanso' in ov ? ov.descanso : s.descanso) ?? null}
         onSave={(payload) => onOverride(s.id, payload)}
+        onDelete={() => onDelete(s.id)}
       />
     </li>
   );

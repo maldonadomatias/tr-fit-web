@@ -95,11 +95,16 @@ export async function listSlots(skeletonId: string): Promise<SkeletonSlot[]> {
 
 export interface ApproveSkeletonOptions {
   startDate?: Date;
-  /** Exercise/notes edits made by the admin before approving. */
+  /** Exercise/notes/set-scheme edits made by the admin before approving. */
   slotOverrides?: {
     slot_id: string;
     exercise_id: number;
     notes?: string | null;
+    // Per-slot set scheme (accessories only at runtime). When a key is present
+    // it is written as-is; null clears it back to the periodization default.
+    series?: number | null;
+    reps?: string | null;
+    descanso?: string | null;
   }[];
   /** Full reordering of the skeleton's slots (every slot, new day/index). */
   slotOrder?: {
@@ -107,6 +112,8 @@ export interface ApproveSkeletonOptions {
     day_of_week: number;
     slot_index: number;
   }[];
+  /** Slots removed by the admin before approving. */
+  deletedSlotIds?: string[];
 }
 
 export async function approveSkeleton(
@@ -128,15 +135,43 @@ export async function approveSkeleton(
     }
     const athleteId = sk.rows[0].athlete_id;
 
-    // Apply admin edits (exercise swap / notes) before reorder & seeding so
-    // downstream queries (weight seeding) see the final exercise set.
-    for (const ov of opts.slotOverrides ?? []) {
+    // Remove slots the admin deleted before any other edit so downstream
+    // reorder/seeding never sees them.
+    if (opts.deletedSlotIds && opts.deletedSlotIds.length > 0) {
       await client.query(
-        `UPDATE skeleton_slots
-            SET exercise_id = $1, notes = $2
-          WHERE id = $3 AND skeleton_id = $4`,
-        [ov.exercise_id, ov.notes ?? null, ov.slot_id, skeletonId],
+        `DELETE FROM skeleton_slots
+          WHERE id = ANY($1::uuid[]) AND skeleton_id = $2`,
+        [opts.deletedSlotIds, skeletonId],
       );
+    }
+
+    // Apply admin edits (exercise swap / notes / set scheme) before reorder &
+    // seeding so downstream queries (weight seeding) see the final exercise set.
+    for (const ov of opts.slotOverrides ?? []) {
+      // Only touch the set-scheme columns when the edit actually carried them
+      // (accessories); otherwise a plain swap/notes edit would wipe them.
+      const hasScheme =
+        'series' in ov || 'reps' in ov || 'descanso' in ov;
+      if (hasScheme) {
+        await client.query(
+          `UPDATE skeleton_slots
+              SET exercise_id = $1, notes = $2,
+                  series = $3, reps = $4, descanso = $5
+            WHERE id = $6 AND skeleton_id = $7`,
+          [
+            ov.exercise_id, ov.notes ?? null,
+            ov.series ?? null, ov.reps ?? null, ov.descanso ?? null,
+            ov.slot_id, skeletonId,
+          ],
+        );
+      } else {
+        await client.query(
+          `UPDATE skeleton_slots
+              SET exercise_id = $1, notes = $2
+            WHERE id = $3 AND skeleton_id = $4`,
+          [ov.exercise_id, ov.notes ?? null, ov.slot_id, skeletonId],
+        );
+      }
     }
 
     // Apply admin reordering. Delete + re-insert (preserving the final
