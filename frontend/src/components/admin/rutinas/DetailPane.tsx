@@ -58,6 +58,8 @@ export function DetailPane({
   const [overrides, setOverrides] = useState<Record<string, SlotOverride>>({});
   // Local reordering of slots; null = use server order untouched.
   const [order, setOrder] = useState<RutinaSlot[] | null>(null);
+  // Slots the admin removed locally before approving.
+  const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
@@ -67,15 +69,16 @@ export function DetailPane({
     setRejectOpen(false);
     setOverrides({});
     setOrder(null);
+    setDeleted(new Set());
   }, [id]);
 
   const orderedSlots = useMemo(
     () =>
-      order ??
-      [...(data?.slots ?? [])].sort(
-        (a, b) => a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
-      ),
-    [order, data],
+      (order ??
+        [...(data?.slots ?? [])].sort(
+          (a, b) => a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
+        )).filter((s) => !deleted.has(s.id)),
+    [order, data, deleted],
   );
 
   function handleDragEnd(e: DragEndEvent) {
@@ -150,25 +153,34 @@ export function DetailPane({
 
   async function onApprove() {
     try {
-      const slot_overrides = Object.entries(overrides).map(([slot_id, ov]) => ({
-        slot_id,
-        exercise_id: ov.exercise_id,
-        notes: ov.notes,
-      }));
-      // Reindex 1..N per day, preserving the local order.
+      const deleted_slot_ids = [...deleted];
+      const slot_overrides = Object.entries(overrides)
+        // A deleted slot's pending edits are irrelevant.
+        .filter(([slot_id]) => !deleted.has(slot_id))
+        .map(([slot_id, ov]) => ({
+          slot_id,
+          exercise_id: ov.exercise_id,
+          notes: ov.notes,
+          ...('series' in ov
+            ? { series: ov.series, reps: ov.reps, descanso: ov.descanso }
+            : {}),
+        }));
+      // Reindex 1..N per day, preserving local order and skipping deleted slots.
       const perDay = new Map<number, number>();
       const slot_order = order
-        ? order.map((s) => {
-            const idx = (perDay.get(s.day_of_week) ?? 0) + 1;
-            perDay.set(s.day_of_week, idx);
-            return {
-              slot_id: s.id,
-              day_of_week: s.day_of_week,
-              slot_index: idx,
-            };
-          })
+        ? order
+            .filter((s) => !deleted.has(s.id))
+            .map((s) => {
+              const idx = (perDay.get(s.day_of_week) ?? 0) + 1;
+              perDay.set(s.day_of_week, idx);
+              return {
+                slot_id: s.id,
+                day_of_week: s.day_of_week,
+                slot_index: idx,
+              };
+            })
         : undefined;
-      await approve.mutateAsync({ id, slot_overrides, slot_order });
+      await approve.mutateAsync({ id, slot_overrides, slot_order, deleted_slot_ids });
       toast.success('Rutina aprobada · pasando a la siguiente');
       onAdvance();
     } catch (e) {
@@ -200,6 +212,16 @@ export function DetailPane({
   function setOverride(slotId: string, payload: SlotOverride) {
     setOverrides((m) => ({ ...m, [slotId]: payload }));
     toast.success('Slot actualizado · cambios locales');
+  }
+
+  function deleteSlot(slotId: string) {
+    setDeleted((d) => new Set(d).add(slotId));
+    setOverrides((m) => {
+      const next = { ...m };
+      delete next[slotId];
+      return next;
+    });
+    toast.success('Ejercicio eliminado · cambios locales');
   }
 
   if (isLoading) {
@@ -238,12 +260,14 @@ export function DetailPane({
       <DetailHeader data={data} />
 
       <div className="flex-1 overflow-y-auto px-7 py-5">
-        {(modCount > 0 || order !== null) && (
+        {(modCount > 0 || order !== null || deleted.size > 0) && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
             <Pencil size={12} />
             Modificada por admin
             {modCount > 0 &&
               ` · ${modCount} cambio${modCount === 1 ? '' : 's'}`}
+            {deleted.size > 0 &&
+              ` · ${deleted.size} eliminado${deleted.size === 1 ? '' : 's'}`}
             {order !== null && ' · orden reordenado'}
           </div>
         )}
@@ -268,6 +292,7 @@ export function DetailPane({
                   periodization={data.periodization}
                   overrides={overrides}
                   onOverride={setOverride}
+                  onDelete={deleteSlot}
                 />
               </DndContext>
             </TabsContent>

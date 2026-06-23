@@ -47,6 +47,11 @@ export interface RutinaSlot {
   exercise_id: number;
   role: 'calentamiento' | 'principal' | 'accesorio';
   notes?: string | null;
+  // Per-slot set scheme (accessories). Null → falls back to periodization.
+  // reps holds free-form schemes like "10x10x10" (superserie) or "10 - 8 - 6".
+  series?: number | null;
+  reps?: string | null;
+  descanso?: string | null;
   exercise_name?: string;
   muscle_group?: string;
   equipment?: string;
@@ -70,8 +75,10 @@ export interface RutinaPeriodization {
   block_label: string;
   principal_series: number;
   principal_reps: string;
+  principal_descanso: string;
   accesorio_series: number;
   accesorio_reps: string;
+  accesorio_descanso: string;
 }
 
 export interface RutinaDetail {

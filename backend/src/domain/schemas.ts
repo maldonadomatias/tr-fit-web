@@ -112,6 +112,11 @@ export const skeletonApprovePayload = z.object({
         slot_id: z.string().uuid(),
         exercise_id: z.number().int().positive(),
         notes: z.string().max(2000).nullable().optional(),
+        // Per-slot set scheme (accessories only at runtime). Sent when the
+        // coach edits series/reps/descanso in the approval dashboard.
+        series: z.number().int().min(1).max(6).nullable().optional(),
+        reps: z.string().min(1).max(40).nullable().optional(),
+        descanso: z.string().min(1).max(40).nullable().optional(),
       }),
     )
     .max(200)
@@ -126,6 +131,8 @@ export const skeletonApprovePayload = z.object({
     )
     .max(200)
     .optional(),
+  // Slots the coach removed from the routine before approving.
+  deleted_slot_ids: z.array(z.string().uuid()).max(200).optional(),
 });
 
 export type SkeletonApprovePayload = z.infer<typeof skeletonApprovePayload>;

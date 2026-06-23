@@ -46,8 +46,8 @@ router.get('/:id', async (req, res) => {
   const week = stateR.rows[0]?.current_week ?? 1;
   const cfgR = await pool.query(
     `SELECT week_number, block_label,
-            principal_series, principal_reps,
-            accesorio_series, accesorio_reps
+            principal_series, principal_reps, principal_descanso,
+            accesorio_series, accesorio_reps, accesorio_descanso
        FROM periodization_config WHERE week_number = $1`,
     [week],
   );
@@ -63,6 +63,7 @@ router.post('/:id/approve', async (req, res) => {
   await approveSkeleton(req.params.id, req.user!.id, {
     slotOverrides: parsed.data.slot_overrides,
     slotOrder: parsed.data.slot_order,
+    deletedSlotIds: parsed.data.deleted_slot_ids,
   });
   pool
     .query<{ athlete_id: string }>(
