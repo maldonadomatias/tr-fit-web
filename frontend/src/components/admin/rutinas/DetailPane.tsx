@@ -25,6 +25,7 @@ import { useRutinasHotkeys } from '@/hooks/useRutinasHotkeys';
 import { DetailHeader } from './DetailHeader';
 import { RationaleCard } from './RationaleCard';
 import { TabRutina } from './TabRutina';
+import type { AddedSlotData } from './AddSlotPopover';
 import { TabContexto } from './TabContexto';
 import { TabHistorial } from './TabHistorial';
 import { TabDiff } from './TabDiff';
@@ -60,6 +61,8 @@ export function DetailPane({
   const [order, setOrder] = useState<RutinaSlot[] | null>(null);
   // Slots the admin removed locally before approving.
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
+  // Ids of brand-new slots the admin added locally (their data lives in `order`).
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
@@ -70,6 +73,7 @@ export function DetailPane({
     setOverrides({});
     setOrder(null);
     setDeleted(new Set());
+    setAddedIds(new Set());
   }, [id]);
 
   const orderedSlots = useMemo(
@@ -154,6 +158,19 @@ export function DetailPane({
   async function onApprove() {
     try {
       const deleted_slot_ids = [...deleted];
+      // Brand-new slots (data lives in `order`); server assigns the final index.
+      const added_slots = (order ?? [])
+        .filter((s) => addedIds.has(s.id) && !deleted.has(s.id))
+        .map((s) => ({
+          id: s.id,
+          day_of_week: s.day_of_week,
+          exercise_id: s.exercise_id,
+          role: s.role,
+          notes: s.notes ?? undefined,
+          series: s.series ?? null,
+          reps: s.reps ?? null,
+          descanso: s.descanso ?? null,
+        }));
       const slot_overrides = Object.entries(overrides)
         // A deleted slot's pending edits are irrelevant.
         .filter(([slot_id]) => !deleted.has(slot_id))
@@ -180,7 +197,13 @@ export function DetailPane({
               };
             })
         : undefined;
-      await approve.mutateAsync({ id, slot_overrides, slot_order, deleted_slot_ids });
+      await approve.mutateAsync({
+        id,
+        slot_overrides,
+        slot_order,
+        deleted_slot_ids,
+        added_slots,
+      });
       toast.success('Rutina aprobada · pasando a la siguiente');
       onAdvance();
     } catch (e) {
@@ -210,11 +233,49 @@ export function DetailPane({
   }
 
   function setOverride(slotId: string, payload: SlotOverride) {
+    // Added slots only exist locally (in `order`); fold edits into the slot
+    // itself rather than the server-override map.
+    if (addedIds.has(slotId)) {
+      const hasScheme = 'series' in payload;
+      setOrder((list) =>
+        (list ?? []).map((s) =>
+          s.id === slotId
+            ? {
+                ...s,
+                exercise_id: payload.exercise_id,
+                exercise_name: payload.exercise_name,
+                muscle_group: payload.muscle_group,
+                notes: payload.notes ?? null,
+                ...(hasScheme
+                  ? {
+                      series: payload.series ?? null,
+                      reps: payload.reps ?? null,
+                      descanso: payload.descanso ?? null,
+                    }
+                  : {}),
+              }
+            : s,
+        ),
+      );
+      toast.success('Slot actualizado · cambios locales');
+      return;
+    }
     setOverrides((m) => ({ ...m, [slotId]: payload }));
     toast.success('Slot actualizado · cambios locales');
   }
 
   function deleteSlot(slotId: string) {
+    // Removing a locally-added slot just drops it; it never hit the server.
+    if (addedIds.has(slotId)) {
+      setOrder((list) => (list ?? []).filter((s) => s.id !== slotId));
+      setAddedIds((s) => {
+        const next = new Set(s);
+        next.delete(slotId);
+        return next;
+      });
+      toast.success('Ejercicio eliminado · cambios locales');
+      return;
+    }
     setDeleted((d) => new Set(d).add(slotId));
     setOverrides((m) => {
       const next = { ...m };
@@ -222,6 +283,31 @@ export function DetailPane({
       return next;
     });
     toast.success('Ejercicio eliminado · cambios locales');
+  }
+
+  function addSlot(day: number, data: AddedSlotData) {
+    const dayCount = orderedSlots.filter((s) => s.day_of_week === day).length;
+    if (dayCount >= 12) {
+      toast.error('Un día no puede tener más de 12 ejercicios');
+      return;
+    }
+    const newSlot: RutinaSlot = {
+      id: crypto.randomUUID(),
+      day_of_week: day,
+      slot_index: 0, // reindexed server-side on approve
+      exercise_id: data.exercise_id,
+      role: 'accesorio',
+      notes: data.notes ?? null,
+      series: data.series ?? null,
+      reps: data.reps ?? null,
+      descanso: data.descanso ?? null,
+      exercise_name: data.exercise_name,
+      muscle_group: data.muscle_group,
+    };
+    // Seed `order` from the current view so the new slot has an explicit place.
+    setOrder([...orderedSlots, newSlot]);
+    setAddedIds((s) => new Set(s).add(newSlot.id));
+    toast.success('Ejercicio agregado · cambios locales');
   }
 
   if (isLoading) {
@@ -260,12 +346,17 @@ export function DetailPane({
       <DetailHeader data={data} />
 
       <div className="flex-1 overflow-y-auto px-7 py-5">
-        {(modCount > 0 || order !== null || deleted.size > 0) && (
+        {(modCount > 0 ||
+          order !== null ||
+          deleted.size > 0 ||
+          addedIds.size > 0) && (
           <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
             <Pencil size={12} />
             Modificada por admin
             {modCount > 0 &&
               ` · ${modCount} cambio${modCount === 1 ? '' : 's'}`}
+            {addedIds.size > 0 &&
+              ` · ${addedIds.size} agregado${addedIds.size === 1 ? '' : 's'}`}
             {deleted.size > 0 &&
               ` · ${deleted.size} eliminado${deleted.size === 1 ? '' : 's'}`}
             {order !== null && ' · orden reordenado'}
@@ -293,6 +384,7 @@ export function DetailPane({
                   overrides={overrides}
                   onOverride={setOverride}
                   onDelete={deleteSlot}
+                  onAdd={addSlot}
                 />
               </DndContext>
             </TabsContent>

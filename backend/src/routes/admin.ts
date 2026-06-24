@@ -17,6 +17,7 @@ import {
   listActivity,
   AdminError,
 } from '../services/admin.service.js';
+import { getLoggedSessions } from '../services/logged-sessions.service.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -121,6 +122,12 @@ router.get('/users/:id', async (req: Request, res: Response) => {
   const u = await getUser(req.params.id);
   if (!u) return res.status(404).json({ error: 'not_found' });
   res.json(u);
+});
+
+// Coach view of an athlete's logged training (dropsets grouped "3-2-1 lad").
+router.get('/users/:id/sessions', async (req: Request, res: Response) => {
+  const limit = Math.min(60, Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20));
+  res.json(await getLoggedSessions(req.params.id, limit));
 });
 
 const patchBody = z

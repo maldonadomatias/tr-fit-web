@@ -49,21 +49,22 @@ export async function syncSets(
     const r = await pool.query<{ id: string; synced_at: string }>(
       `INSERT INTO set_logs
          (athlete_id, exercise_id, week, day_of_week, set_index,
-          value, unit, reps, completed, rpe,
+          value, unit, reps, completed, rpe, drop_index,
           session_log_id, client_id, client_ts)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO UPDATE SET
          value = EXCLUDED.value,
          unit = EXCLUDED.unit,
          reps = EXCLUDED.reps,
          completed = EXCLUDED.completed,
          rpe = EXCLUDED.rpe,
+         drop_index = EXCLUDED.drop_index,
          client_ts = EXCLUDED.client_ts,
          synced_at = NOW()
        RETURNING id, synced_at`,
       [athleteId, set.exercise_id, session.program_week, session.day_of_week,
        set.set_index, set.value, set.unit, set.reps, set.completed,
-       set.rpe ?? null, sessionId, set.client_id, set.client_ts],
+       set.rpe ?? null, set.drop_index ?? null, sessionId, set.client_id, set.client_ts],
     );
     result.accepted.push({
       clientId: set.client_id,

@@ -9,7 +9,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     1, 'HIPERTROFIA BASE',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     0.75,
     30,
     false,
@@ -32,7 +32,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     2, 'HIPERTROFIA BASE',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     0.75,
     30,
     false,
@@ -55,7 +55,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     3, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     NULL,
     NULL,
     true,
@@ -78,7 +78,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     4, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     NULL,
     NULL,
     true,
@@ -101,7 +101,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     5, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     NULL,
     NULL,
     true,
@@ -124,7 +124,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     6, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     NULL,
     NULL,
     true,
@@ -147,7 +147,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     7, 'FUERZA SUBMÁXIMA',
     false, false, false,
-    3, '4 a 6', '2 a 3 min',
+    3, '4 a 6', '3 min',
     NULL,
     NULL,
     true,
@@ -193,7 +193,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     9, 'DESCARGA',
     false, true, false,
-    2, '2 a 3', '2 a 3 min',
+    2, '2 a 3', '3 min',
     0.8,
     30,
     false,
@@ -216,7 +216,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     10, 'TESTEO RM',
     true, false, false,
-    1, '1', '3 a 5 min',
+    1, '1', '5 min',
     NULL,
     NULL,
     false,
@@ -239,7 +239,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     11, 'HIPERTROFIA',
     false, false, false,
-    3, '8 a 10', '2 a 3 min',
+    3, '8 a 10', '3 min',
     0.72,
     10,
     false,
@@ -262,7 +262,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     12, 'HIPERTROFIA',
     false, false, false,
-    3, '8', '2 a 3 min',
+    3, '8', '3 min',
     0.75,
     10,
     false,
@@ -285,7 +285,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     13, 'TPO. BAJO TENSIÓN (BAJAR EN 2 SEG, MANTENER 1 SEG, SUBIR EN 1 SEG.)',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     0.65,
     10,
     false,
@@ -308,7 +308,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     14, 'FUERZA BASE',
     false, false, false,
-    3, '5', '2 a 3 min',
+    3, '5', '3 min',
     0.77,
     10,
     false,
@@ -331,7 +331,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     15, 'FUERZA',
     false, false, false,
-    4, '4', '2 a 3 min',
+    4, '4', '3 min',
     0.8,
     10,
     false,
@@ -400,7 +400,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     18, 'DESCARGA',
     false, true, false,
-    2, '2 a 3', '2 a 3 min',
+    2, '2 a 3', '3 min',
     0.8,
     10,
     false,
@@ -446,7 +446,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     20, 'TESTEO AMRAP',
     false, false, true,
-    1, 'AMRAP', '3 a 5 min',
+    1, 'AMRAP', '5 min',
     0.85,
     10,
     false,
@@ -469,7 +469,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     21, 'HIPERTROFIA',
     false, false, false,
-    3, '6', '2 a 3 min',
+    3, '6', '3 min',
     0.75,
     20,
     false,
@@ -492,7 +492,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     22, 'HIPERTROFIA',
     false, false, false,
-    3, '6', '2 a 3 min',
+    3, '6', '3 min',
     0.77,
     20,
     false,
@@ -515,7 +515,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     23, 'TPO. BAJO TENSIÓN (BAJAR EN 2 SEG, MANTENER 1 SEG, SUBIR EN 1 SEG.)',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     0.7,
     20,
     false,
@@ -538,7 +538,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     24, 'FUERZA BASE',
     false, false, false,
-    3, '6', '2 a 3 min',
+    3, '6', '3 min',
     0.78,
     20,
     false,
@@ -607,7 +607,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     27, 'DESCARGA',
     false, true, false,
-    2, '2 a 3', '2 a 3 min',
+    2, '2 a 3', '3 min',
     0.8,
     20,
     false,
@@ -630,7 +630,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     28, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '2 a 3 min',
+    3, '6 a 8', '3 min',
     0.75,
     20,
     false,
@@ -653,7 +653,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     29, 'DESCARGA - PRE RM',
     false, true, false,
-    2, '3', '3 a 5 min',
+    2, '3', '5 min',
     0.72,
     20,
     false,
@@ -676,7 +676,7 @@ INSERT INTO periodization_config (
   ) VALUES (
     30, 'TESTEO RM',
     true, false, false,
-    1, '1', '3 a 5 min',
+    1, '1', '5 min',
     NULL,
     NULL,
     false,

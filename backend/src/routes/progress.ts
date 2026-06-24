@@ -6,11 +6,23 @@ import {
   listRmHistory, listCompliance, listVolume,
   listRpeHistogram, listWeightVsSuggested,
 } from '../services/progress.service.js';
+import { getLoggedSessions } from '../services/logged-sessions.service.js';
 
 const router = Router();
 
 const weeksQuery = z.object({
   weeks: z.coerce.number().int().min(1).max(52).optional(),
+});
+
+const limitQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(60).optional(),
+});
+
+// What the athlete actually logged, session by session (dropsets grouped).
+router.get('/sessions', requireAuth, requireRole('athlete'), async (req, res) => {
+  const parsed = limitQuery.safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_query' });
+  res.json(await getLoggedSessions(req.user!.id, parsed.data.limit ?? 20));
 });
 
 router.get('/rms', requireAuth, requireRole('athlete'),

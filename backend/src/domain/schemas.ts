@@ -133,6 +133,24 @@ export const skeletonApprovePayload = z.object({
     .optional(),
   // Slots the coach removed from the routine before approving.
   deleted_slot_ids: z.array(z.string().uuid()).max(200).optional(),
+  // Brand-new slots the coach added in the approval dashboard. The client
+  // generates the uuid so the slot can be edited/reordered locally before
+  // approving; the server inserts it with that id ahead of reorder & seeding.
+  added_slots: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        day_of_week: z.number().int().min(1).max(7),
+        exercise_id: z.number().int().positive(),
+        role: z.enum(['calentamiento', 'principal', 'accesorio']),
+        notes: z.string().max(2000).nullable().optional(),
+        series: z.number().int().min(1).max(6).nullable().optional(),
+        reps: z.string().min(1).max(40).nullable().optional(),
+        descanso: z.string().min(1).max(40).nullable().optional(),
+      }),
+    )
+    .max(200)
+    .optional(),
 });
 
 export type SkeletonApprovePayload = z.infer<typeof skeletonApprovePayload>;
@@ -210,6 +228,8 @@ export type ResetPasswordPayload = z.infer<typeof resetPasswordPayload>;
 export const startSessionPayload = z.object({
   day_of_week: z.number().int().min(1).max(7),
   client_id: z.string().uuid(),
+  // Override the "already trained today" rest guard ("Entrenar de todas formas").
+  force: z.boolean().optional(),
 });
 
 export const setLogPayload = z.object({
@@ -220,6 +240,8 @@ export const setLogPayload = z.object({
   reps: z.number().int().min(0).max(100).nullable(),
   completed: z.boolean(),
   rpe: z.number().min(1).max(10).nullable().optional(),
+  // Dropset support: 1 = first/heaviest drop, 2, 3 … NULL = normal single set.
+  drop_index: z.number().int().min(1).max(10).nullable().optional(),
   client_id: z.string().uuid(),
   client_ts: z.string().datetime(),
 });

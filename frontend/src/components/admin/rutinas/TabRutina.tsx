@@ -6,6 +6,7 @@ import {
   EditSlotPopover,
   type SlotOverride,
 } from './EditSlotPopover';
+import { AddSlotPopover, type AddedSlotData } from './AddSlotPopover';
 
 const DAY_LABEL: Record<string, string> = {
   lun: 'Lun',
@@ -52,6 +53,7 @@ export function TabRutina({
   overrides,
   onOverride,
   onDelete,
+  onAdd,
 }: {
   slots: RutinaSlot[];
   daysSpecific?: DayCode[] | null;
@@ -59,6 +61,7 @@ export function TabRutina({
   overrides: Record<string, SlotOverride>;
   onOverride: (slotId: string, payload: SlotOverride) => void;
   onDelete: (slotId: string) => void;
+  onAdd: (day: number, data: AddedSlotData) => void;
 }) {
   // Preserve incoming array order (the parent owns it); group by day.
   const byDay = new Map<number, RutinaSlot[]>();
@@ -117,6 +120,12 @@ export function TabRutina({
                 ))}
               </ul>
             </SortableContext>
+            <div className="border-t border-border">
+              <AddSlotPopover
+                disabled={items.length >= 12}
+                onAdd={(data) => onAdd(day, data)}
+              />
+            </div>
           </section>
         );
       })}

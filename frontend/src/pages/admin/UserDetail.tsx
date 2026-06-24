@@ -48,6 +48,7 @@ import {
   useUpsertSubscription,
 } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
+import { useLoggedSessions } from '@/hooks/useLoggedSessions';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtARS, fmtShortDate, fmtTimeAgo } from '@/lib/format';
@@ -60,7 +61,7 @@ import type {
   UserStatus,
 } from '@/types/api';
 
-const TAB_KEYS = ['resumen', 'estado', 'suscripcion', 'actividad', 'peligro'] as const;
+const TAB_KEYS = ['resumen', 'entrenamientos', 'estado', 'suscripcion', 'actividad', 'peligro'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const TIER_PRICE: Record<SubscriptionTier, number> = {
@@ -128,6 +129,7 @@ export default function UserDetail() {
       <AdminTabs
         tabs={[
           { key: 'resumen', label: 'Resumen' },
+          { key: 'entrenamientos', label: 'Entrenamientos' },
           { key: 'estado', label: 'Estado de la cuenta' },
           { key: 'suscripcion', label: 'Suscripción' },
           {
@@ -142,6 +144,7 @@ export default function UserDetail() {
       />
 
       {tab === 'resumen' && <ResumenTab user={user} />}
+      {tab === 'entrenamientos' && <EntrenamientosTab user={user} />}
       {tab === 'estado' && <EstadoTab user={user} isSelf={isSelf} />}
       {tab === 'suscripcion' && <SuscripcionTab user={user} />}
       {tab === 'actividad' && <ActividadTab user={user} />}
@@ -820,6 +823,99 @@ function ActividadTab({ user }: { user: AdminUser }) {
       <div className="p-[18px]">
         <Timeline items={items} />
       </div>
+    </div>
+  );
+}
+
+const DAY_LABEL: Record<number, string> = {
+  1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom',
+};
+
+function EntrenamientosTab({ user }: { user: AdminUser }) {
+  const q = useLoggedSessions(user.id);
+  const sessions = q.data ?? [];
+
+  if (q.isLoading) {
+    return (
+      <div className="rounded-2xl border bg-card p-[18px]">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <div className="rounded-2xl border bg-card">
+        <div className="border-b border-border p-[18px]">
+          <Eyebrow variant="muted">Entrenamientos</Eyebrow>
+          <div className="mt-1 text-[17px] font-semibold tracking-tight">
+            Sesiones registradas
+          </div>
+        </div>
+        <div className="p-[18px] text-sm text-muted-foreground">
+          Todavía no hay sesiones completadas para este atleta.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {sessions.map((s) => (
+        <div key={s.id} className="overflow-hidden rounded-2xl border bg-card">
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-[18px] py-3">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-background px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums">
+                SEM {s.program_week} · {DAY_LABEL[s.day_of_week] ?? `D${s.day_of_week}`}
+              </span>
+              {s.fatigue_rating && (
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {s.fatigue_rating}
+                </span>
+              )}
+            </div>
+            {s.finished_at && (
+              <span className="text-[11px] text-muted-foreground">
+                {new Date(s.finished_at).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <div className="divide-y divide-border">
+            {s.exercises.map((ex) => (
+              <div key={ex.exercise_id} className="px-[18px] py-3">
+                <div className="mb-1.5 text-[13px] font-semibold">{ex.name}</div>
+                <div className="flex flex-col gap-1">
+                  {ex.sets.map((set) => (
+                    <div
+                      key={set.set_index}
+                      className="flex items-center gap-2 text-[12px]"
+                    >
+                      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                        Serie {set.set_index}
+                      </span>
+                      <span className="font-mono tabular-nums text-foreground">
+                        {set.weight_label
+                          ? `${set.weight_label} × ${set.reps_label}`
+                          : `${set.reps_label} reps`}
+                      </span>
+                      {set.is_dropset && (
+                        <span className="rounded-full bg-brand/15 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em] text-brand">
+                          Dropset
+                        </span>
+                      )}
+                      {set.rpe != null && (
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          RPE {set.rpe}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

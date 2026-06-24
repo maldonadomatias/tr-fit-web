@@ -17,6 +17,17 @@ export type SlotOrderPayload = {
   slot_index: number;
 };
 
+export type AddedSlotPayload = {
+  id: string;
+  day_of_week: number;
+  exercise_id: number;
+  role: 'calentamiento' | 'principal' | 'accesorio';
+  notes?: string | null;
+  series?: number | null;
+  reps?: string | null;
+  descanso?: string | null;
+};
+
 export function useRutina(id: string | undefined) {
   return useQuery({
     queryKey: ['admin', 'rutina', id],
@@ -39,6 +50,7 @@ export function useApproveRutina() {
             slot_overrides?: SlotOverridePayload[];
             slot_order?: SlotOrderPayload[];
             deleted_slot_ids?: string[];
+            added_slots?: AddedSlotPayload[];
           },
     ) => {
       const id = typeof args === 'string' ? args : args.id;
@@ -49,6 +61,7 @@ export function useApproveRutina() {
               slot_overrides: args.slot_overrides ?? [],
               slot_order: args.slot_order ?? [],
               deleted_slot_ids: args.deleted_slot_ids ?? [],
+              added_slots: args.added_slots ?? [],
             };
       await api.post(`/admin/rutinas/${id}/approve`, body);
     },

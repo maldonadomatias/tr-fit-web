@@ -114,6 +114,17 @@ export interface ApproveSkeletonOptions {
   }[];
   /** Slots removed by the admin before approving. */
   deletedSlotIds?: string[];
+  /** Brand-new slots added by the admin (client-generated id) before approving. */
+  addedSlots?: {
+    id: string;
+    day_of_week: number;
+    exercise_id: number;
+    role: string;
+    notes?: string | null;
+    series?: number | null;
+    reps?: string | null;
+    descanso?: string | null;
+  }[];
 }
 
 export async function approveSkeleton(
@@ -143,6 +154,39 @@ export async function approveSkeleton(
           WHERE id = ANY($1::uuid[]) AND skeleton_id = $2`,
         [opts.deletedSlotIds, skeletonId],
       );
+    }
+
+    // Insert brand-new slots the admin added. Done before reorder & seeding so
+    // they participate in the final ordering and get a weight row. The client
+    // supplies the id; slot_index is assigned per day as max(existing)+1 (and
+    // re-set later if the admin also reordered).
+    if (opts.addedSlots && opts.addedSlots.length > 0) {
+      const nextIndex = new Map<number, number>();
+      for (const a of opts.addedSlots) {
+        let idx = nextIndex.get(a.day_of_week);
+        if (idx === undefined) {
+          const maxR = await client.query<{ max: number | null }>(
+            `SELECT MAX(slot_index) AS max FROM skeleton_slots
+              WHERE skeleton_id = $1 AND day_of_week = $2`,
+            [skeletonId, a.day_of_week],
+          );
+          idx = (maxR.rows[0]?.max ?? 0) + 1;
+        }
+        if (idx > 12) {
+          throw new Error('day exceeds 12 slots');
+        }
+        nextIndex.set(a.day_of_week, idx + 1);
+        await client.query(
+          `INSERT INTO skeleton_slots
+             (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+              series, reps, descanso)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [
+            a.id, skeletonId, a.day_of_week, idx, a.exercise_id, a.role,
+            a.notes ?? null, a.series ?? null, a.reps ?? null, a.descanso ?? null,
+          ],
+        );
+      }
     }
 
     // Apply admin edits (exercise swap / notes / set scheme) before reorder &

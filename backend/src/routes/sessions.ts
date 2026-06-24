@@ -16,7 +16,9 @@ router.post('/', async (req: Request, res: Response) => {
   const parsed = startSessionPayload.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', issues: parsed.error.issues });
   try {
-    const out = await startSession(req.user!.id, parsed.data.day_of_week, parsed.data.client_id);
+    const out = await startSession(req.user!.id, parsed.data.day_of_week, parsed.data.client_id, {
+      force: parsed.data.force,
+    });
     return res.status(201).json(out);
   } catch (e) {
     if (e instanceof SessionError) {

@@ -6,7 +6,7 @@ import { buildTodaySession, TodayBlockedError } from './engine.service.js';
 export class SessionError extends Error {
   constructor(public reason:
     'session_in_progress' | 'wrong_day' | 'session_finished' | 'not_found' |
-    'no_active_skeleton' | 'already_finished') {
+    'no_active_skeleton' | 'already_finished' | 'already_trained_today') {
     super(reason);
   }
 }
@@ -21,6 +21,7 @@ export async function startSession(
   athleteId: string,
   dayOfWeek: number,
   clientId: string,
+  opts: { force?: boolean } = {},
 ): Promise<StartSessionResult> {
   const stateR = await pool.query<{
     current_week: number; active_skeleton_id: string | null;
@@ -56,6 +57,23 @@ export async function startSession(
   );
   if (activeR.rows[0]) {
     throw new SessionError('session_in_progress');
+  }
+
+  // Rest guard: one workout per day. If the athlete already finished a session
+  // today (UTC day, matching the streak logic), block — unless they explicitly
+  // override with "Entrenar de todas formas" (opts.force).
+  if (!opts.force) {
+    const trainedTodayR = await pool.query<{ id: string }>(
+      `SELECT id FROM session_logs
+        WHERE athlete_id = $1 AND finished_at IS NOT NULL
+          AND date_trunc('day', finished_at AT TIME ZONE 'UTC')
+              = date_trunc('day', now() AT TIME ZONE 'UTC')
+        LIMIT 1`,
+      [athleteId],
+    );
+    if (trainedTodayR.rows[0]) {
+      throw new SessionError('already_trained_today');
+    }
   }
 
   const items = await buildTodaySession(athleteId, dayOfWeek);
@@ -99,20 +117,21 @@ export async function logSet(
   const r = await pool.query<{ id: string; was_insert: boolean }>(
     `INSERT INTO set_logs
        (athlete_id, exercise_id, week, day_of_week, set_index,
-        value, unit, reps, completed, rpe,
+        value, unit, reps, completed, rpe, drop_index,
         session_log_id, client_id, client_ts)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (client_id) WHERE client_id IS NOT NULL DO UPDATE SET
        value = EXCLUDED.value,
        unit = EXCLUDED.unit,
        reps = EXCLUDED.reps,
        completed = EXCLUDED.completed,
        rpe = EXCLUDED.rpe,
+       drop_index = EXCLUDED.drop_index,
        synced_at = NOW()
      RETURNING id, (xmax = 0) AS was_insert`,
     [athleteId, payload.exercise_id, session.program_week, session.day_of_week,
      payload.set_index, payload.value, payload.unit, payload.reps,
-     payload.completed, payload.rpe ?? null,
+     payload.completed, payload.rpe ?? null, payload.drop_index ?? null,
      sessionId, payload.client_id, payload.client_ts],
   );
 
@@ -127,8 +146,11 @@ export async function logSet(
 
   // Persist the logged weight as the athlete's current suggestion for this
   // exercise, so the next session pre-fills it (instead of "— kg"). Skips
-  // warmup/bodyweight/time/distance sets, where value is null.
-  if (payload.completed && payload.value != null) {
+  // warmup/bodyweight/time/distance sets, where value is null. For dropsets
+  // only the heaviest drop (drop_index = 1) seeds; the lighter drops (2, 3 …)
+  // must not drag the suggestion down. Normal sets carry drop_index = NULL.
+  const seedsWeight = payload.drop_index == null || payload.drop_index === 1;
+  if (payload.completed && payload.value != null && seedsWeight) {
     await pool.query(
       `INSERT INTO athlete_exercise_weights
          (athlete_id, exercise_id, current_weight_kg, current_value, unit, current_reps_text, updated_by)
