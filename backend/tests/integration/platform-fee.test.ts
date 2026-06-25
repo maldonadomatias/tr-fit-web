@@ -1,7 +1,6 @@
 // backend/tests/integration/platform-fee.test.ts
-import express from 'express';
 import request from 'supertest';
-import platformFee from '../../src/routes/platform-fee.js';
+import app from '../../src/app.js';
 import { signToken } from '../../src/middleware/auth.js';
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
 import {
@@ -9,14 +8,6 @@ import {
   createSuperadmin,
   createAthlete,
 } from './helpers/fixtures.js';
-
-// Mount the router on a minimal app instead of importing src/app.ts, which uses
-// `import.meta.url` and trips a ts-jest/tsconfig (moduleResolution: node) bug
-// that breaks every app-importing suite. Isolating the router gives this feature
-// real, runnable route coverage without touching repo-wide config.
-const app = express();
-app.use(express.json());
-app.use('/api/platform-fee', platformFee);
 
 beforeAll(async () => {
   await ensureMigrated();
