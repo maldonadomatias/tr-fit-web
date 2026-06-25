@@ -29,6 +29,7 @@ export interface AdminUserRow {
   current_period_end: string | null;
   membership_status: 'active' | 'expiring' | 'expired' | 'cancelled' | null;
   paid_until: string | number | null;
+  monthly_fee_ars: number | null;
 }
 
 export interface ListFilters {
@@ -90,6 +91,7 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
        u.created_at,
        COALESCE(ap.name, cp.name) AS name,
+       ap.monthly_fee_ars AS monthly_fee_ars,
        s.tier AS subscription_tier,
        s.status AS subscription_status,
        s.current_period_end,
@@ -109,7 +111,13 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
      WHERE u.id = $1`,
     [id],
   );
-  return r.rows[0] ?? null;
+  const row = r.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    monthly_fee_ars:
+      row.monthly_fee_ars == null ? null : Number(row.monthly_fee_ars),
+  };
 }
 
 export interface CreateUserInput {
@@ -304,7 +312,8 @@ export type AuditType =
   | 'subscription_authorized'
   | 'subscription_paused'
   | 'payment_registered'
-  | 'membership_cancelled';
+  | 'membership_cancelled'
+  | 'athlete_fee_changed';
 
 export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
 
@@ -347,6 +356,31 @@ export async function logAudit(input: LogAuditInput): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn('audit_log_failed', e);
   }
+}
+
+export async function setAthleteMonthlyFee(
+  athleteId: string,
+  feeArs: number,
+  actor: string
+): Promise<number> {
+  const prev = await pool.query<{ monthly_fee_ars: string }>(
+    `SELECT monthly_fee_ars FROM athlete_profiles WHERE user_id = $1`,
+    [athleteId]
+  );
+  if (!prev.rows[0]) throw new Error('athlete_not_found');
+  const from = Number(prev.rows[0].monthly_fee_ars);
+  await pool.query(
+    `UPDATE athlete_profiles SET monthly_fee_ars = $1 WHERE user_id = $2`,
+    [feeArs, athleteId]
+  );
+  await logAudit({
+    type: 'athlete_fee_changed',
+    actor,
+    target: 'athlete',
+    target_id: athleteId,
+    meta: { from, to: feeArs },
+  });
+  return feeArs;
 }
 
 export type ActivityCategory = 'user' | 'sub' | 'auth';

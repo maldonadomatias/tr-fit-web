@@ -15,6 +15,7 @@ import {
   getStats,
   logAudit,
   listActivity,
+  setAthleteMonthlyFee,
   AdminError,
 } from '../services/admin.service.js';
 import { getLoggedSessions } from '../services/logged-sessions.service.js';
@@ -283,6 +284,22 @@ router.delete('/users/:id/subscription', async (req: Request, res: Response) => 
     meta: { tier: before?.subscription_tier ?? null },
   });
   res.json(fresh);
+});
+
+const monthlyFeeBody = z.object({ monthly_fee_ars: z.number().positive() });
+
+router.put('/users/:id/monthly-fee', async (req, res) => {
+  const parsed = monthlyFeeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'invalid_payload' });
+    return;
+  }
+  const value = await setAthleteMonthlyFee(
+    req.params.id,
+    parsed.data.monthly_fee_ars,
+    req.user!.id
+  );
+  res.json({ monthly_fee_ars: value });
 });
 
 // ─── Membership / manual payments ────────────────────────────────
