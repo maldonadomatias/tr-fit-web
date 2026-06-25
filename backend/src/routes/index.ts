@@ -16,6 +16,7 @@ import rutinas from './rutinas.js';
 import adminRutinasRouter from './admin-rutinas.js';
 import adminExercises from './admin-exercises.js';
 import admin from './admin.js';
+import platformFee from './platform-fee.js';
 
 const router = Router();
 router.use('/auth', auth);
@@ -34,5 +35,6 @@ router.use('/admin/alerts', adminAlerts);
 router.use('/admin/rutinas', adminRutinasRouter);
 router.use('/admin/rutinas', rutinas);
 router.use('/admin/exercises', adminExercises);
+router.use('/platform-fee', platformFee);
 router.use('/admin', admin);
 export default router;
