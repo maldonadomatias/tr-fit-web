@@ -30,15 +30,15 @@ describe('notification templates', () => {
 
   it('renders membership_expiring with days', () => {
     const r = TEMPLATES.membership_expiring({ days: '3' });
-    expect(r.title).toBe('Tu cuota vence pronto');
+    expect(r.title).toBe('Tu plan está por vencer');
     expect(r.body).toContain('3 días');
-    expect(r.route).toBe('/(app)/billing');
+    expect(r.route).toBe('/(app)/athlete');
   });
 
   it('renders membership_expired', () => {
     const r = TEMPLATES.membership_expired({});
-    expect(r.title).toBe('Tu cuota venció');
-    expect(r.route).toBe('/(app)/billing');
+    expect(r.title).toBe('Tu acceso está pausado');
+    expect(r.route).toBe('/(app)/athlete');
   });
 
   it('covers all 8 types', () => {

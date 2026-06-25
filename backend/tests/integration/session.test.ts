@@ -64,14 +64,14 @@ it('logSet idempotent by client_id', async () => {
   const { sessionId } = await startSession(ath, 1, randomUUID());
   const clientId = randomUUID();
   const r1 = await logSet(sessionId, ath, {
-    exercise_id: principalId, set_index: 1, weight_kg: 80, reps: 8,
+    exercise_id: principalId, set_index: 1, unit: 'kg', value: 80, reps: 8,
     completed: true, rpe: 7, client_id: clientId,
     client_ts: new Date().toISOString(),
   });
   expect(r1.created).toBe(true);
 
   const r2 = await logSet(sessionId, ath, {
-    exercise_id: principalId, set_index: 1, weight_kg: 80, reps: 8,
+    exercise_id: principalId, set_index: 1, unit: 'kg', value: 80, reps: 8,
     completed: true, rpe: 7, client_id: clientId,
     client_ts: new Date().toISOString(),
   });
@@ -93,7 +93,7 @@ it('logSet rejects 404 for session belonging to another athlete', async () => {
      VALUES ('other@test.local', 'x', 'athlete') RETURNING id`,
   );
   await expect(logSet(sessionId, otherR.rows[0].id, {
-    exercise_id: principalId, set_index: 1, weight_kg: 80, reps: 8,
+    exercise_id: principalId, set_index: 1, unit: 'kg', value: 80, reps: 8,
     completed: true, client_id: randomUUID(),
     client_ts: new Date().toISOString(),
   })).rejects.toMatchObject({ reason: 'not_found' });
@@ -105,12 +105,12 @@ it('finishSession computes summary + detects PRs', async () => {
   for (const setIdx of [1, 2, 3]) {
     await logSet(sessionId, ath, {
       exercise_id: principalId, set_index: setIdx,
-      weight_kg: 80 + setIdx, reps: 8, completed: true,
+      unit: 'kg', value: 80 + setIdx, reps: 8, completed: true,
       client_id: randomUUID(), client_ts: new Date().toISOString(),
     });
     await logSet(sessionId, ath, {
       exercise_id: accesorioId, set_index: setIdx,
-      weight_kg: 12, reps: 10, completed: true,
+      unit: 'kg', value: 12, reps: 10, completed: true,
       client_id: randomUUID(), client_ts: new Date().toISOString(),
     });
   }

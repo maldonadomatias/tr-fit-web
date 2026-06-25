@@ -6,7 +6,9 @@ jest.unstable_mockModule('firebase-admin', () => ({
     initializeApp: jest.fn(),
     credential: { cert: jest.fn() },
     messaging: () => ({ send: mockSend }),
-    apps: [],
+    // Non-empty so getFirebaseApp() returns the existing app and skips parsing
+    // FIREBASE_SERVICE_ACCOUNT_JSON (unset in tests, which would throw).
+    apps: [{ name: '[DEFAULT]' }],
   },
 }));
 
