@@ -1,0 +1,262 @@
+// backend/src/services/platform-fee.service.ts
+import pool from '../db/connect.js';
+import {
+  computeFee, computeAdjustedBase, addMonthsISO, isAdjustmentDue,
+} from './platform-fee.math.js';
+
+export interface PlatformFeeConfig {
+  base_fee_ars: number;
+  reference_usd: number;
+  current_usd: number;
+  price_per_athlete_ars: number;
+  revenue_share_pct: number;
+  adjustment_interval_months: number;
+  next_adjustment_date: string;
+  updated_at: string;
+}
+
+export interface PlatformFeeSummary {
+  base_fee_ars: number;
+  active_athletes: number;
+  price_per_athlete_ars: number;
+  gross_revenue_ars: number;
+  revenue_share_pct: number;
+  revenue_share_ars: number;
+  total_ars: number;
+  next_adjustment_date: string;
+  adjustment_due: boolean;
+}
+
+export interface PlatformFeeHistoryRow {
+  period: string;
+  base_fee_ars: number;
+  active_athletes: number;
+  price_per_athlete_ars: number;
+  gross_revenue_ars: number;
+  revenue_share_pct: number;
+  revenue_share_ars: number;
+  total_ars: number;
+  usd_at_snapshot: number;
+  created_at: string;
+}
+
+export interface UpdateConfigInput {
+  base_fee_ars?: number;
+  reference_usd?: number;
+  current_usd?: number;
+  price_per_athlete_ars?: number;
+  revenue_share_pct?: number;
+  adjustment_interval_months?: number;
+  next_adjustment_date?: string;
+}
+
+interface ConfigRow {
+  base_fee_ars: string;
+  reference_usd: string;
+  current_usd: string;
+  price_per_athlete_ars: string;
+  revenue_share_pct: string;
+  adjustment_interval_months: number;
+  next_adjustment_date: Date | string;
+  updated_at: Date | string;
+}
+
+const toISODate = (d: Date | string): string =>
+  typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
+
+function mapConfig(r: ConfigRow): PlatformFeeConfig {
+  return {
+    base_fee_ars: Number(r.base_fee_ars),
+    reference_usd: Number(r.reference_usd),
+    current_usd: Number(r.current_usd),
+    price_per_athlete_ars: Number(r.price_per_athlete_ars),
+    revenue_share_pct: Number(r.revenue_share_pct),
+    adjustment_interval_months: Number(r.adjustment_interval_months),
+    next_adjustment_date: toISODate(r.next_adjustment_date),
+    updated_at: new Date(r.updated_at).toISOString(),
+  };
+}
+
+const CONFIG_COLS = `base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
+  revenue_share_pct, adjustment_interval_months, next_adjustment_date, updated_at`;
+
+export async function getConfig(): Promise<PlatformFeeConfig> {
+  const r = await pool.query<ConfigRow>(
+    `SELECT ${CONFIG_COLS} FROM platform_fee_config WHERE id = 1`
+  );
+  if (!r.rows[0]) throw new Error('platform_fee_config row missing');
+  return mapConfig(r.rows[0]);
+}
+
+export async function countActiveAthletes(): Promise<number> {
+  const r = await pool.query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n
+       FROM users u
+       JOIN memberships m ON m.user_id = u.id
+      WHERE u.role = 'athlete'
+        AND u.status = 'approved'
+        AND (m.paid_until = 'infinity' OR m.paid_until > now())`
+  );
+  return Number(r.rows[0]?.n ?? 0);
+}
+
+const UPDATABLE = [
+  'base_fee_ars', 'reference_usd', 'current_usd', 'price_per_athlete_ars',
+  'revenue_share_pct', 'adjustment_interval_months', 'next_adjustment_date',
+] as const;
+
+export async function updateConfig(
+  input: UpdateConfigInput
+): Promise<PlatformFeeConfig> {
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  for (const f of UPDATABLE) {
+    const v = (input as Record<string, unknown>)[f];
+    if (f in input && v !== undefined) {
+      vals.push(v);
+      sets.push(`${f} = $${vals.length}`);
+    }
+  }
+  if (sets.length === 0) return getConfig();
+  await pool.query(
+    `UPDATE platform_fee_config SET ${sets.join(', ')}, updated_at = now() WHERE id = 1`,
+    vals
+  );
+  return getConfig();
+}
+
+export async function computeCurrent(
+  todayISO?: string
+): Promise<PlatformFeeSummary> {
+  const cfg = await getConfig();
+  const activeAthletes = await countActiveAthletes();
+  const fee = computeFee({
+    baseFeeArs: cfg.base_fee_ars,
+    activeAthletes,
+    pricePerAthleteArs: cfg.price_per_athlete_ars,
+    revenueSharePct: cfg.revenue_share_pct,
+  });
+  const today = todayISO ?? new Date().toISOString().slice(0, 10);
+  return {
+    base_fee_ars: fee.baseFeeArs,
+    active_athletes: fee.activeAthletes,
+    price_per_athlete_ars: fee.pricePerAthleteArs,
+    gross_revenue_ars: fee.grossRevenueArs,
+    revenue_share_pct: fee.revenueSharePct,
+    revenue_share_ars: fee.revenueShareArs,
+    total_ars: fee.totalArs,
+    next_adjustment_date: cfg.next_adjustment_date,
+    adjustment_due: isAdjustmentDue(cfg.next_adjustment_date, today),
+  };
+}
+
+export async function previewAdjustment(
+  currentUsd: number
+): Promise<{ new_base_fee_ars: number }> {
+  const cfg = await getConfig();
+  return {
+    new_base_fee_ars: computeAdjustedBase(
+      cfg.base_fee_ars,
+      currentUsd,
+      cfg.reference_usd
+    ),
+  };
+}
+
+export async function applyAdjustment(
+  currentUsd: number
+): Promise<PlatformFeeConfig> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const r = await client.query<ConfigRow>(
+      `SELECT ${CONFIG_COLS} FROM platform_fee_config WHERE id = 1 FOR UPDATE`
+    );
+    if (!r.rows[0]) throw new Error('platform_fee_config row missing');
+    const cfg = mapConfig(r.rows[0]);
+    const newBase = computeAdjustedBase(
+      cfg.base_fee_ars,
+      currentUsd,
+      cfg.reference_usd
+    );
+    const nextDate = addMonthsISO(
+      cfg.next_adjustment_date,
+      cfg.adjustment_interval_months
+    );
+    await client.query(
+      `UPDATE platform_fee_config
+          SET base_fee_ars = $1, reference_usd = $2, current_usd = $2,
+              next_adjustment_date = $3, updated_at = now()
+        WHERE id = 1`,
+      [newBase, currentUsd, nextDate]
+    );
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+  return getConfig();
+}
+
+export async function snapshotMonth(periodISO: string): Promise<void> {
+  const cfg = await getConfig();
+  const activeAthletes = await countActiveAthletes();
+  const fee = computeFee({
+    baseFeeArs: cfg.base_fee_ars,
+    activeAthletes,
+    pricePerAthleteArs: cfg.price_per_athlete_ars,
+    revenueSharePct: cfg.revenue_share_pct,
+  });
+  await pool.query(
+    `INSERT INTO platform_fee_history
+       (period, base_fee_ars, active_athletes, price_per_athlete_ars,
+        gross_revenue_ars, revenue_share_pct, revenue_share_ars, total_ars,
+        usd_at_snapshot)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (period) DO NOTHING`,
+    [
+      periodISO, fee.baseFeeArs, fee.activeAthletes, fee.pricePerAthleteArs,
+      fee.grossRevenueArs, fee.revenueSharePct, fee.revenueShareArs,
+      fee.totalArs, cfg.reference_usd,
+    ]
+  );
+}
+
+interface HistoryRow {
+  period: Date | string;
+  base_fee_ars: string;
+  active_athletes: number;
+  price_per_athlete_ars: string;
+  gross_revenue_ars: string;
+  revenue_share_pct: string;
+  revenue_share_ars: string;
+  total_ars: string;
+  usd_at_snapshot: string;
+  created_at: Date | string;
+}
+
+export async function getHistory(limit = 24): Promise<PlatformFeeHistoryRow[]> {
+  const r = await pool.query<HistoryRow>(
+    `SELECT period, base_fee_ars, active_athletes, price_per_athlete_ars,
+            gross_revenue_ars, revenue_share_pct, revenue_share_ars, total_ars,
+            usd_at_snapshot, created_at
+       FROM platform_fee_history
+      ORDER BY period DESC
+      LIMIT $1`,
+    [limit]
+  );
+  return r.rows.map((row) => ({
+    period: toISODate(row.period),
+    base_fee_ars: Number(row.base_fee_ars),
+    active_athletes: Number(row.active_athletes),
+    price_per_athlete_ars: Number(row.price_per_athlete_ars),
+    gross_revenue_ars: Number(row.gross_revenue_ars),
+    revenue_share_pct: Number(row.revenue_share_pct),
+    revenue_share_ars: Number(row.revenue_share_ars),
+    total_ars: Number(row.total_ars),
+    usd_at_snapshot: Number(row.usd_at_snapshot),
+    created_at: new Date(row.created_at).toISOString(),
+  }));
+}
