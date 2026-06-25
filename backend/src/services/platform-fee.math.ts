@@ -2,14 +2,14 @@
 export interface FeeInputs {
   baseFeeArs: number;
   activeAthletes: number;
-  pricePerAthleteArs: number;
+  grossRevenueArs: number;
   revenueSharePct: number;
+  testflight?: boolean;
 }
 
 export interface FeeBreakdown {
   baseFeeArs: number;
   activeAthletes: number;
-  pricePerAthleteArs: number;
   grossRevenueArs: number;
   revenueSharePct: number;
   revenueShareArs: number;
@@ -19,13 +19,16 @@ export interface FeeBreakdown {
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export function computeFee(i: FeeInputs): FeeBreakdown {
-  const grossRevenueArs = round2(i.activeAthletes * i.pricePerAthleteArs);
-  const revenueShareArs = round2((grossRevenueArs * i.revenueSharePct) / 100);
-  const totalArs = round2(i.baseFeeArs + revenueShareArs);
+  const testflight = i.testflight ?? false;
+  const baseFeeArs = round2(testflight ? i.baseFeeArs * 0.5 : i.baseFeeArs);
+  const grossRevenueArs = round2(i.grossRevenueArs);
+  const revenueShareArs = testflight
+    ? 0
+    : round2((grossRevenueArs * i.revenueSharePct) / 100);
+  const totalArs = round2(baseFeeArs + revenueShareArs);
   return {
-    baseFeeArs: round2(i.baseFeeArs),
+    baseFeeArs,
     activeAthletes: i.activeAthletes,
-    pricePerAthleteArs: round2(i.pricePerAthleteArs),
     grossRevenueArs,
     revenueSharePct: i.revenueSharePct,
     revenueShareArs,

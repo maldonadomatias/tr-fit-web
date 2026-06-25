@@ -4,24 +4,33 @@ import {
 } from '../../src/services/platform-fee.math.js';
 
 describe('computeFee', () => {
-  it('computes gross, 4% share and total', () => {
+  it('computes 4% share and total from gross', () => {
     const r = computeFee({
       baseFeeArs: 105000, activeAthletes: 20,
-      pricePerAthleteArs: 25000, revenueSharePct: 4,
+      grossRevenueArs: 500000, revenueSharePct: 4,
     });
-    expect(r.grossRevenueArs).toBe(500000);
     expect(r.revenueShareArs).toBe(20000);
     expect(r.totalArs).toBe(125000);
   });
 
-  it('handles zero athletes (base fee only)', () => {
+  it('handles zero gross (base fee only)', () => {
     const r = computeFee({
       baseFeeArs: 105000, activeAthletes: 0,
-      pricePerAthleteArs: 25000, revenueSharePct: 4,
+      grossRevenueArs: 0, revenueSharePct: 4,
     });
-    expect(r.grossRevenueArs).toBe(0);
     expect(r.revenueShareArs).toBe(0);
     expect(r.totalArs).toBe(105000);
+  });
+
+  it('testflight: halves base and drops the 4% share', () => {
+    const r = computeFee({
+      baseFeeArs: 105000, activeAthletes: 20,
+      grossRevenueArs: 500000, revenueSharePct: 4, testflight: true,
+    });
+    expect(r.baseFeeArs).toBe(52500);
+    expect(r.revenueShareArs).toBe(0);
+    expect(r.totalArs).toBe(52500);
+    expect(r.grossRevenueArs).toBe(500000);
   });
 });
 

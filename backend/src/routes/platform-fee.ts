@@ -10,6 +10,7 @@ import {
   getHistory,
   previewAdjustment,
   applyAdjustment,
+  getFeeLog,
 } from '../services/platform-fee.service.js';
 
 const router = Router();
@@ -25,6 +26,10 @@ router.get('/history', async (_req, res) => {
   res.json(await getHistory());
 });
 
+router.get('/fee-log', async (_req, res) => {
+  res.json(await getFeeLog());
+});
+
 const configBody = z.object({
   base_fee_ars: z.number().nonnegative().optional(),
   reference_usd: z.number().positive().optional(),
@@ -36,6 +41,7 @@ const configBody = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  phase: z.enum(['testflight', 'production']).optional(),
 });
 
 router.put('/config', requireSuperadmin, async (req, res) => {

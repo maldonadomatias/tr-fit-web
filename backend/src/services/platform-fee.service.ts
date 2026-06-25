@@ -4,6 +4,8 @@ import {
   computeFee, computeAdjustedBase, addMonthsISO, isAdjustmentDue,
 } from './platform-fee.math.js';
 
+export type BillingPhase = 'testflight' | 'production';
+
 export interface PlatformFeeConfig {
   base_fee_ars: number;
   reference_usd: number;
@@ -12,19 +14,20 @@ export interface PlatformFeeConfig {
   revenue_share_pct: number;
   adjustment_interval_months: number;
   next_adjustment_date: string;
+  phase: BillingPhase;
   updated_at: string;
 }
 
 export interface PlatformFeeSummary {
   base_fee_ars: number;
   active_athletes: number;
-  price_per_athlete_ars: number;
   gross_revenue_ars: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
   total_ars: number;
   next_adjustment_date: string;
   adjustment_due: boolean;
+  phase: BillingPhase;
 }
 
 export interface PlatformFeeHistoryRow {
@@ -48,6 +51,7 @@ export interface UpdateConfigInput {
   revenue_share_pct?: number;
   adjustment_interval_months?: number;
   next_adjustment_date?: string;
+  phase?: BillingPhase;
 }
 
 interface ConfigRow {
@@ -58,6 +62,7 @@ interface ConfigRow {
   revenue_share_pct: string;
   adjustment_interval_months: number;
   next_adjustment_date: Date | string;
+  phase: BillingPhase;
   updated_at: Date | string;
 }
 
@@ -73,12 +78,13 @@ function mapConfig(r: ConfigRow): PlatformFeeConfig {
     revenue_share_pct: Number(r.revenue_share_pct),
     adjustment_interval_months: Number(r.adjustment_interval_months),
     next_adjustment_date: toISODate(r.next_adjustment_date),
+    phase: r.phase,
     updated_at: new Date(r.updated_at).toISOString(),
   };
 }
 
 const CONFIG_COLS = `base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
-  revenue_share_pct, adjustment_interval_months, next_adjustment_date, updated_at`;
+  revenue_share_pct, adjustment_interval_months, next_adjustment_date, phase, updated_at`;
 
 export async function getConfig(): Promise<PlatformFeeConfig> {
   const r = await pool.query<ConfigRow>(
@@ -88,21 +94,27 @@ export async function getConfig(): Promise<PlatformFeeConfig> {
   return mapConfig(r.rows[0]);
 }
 
-export async function countActiveAthletes(): Promise<number> {
-  const r = await pool.query<{ n: number }>(
-    `SELECT COUNT(*)::int AS n
+export async function getActiveAthleteRevenue(): Promise<{
+  count: number;
+  grossArs: number;
+}> {
+  const r = await pool.query<{ n: number; gross: string }>(
+    `SELECT COUNT(*)::int AS n,
+            COALESCE(SUM(ap.monthly_fee_ars), 0) AS gross
        FROM users u
+       JOIN athlete_profiles ap ON ap.user_id = u.id
        JOIN memberships m ON m.user_id = u.id
       WHERE u.role = 'athlete'
         AND u.status = 'approved'
         AND (m.paid_until = 'infinity' OR m.paid_until > now())`
   );
-  return Number(r.rows[0]?.n ?? 0);
+  return { count: Number(r.rows[0]?.n ?? 0), grossArs: Number(r.rows[0]?.gross ?? 0) };
 }
 
 const UPDATABLE = [
   'base_fee_ars', 'reference_usd', 'current_usd', 'price_per_athlete_ars',
   'revenue_share_pct', 'adjustment_interval_months', 'next_adjustment_date',
+  'phase',
 ] as const;
 
 export async function updateConfig(
@@ -129,24 +141,25 @@ export async function computeCurrent(
   todayISO?: string
 ): Promise<PlatformFeeSummary> {
   const cfg = await getConfig();
-  const activeAthletes = await countActiveAthletes();
+  const { count, grossArs } = await getActiveAthleteRevenue();
   const fee = computeFee({
     baseFeeArs: cfg.base_fee_ars,
-    activeAthletes,
-    pricePerAthleteArs: cfg.price_per_athlete_ars,
+    activeAthletes: count,
+    grossRevenueArs: grossArs,
     revenueSharePct: cfg.revenue_share_pct,
+    testflight: cfg.phase === 'testflight',
   });
   const today = todayISO ?? new Date().toISOString().slice(0, 10);
   return {
     base_fee_ars: fee.baseFeeArs,
     active_athletes: fee.activeAthletes,
-    price_per_athlete_ars: fee.pricePerAthleteArs,
     gross_revenue_ars: fee.grossRevenueArs,
     revenue_share_pct: fee.revenueSharePct,
     revenue_share_ars: fee.revenueShareArs,
     total_ars: fee.totalArs,
     next_adjustment_date: cfg.next_adjustment_date,
     adjustment_due: isAdjustmentDue(cfg.next_adjustment_date, today),
+    phase: cfg.phase,
   };
 }
 
@@ -202,12 +215,13 @@ export async function applyAdjustment(
 
 export async function snapshotMonth(periodISO: string): Promise<void> {
   const cfg = await getConfig();
-  const activeAthletes = await countActiveAthletes();
+  const { count, grossArs } = await getActiveAthleteRevenue();
   const fee = computeFee({
     baseFeeArs: cfg.base_fee_ars,
-    activeAthletes,
-    pricePerAthleteArs: cfg.price_per_athlete_ars,
+    activeAthletes: count,
+    grossRevenueArs: grossArs,
     revenueSharePct: cfg.revenue_share_pct,
+    testflight: cfg.phase === 'testflight',
   });
   await pool.query(
     `INSERT INTO platform_fee_history
@@ -217,7 +231,7 @@ export async function snapshotMonth(periodISO: string): Promise<void> {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (period) DO NOTHING`,
     [
-      periodISO, fee.baseFeeArs, fee.activeAthletes, fee.pricePerAthleteArs,
+      periodISO, fee.baseFeeArs, fee.activeAthletes, cfg.price_per_athlete_ars,
       fee.grossRevenueArs, fee.revenueSharePct, fee.revenueShareArs,
       fee.totalArs, cfg.reference_usd,
     ]
@@ -257,6 +271,45 @@ export async function getHistory(limit = 24): Promise<PlatformFeeHistoryRow[]> {
     revenue_share_ars: Number(row.revenue_share_ars),
     total_ars: Number(row.total_ars),
     usd_at_snapshot: Number(row.usd_at_snapshot),
+    created_at: new Date(row.created_at).toISOString(),
+  }));
+}
+
+export interface FeeLogRow {
+  id: string;
+  athlete_id: string;
+  athlete_name: string | null;
+  from_ars: number;
+  to_ars: number;
+  actor: string;
+  created_at: string;
+}
+
+export async function getFeeLog(limit = 50): Promise<FeeLogRow[]> {
+  const r = await pool.query<{
+    id: string;
+    target_id: string;
+    name: string | null;
+    meta: { from?: number | string; to?: number | string } | null;
+    actor: string;
+    created_at: Date | string;
+  }>(
+    `SELECT l.id, l.target_id, l.actor, l.meta, l.created_at,
+            ap.name
+       FROM admin_audit_log l
+       LEFT JOIN athlete_profiles ap ON ap.user_id = l.target_id
+      WHERE l.type = 'athlete_fee_changed'
+      ORDER BY l.created_at DESC
+      LIMIT $1`,
+    [limit]
+  );
+  return r.rows.map((row) => ({
+    id: row.id,
+    athlete_id: row.target_id,
+    athlete_name: row.name,
+    from_ars: Number(row.meta?.from ?? 0),
+    to_ars: Number(row.meta?.to ?? 0),
+    actor: row.actor,
     created_at: new Date(row.created_at).toISOString(),
   }));
 }

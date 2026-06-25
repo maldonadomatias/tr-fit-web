@@ -3,9 +3,10 @@ import pool from '../../src/db/connect.js';
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
 import { createAdmin, createAthlete, setMembership } from './helpers/fixtures.js';
 import {
-  getConfig, updateConfig, countActiveAthletes, computeCurrent,
+  getConfig, updateConfig, getActiveAthleteRevenue, computeCurrent,
   previewAdjustment, applyAdjustment, snapshotMonth, getHistory,
 } from '../../src/services/platform-fee.service.js';
+import { setAthleteMonthlyFee } from '../../src/services/admin.service.js';
 
 // resetDatabase() (shared helper) does not truncate the platform-fee tables, so
 // reset them here to keep each test isolated from prior config mutations and
@@ -33,13 +34,15 @@ describe('platform fee service', () => {
     expect(c.next_adjustment_date).toBe('2026-10-01');
   });
 
-  it('countActiveAthletes counts only approved athletes with active membership', async () => {
+  it('getActiveAthleteRevenue counts only approved athletes with active membership', async () => {
     const coach = await createAdmin();
     await createAthlete(coach); // active membership (infinity) via fixture
     await createAthlete(coach);
     const expired = await createAthlete(coach);
     await setMembership(expired, '2000-01-01T00:00:00.000Z', 'expired');
-    expect(await countActiveAthletes()).toBe(2);
+    const rev = await getActiveAthleteRevenue();
+    expect(rev.count).toBe(2);
+    expect(rev.grossArs).toBe(50000);
   });
 
   it('computeCurrent applies base + 4% on gross', async () => {
@@ -54,9 +57,35 @@ describe('platform fee service', () => {
     expect(s.adjustment_due).toBe(false);
   });
 
+  it('computeCurrent sums per-athlete fees for the 4%', async () => {
+    const coach = await createAdmin();
+    const a1 = await createAthlete(coach);
+    const a2 = await createAthlete(coach);
+    await setAthleteMonthlyFee(a1, 23000, coach);
+    await setAthleteMonthlyFee(a2, 28000, coach);
+    const s = await computeCurrent('2026-06-24');
+    expect(s.active_athletes).toBe(2);
+    expect(s.gross_revenue_ars).toBe(51000);
+    expect(s.revenue_share_ars).toBe(2040);
+    expect(s.total_ars).toBe(107040);
+  });
+
   it('computeCurrent flags adjustment_due when the date has arrived', async () => {
     const s = await computeCurrent('2026-10-01');
     expect(s.adjustment_due).toBe(true);
+  });
+
+  it('testflight phase charges 50% base and no 4% share', async () => {
+    const coach = await createAdmin();
+    await createAthlete(coach);
+    await createAthlete(coach);
+    await updateConfig({ phase: 'testflight' });
+    const s = await computeCurrent('2026-06-24');
+    expect(s.phase).toBe('testflight');
+    expect(s.base_fee_ars).toBe(52500);
+    expect(s.revenue_share_ars).toBe(0);
+    expect(s.total_ars).toBe(52500);
+    expect(s.gross_revenue_ars).toBe(50000);
   });
 
   it('previewAdjustment does not mutate config', async () => {
