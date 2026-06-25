@@ -143,6 +143,7 @@ export interface AdminUser {
   subscription_tier: SubscriptionTier | null;
   subscription_status: SubscriptionStatus | null;
   current_period_end: string | null;
+  monthly_fee_ars: number | null;
 }
 
 export type AuditType =

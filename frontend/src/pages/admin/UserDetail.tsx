@@ -605,9 +605,7 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
   const [subStatus, setSubStatus] = useState<SubscriptionStatus>(
     user.subscription_status ?? 'authorized',
   );
-  const [cuota, setCuota] = useState(
-    String((user as { monthly_fee_ars?: number | null }).monthly_fee_ars ?? 25000),
-  );
+  const [cuota, setCuota] = useState(String(user.monthly_fee_ars ?? 25000));
 
   useEffect(() => {
     setTier(user.subscription_tier ?? 'full');
