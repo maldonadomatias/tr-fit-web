@@ -37,11 +37,34 @@ api.interceptors.request.use((cfg) => {
   return cfg;
 });
 
+// Auth endpoints own their own 401 semantics: a bad-login 401 is an expected
+// form error, and a refresh/logout 401 must not re-enter the refresh flow.
+// Treating them as "session expired" would full-page-reload the login screen.
+export function isAuthEndpoint(url: string | undefined): boolean {
+  if (!url) return false;
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/logout')
+  );
+}
+
+// Decides whether a failed response is an expired session worth refreshing
+// (and, on failure, redirecting to /login).
+export function shouldHandleAuthExpiry(
+  status: number | undefined,
+  url: string | undefined,
+  retried: boolean | undefined
+): boolean {
+  if (status !== 401 || retried) return false;
+  return !isAuthEndpoint(url);
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const cfg = error.config as (AxiosRequestConfig & { _retried?: boolean }) | undefined;
-    if (cfg && error.response?.status === 401 && !cfg._retried) {
+    if (cfg && shouldHandleAuthExpiry(error.response?.status, cfg.url, cfg._retried)) {
       cfg._retried = true;
       const ok = await tryRefresh();
       if (ok) return api(cfg);
