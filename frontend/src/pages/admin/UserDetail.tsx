@@ -708,8 +708,8 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
             label="Plan"
             hint="El cambio se aplica al próximo período de cobro."
           >
-            <div className="grid max-w-[540px] grid-cols-3 gap-2">
-              {(['basico', 'full', 'premium'] as SubscriptionTier[]).map(
+            <div className="grid max-w-[540px] grid-cols-2 gap-2">
+              {(['full', 'premium'] as SubscriptionTier[]).map(
                 (t) => (
                   <button
                     key={t}
