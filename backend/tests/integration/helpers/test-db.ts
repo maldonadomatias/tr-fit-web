@@ -23,6 +23,25 @@ export async function resetDatabase(): Promise<void> {
       users
     RESTART IDENTITY CASCADE;
   `);
+  // Platform fee tables: clear history and restore the seeded single-row config
+  // so each test starts from the migration defaults (config is never truncated
+  // away — getConfig() requires the id=1 row to exist).
+  await pool.query(`TRUNCATE TABLE platform_fee_history RESTART IDENTITY`);
+  await pool.query(`
+    INSERT INTO platform_fee_config
+      (id, base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
+       revenue_share_pct, adjustment_interval_months, next_adjustment_date)
+    VALUES (1, 105000, 1420, 1500, 25000, 4, 3, '2026-10-01')
+    ON CONFLICT (id) DO UPDATE SET
+      base_fee_ars = EXCLUDED.base_fee_ars,
+      reference_usd = EXCLUDED.reference_usd,
+      current_usd = EXCLUDED.current_usd,
+      price_per_athlete_ars = EXCLUDED.price_per_athlete_ars,
+      revenue_share_pct = EXCLUDED.revenue_share_pct,
+      adjustment_interval_months = EXCLUDED.adjustment_interval_months,
+      next_adjustment_date = EXCLUDED.next_adjustment_date,
+      updated_at = now();
+  `);
 }
 
 export async function ensureMigrated(): Promise<void> {
@@ -34,9 +53,10 @@ export async function ensureMigrated(): Promise<void> {
   // Idempotent: if migrations table not present or rows missing, run them.
   const r = await pool.query(
     `SELECT to_regclass('public.exercises') AS e,
-            to_regclass('public.periodization_config') AS p`,
+            to_regclass('public.periodization_config') AS p,
+            to_regclass('public.platform_fee_config') AS f`,
   );
-  if (!r.rows[0].e || !r.rows[0].p) {
+  if (!r.rows[0].e || !r.rows[0].p || !r.rows[0].f) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }
   // Ensure seed data
