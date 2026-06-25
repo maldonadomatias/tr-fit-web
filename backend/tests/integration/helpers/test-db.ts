@@ -30,8 +30,8 @@ export async function resetDatabase(): Promise<void> {
   await pool.query(`
     INSERT INTO platform_fee_config
       (id, base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
-       revenue_share_pct, adjustment_interval_months, next_adjustment_date)
-    VALUES (1, 105000, 1420, 1500, 25000, 4, 3, '2026-10-01')
+       revenue_share_pct, adjustment_interval_months, next_adjustment_date, phase)
+    VALUES (1, 105000, 1420, 1500, 25000, 4, 3, '2026-10-01', 'production')
     ON CONFLICT (id) DO UPDATE SET
       base_fee_ars = EXCLUDED.base_fee_ars,
       reference_usd = EXCLUDED.reference_usd,
@@ -40,6 +40,7 @@ export async function resetDatabase(): Promise<void> {
       revenue_share_pct = EXCLUDED.revenue_share_pct,
       adjustment_interval_months = EXCLUDED.adjustment_interval_months,
       next_adjustment_date = EXCLUDED.next_adjustment_date,
+      phase = EXCLUDED.phase,
       updated_at = now();
   `);
 }
