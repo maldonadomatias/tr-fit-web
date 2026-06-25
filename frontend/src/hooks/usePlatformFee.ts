@@ -1,16 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+export type BillingPhase = 'testflight' | 'production';
+
 export interface PlatformFeeSummary {
   base_fee_ars: number;
   active_athletes: number;
-  price_per_athlete_ars: number;
   gross_revenue_ars: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
   total_ars: number;
   next_adjustment_date: string;
   adjustment_due: boolean;
+  phase: BillingPhase;
 }
 
 export interface PlatformFeeConfig {
@@ -21,6 +23,7 @@ export interface PlatformFeeConfig {
   revenue_share_pct: number;
   adjustment_interval_months: number;
   next_adjustment_date: string;
+  phase: BillingPhase;
   updated_at: string;
 }
 
@@ -35,6 +38,26 @@ export interface PlatformFeeHistoryRow {
   total_ars: number;
   usd_at_snapshot: number;
   created_at: string;
+}
+
+export interface FeeLogRow {
+  id: string;
+  athlete_id: string;
+  athlete_name: string | null;
+  from_ars: number;
+  to_ars: number;
+  actor: string;
+  created_at: string;
+}
+
+export function useFeeLog() {
+  return useQuery({
+    queryKey: ['platform-fee', 'fee-log'],
+    queryFn: async () => {
+      const r = await api.get<FeeLogRow[]>('/platform-fee/fee-log');
+      return r.data;
+    },
+  });
 }
 
 export function usePlatformFee() {

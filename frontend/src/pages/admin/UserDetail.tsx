@@ -49,6 +49,7 @@ import {
 } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { useLoggedSessions } from '@/hooks/useLoggedSessions';
+import { useSetMonthlyFee } from '@/hooks/useSetMonthlyFee';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtARS, fmtShortDate, fmtTimeAgo } from '@/lib/format';
@@ -597,11 +598,15 @@ function Field({
 function SuscripcionTab({ user }: { user: AdminUser }) {
   const upsert = useUpsertSubscription(user.id);
   const cancel = useCancelSubscription(user.id);
+  const setFee = useSetMonthlyFee(user.id);
   const [tier, setTier] = useState<SubscriptionTier>(
     user.subscription_tier ?? 'full',
   );
   const [subStatus, setSubStatus] = useState<SubscriptionStatus>(
     user.subscription_status ?? 'authorized',
+  );
+  const [cuota, setCuota] = useState(
+    String((user as { monthly_fee_ars?: number | null }).monthly_fee_ars ?? 25000),
   );
 
   useEffect(() => {
@@ -732,6 +737,39 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
               )}
             </div>
           </Field>
+
+          {/* Cuota mensual — drives the platform 4% */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">Cuota mensual (ARS)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={cuota}
+                onChange={(e) => setCuota(e.target.value)}
+                className="h-9 w-40 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
+              />
+              <button
+                type="button"
+                disabled={setFee.isPending}
+                onClick={async () => {
+                  const v = Number(cuota);
+                  if (!v || v <= 0) {
+                    toast.error('Cuota inválida');
+                    return;
+                  }
+                  try {
+                    await setFee.mutateAsync(v);
+                    toast.success('Cuota actualizada');
+                  } catch {
+                    toast.error('No se pudo actualizar');
+                  }
+                }}
+                className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
 
           <Field label="Estado de pago">
             <Segmented<SubscriptionStatus>

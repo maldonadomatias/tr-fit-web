@@ -9,6 +9,8 @@ import {
   usePlatformFeeHistory,
   useUpdatePlatformFeeConfig,
   useApplyAdjustment,
+  useFeeLog,
+  type BillingPhase,
 } from '@/hooks/usePlatformFee';
 
 export default function PlatformFee() {
@@ -18,6 +20,7 @@ export default function PlatformFee() {
   const { data: history } = usePlatformFeeHistory();
   const updateConfig = useUpdatePlatformFeeConfig();
   const applyAdjustment = useApplyAdjustment();
+  const { data: feeLog } = useFeeLog();
 
   const [usdInput, setUsdInput] = useState('');
 
@@ -26,6 +29,7 @@ export default function PlatformFee() {
   }
 
   const { summary, config } = data;
+  const isTestflight = summary.phase === 'testflight';
 
   async function onApply() {
     const usd = Number(usdInput);
@@ -58,20 +62,31 @@ export default function PlatformFee() {
 
       {/* Hero total */}
       <div className="rounded-lg border border-border bg-card p-5">
-        <div className="text-xs uppercase tracking-wide text-muted-foreground">
-          Total del mes
+        <div className="flex items-center gap-2">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Total del mes
+          </div>
+          {isTestflight && (
+            <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400">
+              TestFlight · 50%
+            </span>
+          )}
         </div>
         <div className="mt-1 text-3xl font-extrabold tabular-nums">
           {fmtARS(summary.total_ars)}
         </div>
         <dl className="mt-4 grid gap-2 text-sm">
           <div className="flex justify-between">
-            <dt className="text-muted-foreground">Fee base</dt>
+            <dt className="text-muted-foreground">
+              {isTestflight
+                ? `Fee base (50% de ${fmtARS(config.base_fee_ars)})`
+                : 'Fee base'}
+            </dt>
             <dd className="tabular-nums">{fmtARS(summary.base_fee_ars)}</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
-              {summary.active_athletes} atletas × {fmtARS(summary.price_per_athlete_ars)}
+              {summary.active_athletes} atletas activos (facturado)
             </dt>
             <dd className="tabular-nums">{fmtARS(summary.gross_revenue_ars)}</dd>
           </div>
@@ -79,7 +94,11 @@ export default function PlatformFee() {
             <dt className="text-muted-foreground">
               {summary.revenue_share_pct}% sobre facturación
             </dt>
-            <dd className="tabular-nums">{fmtARS(summary.revenue_share_ars)}</dd>
+            <dd className="tabular-nums">
+              {isTestflight
+                ? '— no aplica en TestFlight'
+                : fmtARS(summary.revenue_share_ars)}
+            </dd>
           </div>
         </dl>
       </div>
@@ -141,6 +160,36 @@ export default function PlatformFee() {
           }}
           saving={updateConfig.isPending}
         />
+      )}
+
+      {isSuper && feeLog && feeLog.length > 0 && (
+        <div className="rounded-lg border border-border bg-card p-5">
+          <div className="mb-3 text-sm font-semibold">
+            Cambios de cuota recientes
+          </div>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-muted-foreground">
+                <th className="py-1">Alumno</th>
+                <th className="py-1 text-right">De</th>
+                <th className="py-1 text-right">A</th>
+                <th className="py-1 text-right">Cuándo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {feeLog.map((f) => (
+                <tr key={f.id} className="border-t border-border">
+                  <td className="py-1.5">{f.athlete_name ?? f.athlete_id.slice(0, 8)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{fmtARS(f.from_ars)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{fmtARS(f.to_ars)}</td>
+                  <td className="py-1.5 text-right text-muted-foreground">
+                    {fmtShortDate(f.created_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* History */}
@@ -206,6 +255,7 @@ function ConfigEditor({
     adjustment_interval_months: number;
     next_adjustment_date: string;
     base_fee_ars: number;
+    phase: BillingPhase;
   };
   onSave: (patch: Record<string, number | string>) => void;
   saving: boolean;
@@ -217,6 +267,7 @@ function ConfigEditor({
     String(config.adjustment_interval_months)
   );
   const [nextDate, setNextDate] = useState(config.next_adjustment_date);
+  const [phase, setPhase] = useState<BillingPhase>(config.phase);
 
   const field =
     'mt-1 h-9 rounded-md border border-border bg-background px-2 text-sm tabular-nums';
@@ -270,6 +321,17 @@ function ConfigEditor({
             className={field}
           />
         </label>
+        <label className="flex flex-col text-xs text-muted-foreground">
+          Fase de cobro
+          <select
+            value={phase}
+            onChange={(e) => setPhase(e.target.value as BillingPhase)}
+            className={field}
+          >
+            <option value="testflight">TestFlight (50%, sin 4%)</option>
+            <option value="production">Producción (100% + 4%)</option>
+          </select>
+        </label>
       </div>
       <button
         type="button"
@@ -280,6 +342,7 @@ function ConfigEditor({
             revenue_share_pct: Number(pct),
             adjustment_interval_months: Number(interval),
             next_adjustment_date: nextDate,
+            phase,
           })
         }
         disabled={saving}
