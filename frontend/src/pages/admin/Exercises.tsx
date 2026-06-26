@@ -133,6 +133,7 @@ export default function Exercises() {
             <TableHead>Principal</TableHead>
             <TableHead>Unilateral</TableHead>
             <TableHead>Nivel</TableHead>
+            <TableHead>Tope</TableHead>
             <TableHead className="w-24">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -140,13 +141,13 @@ export default function Exercises() {
           {query.isLoading && (
             Array.from({ length: 8 }).map((_, i) => (
               <TableRow key={i}>
-                <TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell>
+                <TableCell colSpan={9}><Skeleton className="h-6 w-full" /></TableCell>
               </TableRow>
             ))
           )}
           {!query.isLoading && items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-12">
+              <TableCell colSpan={9} className="text-center text-sm text-muted-foreground py-12">
                 No hay ejercicios. Crea uno con el botón de arriba.
               </TableCell>
             </TableRow>
@@ -169,6 +170,7 @@ export default function Exercises() {
                 <TableCell>{e.is_principal ? 'Sí' : '—'}</TableCell>
                 <TableCell>{e.is_unilateral ? 'Sí' : '—'}</TableCell>
                 <TableCell>{e.level_min}</TableCell>
+                <TableCell>{e.rep_cycle_threshold}</TableCell>
                 <TableCell onClick={(ev) => ev.stopPropagation()}>
                   <div className="flex gap-1">
                     <Button size="icon" variant="ghost" onClick={() => openEdit(e)}>

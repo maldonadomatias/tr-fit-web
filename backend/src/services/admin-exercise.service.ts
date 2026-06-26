@@ -29,6 +29,7 @@ export interface Exercise {
   archived_at: string | null;
   modality: ExerciseModality;
   default_target: string | null;
+  rep_cycle_threshold: number;
 }
 
 export type CreateExerciseInput = Omit<Exercise, 'id' | 'archived_at'>;
@@ -55,7 +56,7 @@ const SELECT_COLS = `
   is_principal, is_unilateral, level_min,
   contraindicated_for, default_increment_kg, alternatives_ids,
   video_url, illustration_url, archived_at,
-  modality, default_target
+  modality, default_target, rep_cycle_threshold
 `;
 
 export async function listExercises(
@@ -132,14 +133,16 @@ export async function createExercise(input: CreateExerciseInput): Promise<Exerci
          (name, muscle_group, equipment, movement_pattern,
           is_principal, is_unilateral, level_min,
           contraindicated_for, default_increment_kg, alternatives_ids,
-          video_url, illustration_url, modality, default_target)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          video_url, illustration_url, modality, default_target,
+          rep_cycle_threshold)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING ${SELECT_COLS}`,
       [
         input.name, input.muscle_group, input.equipment, input.movement_pattern,
         input.is_principal, input.is_unilateral, input.level_min,
         input.contraindicated_for, input.default_increment_kg, input.alternatives_ids,
         input.video_url, input.illustration_url, input.modality, input.default_target,
+        input.rep_cycle_threshold,
       ],
     );
     return normalize(r.rows[0]);

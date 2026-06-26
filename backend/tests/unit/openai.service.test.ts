@@ -57,6 +57,7 @@ const ex = (
   contraindicated_for: [], default_increment_kg: 2.5, alternatives_ids: [],
   video_url: null, illustration_url: null,
   modality: 'reps' as const, default_target: null,
+  rep_cycle_threshold: 12,
 });
 
 const exercises = [

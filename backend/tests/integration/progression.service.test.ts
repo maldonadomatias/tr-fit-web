@@ -88,6 +88,37 @@ it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () =>
   expect(w.rows[0].unit).toBe('kg');
 });
 
+it('female athlete: reps reset to 4 and weight bumps at threshold (12)', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach, { gender: 'female' });
+  const { accesorioId } = await setup(coach, ath);
+  const startWeight = 10;
+  await pool.query(
+    `UPDATE exercises SET rep_cycle_threshold = 12 WHERE id = $1`,
+    [accesorioId],
+  );
+  await pool.query(
+    `UPDATE athlete_exercise_weights
+        SET current_weight_kg = $3, current_value = $3, unit = 'kg', current_reps_text = '12'
+      WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, accesorioId, startWeight],
+  );
+  await pool.query(
+    `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week, set_index, completed)
+     VALUES ($1, $2, 1, 1, 1, TRUE), ($1, $2, 1, 1, 2, TRUE), ($1, $2, 1, 1, 3, TRUE)`,
+    [ath, accesorioId],
+  );
+  await runWeeklyProgressionForAthlete(ath);
+  const w = await pool.query(
+    `SELECT current_reps_text, current_value
+       FROM athlete_exercise_weights
+      WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, accesorioId],
+  );
+  expect(w.rows[0].current_reps_text).toBe('4'); // female reset
+  expect(Number(w.rows[0].current_value)).toBeGreaterThan(startWeight);
+});
+
 it('does NOT bump when set not completed', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);

@@ -46,6 +46,7 @@ const schema = z.object({
   illustration_url: z.union([z.string().url(), z.literal('')]).nullable(),
   modality: z.enum(MODALITIES),
   default_target: z.string().trim().max(60),
+  rep_cycle_threshold: z.coerce.number().int().min(1).max(50),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -59,6 +60,7 @@ function exerciseToForm(e: Exercise | null): FormValues {
       contraindicated_for: '', default_increment_kg: 2.5,
       alternatives_ids: '', video_url: '', illustration_url: '',
       modality: 'reps', default_target: '',
+      rep_cycle_threshold: 12,
     };
   }
   return {
@@ -72,6 +74,7 @@ function exerciseToForm(e: Exercise | null): FormValues {
     illustration_url: e.illustration_url ?? '',
     modality: e.modality,
     default_target: e.default_target ?? '',
+    rep_cycle_threshold: e.rep_cycle_threshold,
   };
 }
 
@@ -93,6 +96,7 @@ function formToPayload(v: FormValues): CreateExerciseInput {
     illustration_url: v.illustration_url && v.illustration_url !== '' ? v.illustration_url : null,
     modality: v.modality,
     default_target: v.default_target.trim() === '' ? null : v.default_target.trim(),
+    rep_cycle_threshold: Number(v.rep_cycle_threshold),
   };
 }
 
@@ -263,6 +267,20 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
               <div>
                 <Label htmlFor="default_target">Objetivo por defecto</Label>
                 <Input id="default_target" {...form.register('default_target')} placeholder="ej. 5 min, 2 km, 10" />
+              </div>
+              <div>
+                <Label htmlFor="rep_cycle_threshold">Tope de repes (ciclo)</Label>
+                <Input
+                  id="rep_cycle_threshold"
+                  type="number"
+                  step="1"
+                  min="1"
+                  max="50"
+                  {...form.register('rep_cycle_threshold')}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Al llegar a estas repes sube la carga y baja a 4 (mujer) o 6 (varón).
+                </p>
               </div>
               <div>
                 <Label htmlFor="vid">Video URL</Label>

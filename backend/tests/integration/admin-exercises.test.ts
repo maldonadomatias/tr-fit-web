@@ -62,6 +62,7 @@ const baseInput: CreateExerciseInput = {
   illustration_url: null,
   modality: 'reps',
   default_target: null,
+  rep_cycle_threshold: 12,
 };
 
 describe('listExercises', () => {
@@ -314,6 +315,7 @@ describe('modality and default_target', () => {
       illustration_url: null,
       modality: 'tiempo',
       default_target: '5 min',
+      rep_cycle_threshold: 12,
     });
     expect(created.modality).toBe('tiempo');
     expect(created.default_target).toBe('5 min');
