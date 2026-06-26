@@ -21,6 +21,7 @@ const cardio: Exercise = {
   level_min: 'principiante', contraindicated_for: [], default_increment_kg: 1,
   alternatives_ids: [], video_url: null, illustration_url: null,
   modality: 'tiempo', default_target: '5 min',
+  rep_cycle_threshold: 12,
 };
 const articular: Exercise = {
   ...cardio, id: 2, name: 'Movimiento articular',

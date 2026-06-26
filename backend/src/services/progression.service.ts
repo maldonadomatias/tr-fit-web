@@ -2,7 +2,6 @@ import pool from '../db/connect.js';
 import { env } from '../config/env.js';
 import {
   advanceReps, applyIncrement, isExcludedFromAutoProgression,
-  EJERCICIOS_HASTA_15,
 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import type { Exercise } from '../domain/types.js';
@@ -49,6 +48,11 @@ export async function runWeeklyProgressionForAthlete(
         compliance: 0, weightsBumped: [], status: 'skipped',
       };
     }
+    const genderR = await client.query<{ gender: string }>(
+      `SELECT gender FROM athlete_profiles WHERE user_id = $1`,
+      [athleteId],
+    );
+    const resetReps = genderR.rows[0]?.gender === 'female' ? 4 : 6;
     const fromWeek = state.current_week;
 
     const accR = await client.query<Exercise & { slot_role: string }>(
@@ -102,9 +106,9 @@ export async function runWeeklyProgressionForAthlete(
       const w = wR.rows[0];
       if (!w) continue;
 
-      const isHasta15 = EJERCICIOS_HASTA_15.has(ex.name);
+      const threshold = ex.rep_cycle_threshold ?? 12;
       const currentReps = w.current_reps_text ?? '8';
-      const adv = advanceReps(currentReps, isHasta15);
+      const adv = advanceReps(currentReps, { threshold, resetReps });
 
       let newWeight: number | null =
         w.current_value === null ? null : Number(w.current_value);

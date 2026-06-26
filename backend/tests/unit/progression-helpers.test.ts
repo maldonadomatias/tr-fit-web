@@ -87,50 +87,73 @@ describe('applyIncrement — maquina/polea (+1)', () => {
   });
 });
 
-describe('advanceReps — simple reps rotation', () => {
+describe('advanceReps — integer climb to threshold (male reset 6)', () => {
+  const opts = { threshold: 12, resetReps: 6 };
   it.each([
     ['6', { newReps: '8', bumpWeight: false }],
     ['8', { newReps: '10', bumpWeight: false }],
     ['10', { newReps: '12', bumpWeight: false }],
     ['12', { newReps: '6', bumpWeight: true }],
   ])('%s -> %o', (input, expected) => {
-    expect(advanceReps(input, false)).toEqual(expected);
+    expect(advanceReps(input, opts)).toEqual(expected);
   });
 });
 
-describe('advanceReps — range rotation', () => {
+describe('advanceReps — integer climb to threshold (female reset 4)', () => {
+  const opts = { threshold: 12, resetReps: 4 };
   it.each([
-    ['4 a 6', { newReps: '6 a 8', bumpWeight: false }],
-    ['6 a 8', { newReps: '8 a 10', bumpWeight: false }],
-    ['8 a 10', { newReps: '10 a 12', bumpWeight: false }],
-    ['10 a 12', { newReps: '4 a 6', bumpWeight: true }],
+    ['4', { newReps: '6', bumpWeight: false }],
+    ['10', { newReps: '12', bumpWeight: false }],
+    ['12', { newReps: '4', bumpWeight: true }],
   ])('%s -> %o', (input, expected) => {
-    expect(advanceReps(input, false)).toEqual(expected);
+    expect(advanceReps(input, opts)).toEqual(expected);
   });
 });
 
-describe('advanceReps — pyramid rotations', () => {
-  it.each([
-    ['10x10x10', { newReps: '12x12x12', bumpWeight: false }],
-    ['12x12x12', { newReps: '10x10x10', bumpWeight: true }],
-    ['12 - 10 - 8', { newReps: '8 - 6 - 4', bumpWeight: false }],
-    ['8 - 6 - 4', { newReps: '10 - 8 - 6', bumpWeight: false }],
-    ['10 - 8 - 6', { newReps: '12 - 10 - 8', bumpWeight: true }],
-    ['8x6x4x6x8', { newReps: '10x8x6x8x10', bumpWeight: false }],
-    ['10x8x6x8x10', { newReps: '8x6x4x6x8', bumpWeight: true }],
-  ])('%s -> %o', (input, expected) => {
-    expect(advanceReps(input, false)).toEqual(expected);
+describe('advanceReps — odd threshold lands exactly (15)', () => {
+  it('male: 12 -> 14', () => {
+    expect(advanceReps('12', { threshold: 15, resetReps: 6 }))
+      .toEqual({ newReps: '14', bumpWeight: false });
   });
-});
-
-describe('advanceReps — ejerciciosHasta15', () => {
-  it('non-15 goes to 15 first', () => {
-    expect(advanceReps('12', true))
+  it('male: 14 -> 15 (clamped, no bump yet)', () => {
+    expect(advanceReps('14', { threshold: 15, resetReps: 6 }))
       .toEqual({ newReps: '15', bumpWeight: false });
   });
-  it('15 rotates to 4 a 6 with weight bump', () => {
-    expect(advanceReps('15', true))
-      .toEqual({ newReps: '4 a 6', bumpWeight: true });
+  it('male: 15 -> reset 6 with weight bump', () => {
+    expect(advanceReps('15', { threshold: 15, resetReps: 6 }))
+      .toEqual({ newReps: '6', bumpWeight: true });
+  });
+});
+
+describe('advanceReps — at or above threshold resets and bumps', () => {
+  it('exactly at threshold', () => {
+    expect(advanceReps('12', { threshold: 12, resetReps: 6 }))
+      .toEqual({ newReps: '6', bumpWeight: true });
+  });
+  it('above threshold (defensive)', () => {
+    expect(advanceReps('16', { threshold: 12, resetReps: 6 }))
+      .toEqual({ newReps: '6', bumpWeight: true });
+  });
+});
+
+describe('advanceReps — legacy range/pyramid schemes unchanged', () => {
+  const opts = { threshold: 12, resetReps: 6 };
+  it.each([
+    ['4 a 6', { newReps: '6 a 8', bumpWeight: false }],
+    ['10 a 12', { newReps: '4 a 6', bumpWeight: true }],
+    ['10x10x10', { newReps: '12x12x12', bumpWeight: false }],
+    ['12x12x12', { newReps: '10x10x10', bumpWeight: true }],
+    ['10 - 8 - 6', { newReps: '12 - 10 - 8', bumpWeight: true }],
+    ['10x8x6x8x10', { newReps: '8x6x4x6x8', bumpWeight: true }],
+  ])('%s -> %o', (input, expected) => {
+    expect(advanceReps(input, opts)).toEqual(expected);
+  });
+});
+
+describe('advanceReps — unknown pattern holds', () => {
+  it('passes through unchanged, no bump', () => {
+    expect(advanceReps('AMRAP', { threshold: 12, resetReps: 6 }))
+      .toEqual({ newReps: 'AMRAP', bumpWeight: false });
   });
 });
 
@@ -181,5 +204,6 @@ function mockExercise(over: Partial<{
     illustration_url: null,
     modality: 'reps' as const,
     default_target: null,
+    rep_cycle_threshold: 12,
   };
 }

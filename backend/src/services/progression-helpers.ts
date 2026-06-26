@@ -112,28 +112,39 @@ export interface AdvanceResult {
   bumpWeight: boolean;
 }
 
-export function advanceReps(currentReps: string, isHasta15: boolean): AdvanceResult {
-  if (isHasta15) {
-    if (currentReps !== '15') return { newReps: '15', bumpWeight: false };
-    return { newReps: '4 a 6', bumpWeight: true };
-  }
+export interface AdvanceOptions {
+  /** Rep "tope": reps climb +2 up to this, then reset and bump weight. */
+  threshold: number;
+  /** Reset rep target after a bump — sex-based: female 4, male/other 6. */
+  resetReps: number;
+}
 
-  // Simple reps rotation
-  if ((REPS_SIMPLES as readonly string[]).includes(currentReps)) {
-    const idx = REPS_SIMPLES.indexOf(currentReps as typeof REPS_SIMPLES[number]);
-    if (idx === REPS_SIMPLES.length - 1) {
-      return { newReps: '6', bumpWeight: true };
+export function advanceReps(
+  currentReps: string,
+  opts: AdvanceOptions,
+): AdvanceResult {
+  const { threshold, resetReps } = opts;
+
+  // Plain-integer rep schemes (e.g. "6", "12", "15").
+  if (/^\d+$/.test(currentReps.trim())) {
+    const cur = parseInt(currentReps.trim(), 10);
+    if (cur >= threshold) {
+      return { newReps: String(resetReps), bumpWeight: true };
     }
-    return { newReps: REPS_SIMPLES[idx + 1], bumpWeight: false };
+    const next = cur + 2;
+    return {
+      newReps: String(next >= threshold ? threshold : next),
+      bumpWeight: false,
+    };
   }
 
-  // Range / pyramid rotations
+  // Legacy range / pyramid rotations — unchanged.
   const next = ADVANCE_REPS[currentReps];
   if (next) {
     return { newReps: next, bumpWeight: REP_BUMP_TRIGGERS.has(currentReps) };
   }
 
-  // Unknown pattern: hold
+  // Unknown pattern: hold.
   return { newReps: currentReps, bumpWeight: false };
 }
 
