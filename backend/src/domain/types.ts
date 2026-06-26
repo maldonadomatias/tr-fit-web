@@ -67,6 +67,7 @@ export interface Exercise {
   illustration_url: string | null;
   modality: ExerciseModality;
   default_target: string | null;
+  rep_cycle_threshold: number;
 }
 
 export interface PeriodizationConfig {

@@ -52,6 +52,7 @@ const createBody = z.object({
   illustration_url: z.string().url().nullable(),
   modality: ModalityEnum.default('reps'),
   default_target: z.string().trim().max(60).nullable().default(null),
+  rep_cycle_threshold: z.number().int().min(1).max(50).default(12),
 });
 
 const updateBody = createBody.partial();
