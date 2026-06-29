@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
+import { uploadAthleteAvatar, ALLOWED_AVATAR_MIME } from '../services/avatar.service.js';
 import { rmPayload, amrapPayload, profileUpdatePayload } from '../domain/schemas.js';
 import pool from '../db/connect.js';
 import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../services/engine.service.js';
@@ -16,6 +18,12 @@ import { resetProgramForGymChange } from '../services/program-reset.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
+
+// Profile picture upload — single in-memory image, 5 MB cap.
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+}).single('avatar');
 
 /**
  * @deprecated The mobile app no longer calls this endpoint — all features are
@@ -99,6 +107,28 @@ router.patch('/me', async (req, res) => {
   );
   if (r.rowCount === 0) return res.status(404).json({ error: 'profile_not_found' });
   res.json({ ok: true });
+});
+
+router.post('/me/avatar', (req, res) => {
+  // multer runs inline so its errors (e.g. file too large) become a clean 400
+  // instead of relying on async-throw propagation (this app has no async wrapper).
+  avatarUpload(req, res, async (err: unknown) => {
+    if (err) return res.status(400).json({ error: 'upload_failed' });
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'no_file' });
+    if (!ALLOWED_AVATAR_MIME.has(file.mimetype)) {
+      return res.status(400).json({ error: 'invalid_type' });
+    }
+    try {
+      const url = await uploadAthleteAvatar(req.user!.id, file.buffer, file.mimetype);
+      res.json({ avatar_url: url });
+    } catch (e) {
+      if (e instanceof Error && e.message === 'profile_not_found') {
+        return res.status(404).json({ error: 'profile_not_found' });
+      }
+      res.status(500).json({ error: 'avatar_upload_failed' });
+    }
+  });
 });
 
 router.get('/today', async (req, res) => {

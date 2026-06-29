@@ -13,3 +13,8 @@ export function getFirebaseApp(): admin.app.App {
   app = admin.initializeApp({ credential: admin.credential.cert(sa) });
   return app;
 }
+
+/** The Cloud Storage bucket used for athlete profile pictures. */
+export function getStorageBucket() {
+  return admin.storage(getFirebaseApp()).bucket(env.FIREBASE_STORAGE_BUCKET);
+}
