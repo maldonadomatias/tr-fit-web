@@ -20,6 +20,7 @@
     "mp:setup-plans": "tsx src/scripts/setup-mp-plans.ts"
   },
   "dependencies": {
+    "@types/multer": "^2.1.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -28,6 +29,7 @@
     "firebase-admin": "^12.7.0",
     "jsonwebtoken": "^9.0.3",
     "luxon": "^3.7.2",
+    "multer": "^1.4.5-lts.1",
     "node-cron": "^4.2.1",
     "openai": "^6.37.0",
     "pg": "^8.13.1",

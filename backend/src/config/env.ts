@@ -20,6 +20,9 @@ const schema = z.object({
     .string()
     .optional()
     .default('{"type":"service_account","project_id":"test","private_key":"-----BEGIN PRIVATE KEY-----\\nfake\\n-----END PRIVATE KEY-----\\n","client_email":"test@test.iam.gserviceaccount.com"}'),
+  FIREBASE_STORAGE_BUCKET: z
+    .string()
+    .default('tatoroblesfit-2c13e.firebasestorage.app'),
   MP_ACCESS_TOKEN: z.string().min(1),
   MP_WEBHOOK_SECRET: z.string().min(1),
   MP_PLAN_ID_BASICO: z.string().min(1),
