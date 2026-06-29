@@ -18,6 +18,7 @@ import {
   useUpdateExercise,
   useArchiveExercise,
   useRestoreExercise,
+  useUploadExerciseVideo,
   type CreateExerciseInput,
 } from '@/hooks/useAdminExercises';
 import type { Exercise } from '@/types/api';
@@ -121,8 +122,22 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
   const update = useUpdateExercise(exercise?.id ?? 0);
   const archive = useArchiveExercise();
   const restore = useRestoreExercise();
+  const uploadVideo = useUploadExerciseVideo(exercise?.id ?? 0);
 
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+
+  async function handleVideoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file
+    if (!file || !exercise) return;
+    try {
+      const url = await uploadVideo.mutateAsync(file);
+      form.setValue('video_url', url, { shouldDirty: false });
+      toast.success('Video subido');
+    } catch {
+      toast.error('No se pudo subir el video');
+    }
+  }
 
   const isArchived = exercise?.archived_at != null;
 
@@ -285,6 +300,34 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
               <div>
                 <Label htmlFor="vid">Video URL</Label>
                 <Input id="vid" type="url" {...form.register('video_url')} />
+                {isEdit ? (
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    <label className="inline-flex w-fit cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
+                      {uploadVideo.isPending ? 'Subiendo…' : 'Subir video (mp4)'}
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime"
+                        className="hidden"
+                        disabled={uploadVideo.isPending}
+                        onChange={handleVideoFile}
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Subí el archivo mp4. Los links de YouTube no se reproducen en la app.
+                    </p>
+                    {form.watch('video_url') ? (
+                      <video
+                        src={form.watch('video_url') ?? ''}
+                        controls
+                        className="mt-1 max-h-40 w-full rounded-md border"
+                      />
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Guardá el ejercicio para poder subir el video.
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="ill">Ilustración URL</Label>

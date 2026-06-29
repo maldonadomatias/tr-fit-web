@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { getStorageBucket } from '../config/firebase.js';
+import { uploadBufferToStorage } from './storage.service.js';
 import pool from '../db/connect.js';
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -24,19 +24,8 @@ export async function uploadAthleteAvatar(
   contentType: string,
 ): Promise<string> {
   const ext = EXT_BY_MIME[contentType] ?? 'jpg';
-  const token = randomUUID();
   const objectPath = `avatars/${userId}/${randomUUID()}.${ext}`;
-
-  const bucket = getStorageBucket();
-  await bucket.file(objectPath).save(buffer, {
-    resumable: false,
-    contentType,
-    metadata: { metadata: { firebaseStorageDownloadTokens: token } },
-  });
-
-  const url =
-    `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
-    `${encodeURIComponent(objectPath)}?alt=media&token=${token}`;
+  const url = await uploadBufferToStorage(objectPath, buffer, contentType);
 
   const r = await pool.query(
     `UPDATE athlete_profiles SET avatar_url = $1 WHERE user_id = $2 RETURNING avatar_url`,
