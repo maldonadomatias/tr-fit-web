@@ -87,6 +87,7 @@ const GOAL_LABEL: Record<Goal, string> = {
 
 export interface DashboardPayload {
   displayName: string;
+  avatarUrl: string | null;
   currentWeek: number;
   totalWeeks: number;
   blockLabel: string | null;
@@ -114,19 +115,20 @@ function firstName(name: string | null | undefined): string {
 export async function buildDashboard(userId: string): Promise<DashboardPayload> {
   const profileR = await pool.query<{
     name: string | null;
+    avatar_url: string | null;
     goal: Goal | null;
     exercise_minutes: number | null;
     days_specific: string[] | null;
     days_per_week: number | null;
   }>(
-    `SELECT name, goal, exercise_minutes, days_specific, days_per_week
+    `SELECT name, avatar_url, goal, exercise_minutes, days_specific, days_per_week
        FROM athlete_profiles WHERE user_id = $1`,
     [userId],
   );
   const profile = profileR.rows[0];
   if (!profile) {
     return {
-      displayName: 'Atleta', currentWeek: 0, totalWeeks: 0,
+      displayName: 'Atleta', avatarUrl: null, currentWeek: 0, totalWeeks: 0,
       blockLabel: null, blockWeeksRange: null,
       today: {
         dayIndex: null, focus: null, tag: '—',
@@ -240,6 +242,7 @@ export async function buildDashboard(userId: string): Promise<DashboardPayload> 
 
   return {
     displayName: firstName(profile.name),
+    avatarUrl: profile.avatar_url ?? null,
     currentWeek,
     totalWeeks,
     blockLabel,
