@@ -11,7 +11,6 @@ import {
   Receipt,
   Settings,
   Users as UsersIcon,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { Avatar } from './Avatar';
@@ -101,12 +100,6 @@ export function Sidebar() {
           to: '/admin/rutinas',
           count: rutinasCount,
           matchPrefixes: ['/admin/rutinas'],
-        },
-        {
-          key: 'billing',
-          label: 'Datos de pago',
-          icon: Wallet,
-          to: '/admin/billing',
         },
       ],
     },
