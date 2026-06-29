@@ -13,6 +13,9 @@ import { RequireAdmin } from '@/components/RequireAdmin';
 import { AdminShell } from '@/components/AdminShell';
 import Login from '@/pages/Login';
 import NotFound from '@/pages/NotFound';
+import Privacy from '@/pages/Privacy';
+import Terms from '@/pages/Terms';
+import Support from '@/pages/Support';
 import AdminUsers from '@/pages/admin/Users';
 import AdminUserDetail from '@/pages/admin/UserDetail';
 import AdminDashboard from '@/pages/admin/Dashboard';
@@ -45,6 +48,9 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/admin" replace />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/support" element={<Support />} />
               <Route
                 element={
                   <RequireAdmin>

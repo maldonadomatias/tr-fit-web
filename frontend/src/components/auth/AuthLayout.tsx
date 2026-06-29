@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { BrandPanel } from './BrandPanel';
 
 export function AuthLayout({ children }: { children: ReactNode }) {
@@ -14,15 +15,15 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         <div className="w-full max-w-[400px]">{children}</div>
         <footer className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
           <span>TR-Fit · 2026</span>
-          <a href="#" className="hover:text-foreground">
+          <Link to="/terms" className="hover:text-foreground">
             Términos
-          </a>
-          <a href="#" className="hover:text-foreground">
+          </Link>
+          <Link to="/privacy" className="hover:text-foreground">
             Privacidad
-          </a>
-          <a href="#" className="hover:text-foreground">
+          </Link>
+          <Link to="/support" className="hover:text-foreground">
             Ayuda
-          </a>
+          </Link>
         </footer>
       </div>
     </div>
