@@ -132,6 +132,7 @@ export function SlotRow({
         onClose={() => setSwapOpen(false)}
         onSelect={onSwap}
         title="Cambiar ejercicio"
+        muscleGroup={slot.muscle_group}
       />
     </div>
   );

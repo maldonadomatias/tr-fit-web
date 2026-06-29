@@ -14,15 +14,20 @@ export function ExerciseSwapDialog({
   onClose,
   onSelect,
   title,
+  muscleGroup,
 }: {
   open: boolean;
   onClose: () => void;
   onSelect: (exerciseId: number) => void;
   title: string;
+  muscleGroup?: string;
 }) {
   const [q, setQ] = useState('');
+  const [onlyGroup, setOnlyGroup] = useState(true);
+  const filterGroup = muscleGroup && onlyGroup ? muscleGroup : undefined;
   const { data } = useAdminExercises({
     q: q.trim() || undefined,
+    muscle_group: filterGroup,
     archived: 'false',
   });
 
@@ -45,6 +50,19 @@ export function ExerciseSwapDialog({
             autoFocus
           />
         </div>
+        {muscleGroup ? (
+          <button
+            type="button"
+            onClick={() => setOnlyGroup((v) => !v)}
+            className={`self-start rounded-full border px-3 py-1 text-xs ${
+              onlyGroup
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {onlyGroup ? `Solo ${muscleGroup}` : 'Todos los grupos'}
+          </button>
+        ) : null}
         <div className="max-h-96 divide-y divide-border overflow-y-auto rounded-md border">
           {(data?.items ?? []).map((ex) => (
             <button
