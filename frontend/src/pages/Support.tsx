@@ -33,8 +33,8 @@ export default function Support() {
           Probá la opción "Recuperar contraseña" en la pantalla de login.
         </li>
         <li>
-          Si tu cuenta dice "Tu acceso está pausado", tu membresía está
-          vencida. Renovala desde el sitio web.
+          Si tu cuenta dice "Tu acceso está pausado", contactá a tu coach
+          para reactivarla.
         </li>
         <li>
           Si la cuenta está pendiente de aprobación, esperá la confirmación de
@@ -58,14 +58,6 @@ export default function Support() {
       <p>
         Hablá con tu coach. Las rutinas se ajustan de manera personalizada en
         base a tu progreso y feedback.
-      </p>
-
-      <h3>Pagos y suscripciones</h3>
-      <p>
-        Las membresías se contratan en{' '}
-        <a href="https://app.tatoroblesfit.com">app.tatoroblesfit.com</a>{' '}
-        a través de Mercado Pago. Si tenés problemas con un pago, conservá el
-        comprobante de Mercado Pago y escribinos.
       </p>
 
       <h2 id="eliminar-cuenta">Cómo eliminar tu cuenta</h2>
