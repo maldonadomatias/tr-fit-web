@@ -33,8 +33,14 @@ export default function Privacy() {
       <h3>2.2 Datos de salud y entrenamiento</h3>
       <ul>
         <li>
-          Datos físicos: peso, altura, edad, sexo, medidas corporales (si las
-          cargás).
+          Datos físicos: peso corporal, altura, edad y sexo.
+        </li>
+        <li>
+          Mediciones corporales que decidas registrar: circunferencias
+          (cintura, cadera, pecho, brazo, pierna, cuello), porcentaje de grasa
+          corporal estimado, masa muscular, pliegues cutáneos y cualquier
+          otra métrica antropométrica que ingreses, junto con la fecha de cada
+          medición para construir tu historial.
         </li>
         <li>
           Información de salud autoreportada: lesiones, zonas de dolor o
@@ -42,7 +48,8 @@ export default function Privacy() {
         </li>
         <li>
           Historial de entrenamientos: ejercicios realizados, series, repeticiones,
-          pesos, fechas, adherencia, tests de fuerza.
+          pesos levantados, tiempos de descanso, percepción de esfuerzo (RIR
+          o similar), adherencia y tests de fuerza.
         </li>
         <li>Disponibilidad de equipamiento y preferencias de entrenamiento.</li>
       </ul>
@@ -59,15 +66,6 @@ export default function Privacy() {
         </li>
       </ul>
 
-      <h3>2.4 Datos de pago</h3>
-      <p>
-        Los pagos se procesan exclusivamente a través de{' '}
-        <strong>Mercado Pago</strong> en el sitio web. <em>No</em> almacenamos ni
-        tenemos acceso a tu número de tarjeta, código de seguridad ni datos
-        bancarios. Solo recibimos el estado de tu suscripción (activa, vencida,
-        cancelada) y el identificador interno de Mercado Pago.
-      </p>
-
       <h2>3. Finalidad del tratamiento</h2>
       <ul>
         <li>Brindarte el servicio de entrenamiento personalizado.</li>
@@ -82,7 +80,6 @@ export default function Privacy() {
         <li>
           Validar tu identidad, controlar el acceso y proteger la aplicación de
           usos indebidos.</li>
-        <li>Procesar el cobro de la suscripción.</li>
         <li>Cumplir obligaciones legales y resolver disputas.</li>
       </ul>
 
@@ -99,11 +96,6 @@ export default function Privacy() {
           perfil de entrenamiento (objetivo, equipamiento, lesiones, edad, sexo,
           datos físicos generales) para generar rutinas personalizadas. No se
           envían datos identificatorios directos como nombre o email.
-        </li>
-        <li>
-          <strong>Mercado Pago</strong>: procesa los pagos. Recibe los datos
-          necesarios para emitir el cobro según su propia política de
-          privacidad.
         </li>
         <li>
           <strong>Google Firebase Cloud Messaging</strong>: entrega las
