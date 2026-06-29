@@ -54,33 +54,28 @@ export default function Terms() {
         </li>
       </ul>
 
-      <h2>4. Membresía y pagos</h2>
+      <h2>4. Membresía y acceso al Servicio</h2>
       <p>
-        Las membresías se contratan y abonan{' '}
-        <strong>únicamente a través del sitio web</strong>, mediante el
-        procesador de pagos Mercado Pago. Los precios vigentes están publicados
-        en el sitio.
+        Algunas funciones del Servicio requieren una membresía activa, que se
+        gestiona por fuera de la aplicación móvil. Mientras tu membresía esté
+        vigente, tendrás acceso a las funciones que la requieren.
       </p>
       <ul>
         <li>
-          La membresía habilita el acceso al Servicio por el período
-          contratado.
+          Si tu membresía se encuentra inactiva, vencida o suspendida, el
+          acceso a esas funciones queda limitado, sin que ello implique la
+          eliminación automática de tus datos.
         </li>
         <li>
-          Una vez vencida sin renovación, el acceso a las funciones de pago se
-          suspende. Tus datos no se eliminan automáticamente.
+          La aplicación móvil no procesa pagos ni habilita la compra,
+          contratación o renovación de membresías desde el dispositivo.
         </li>
         <li>
-          Salvo error manifiesto o disposición legal aplicable, los pagos
-          efectuados no son reembolsables. Cualquier reclamo debe enviarse a{' '}
+          Para cualquier consulta relacionada con tu membresía, escribinos a{' '}
           <a href="mailto:tatoroblesfit@gmail.com">
             tatoroblesfit@gmail.com
-          </a>{' '}
-          dentro de los 10 días corridos del cobro.
-        </li>
-        <li>
-          La aplicación móvil no procesa pagos ni habilita la compra de
-          suscripciones desde el dispositivo.
+          </a>
+          .
         </li>
       </ul>
 
