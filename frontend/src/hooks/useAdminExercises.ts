@@ -78,6 +78,26 @@ export function useUpdateExercise(id: number) {
   });
 }
 
+export function useUploadExerciseVideo(id: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append('video', file);
+      // axios sets the multipart boundary from the FormData automatically.
+      const r = await api.post<{ video_url: string }>(
+        `/admin/exercises/${id}/video`,
+        fd,
+      );
+      return r.data.video_url;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'exercises'] });
+      qc.invalidateQueries({ queryKey: ['exercises'] });
+    },
+  });
+}
+
 export function useArchiveExercise() {
   const qc = useQueryClient();
   return useMutation({

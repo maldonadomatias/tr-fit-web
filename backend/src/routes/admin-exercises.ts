@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import {
@@ -11,9 +12,16 @@ import {
   restoreExercise,
   ExerciseError,
 } from '../services/admin-exercise.service.js';
+import { uploadExerciseVideo, ALLOWED_VIDEO_MIME } from '../services/exercise-video.service.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
+
+// Technique video upload — single in-memory mp4/mov, 100 MB cap.
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
+}).single('video');
 
 const EquipmentEnum = z.enum([
   'barra', 'mancuerna', 'maquina', 'polea', 'smith',
@@ -115,6 +123,31 @@ router.patch('/:id', async (req: Request, res: Response) => {
   } catch (err) {
     mapError(err, res);
   }
+});
+
+router.post('/:id/video', (req: Request, res: Response) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ error: 'invalid_id' });
+  }
+  // multer runs inline so its errors (e.g. file too large) map to a clean 400.
+  videoUpload(req, res, async (err: unknown) => {
+    if (err) return res.status(400).json({ error: 'upload_failed' });
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'no_file' });
+    if (!ALLOWED_VIDEO_MIME.has(file.mimetype)) {
+      return res.status(400).json({ error: 'invalid_type' });
+    }
+    try {
+      const url = await uploadExerciseVideo(id, file.buffer, file.mimetype);
+      res.json({ video_url: url });
+    } catch (e) {
+      if (e instanceof Error && e.message === 'exercise_not_found') {
+        return res.status(404).json({ error: 'exercise_not_found' });
+      }
+      res.status(500).json({ error: 'video_upload_failed' });
+    }
+  });
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
