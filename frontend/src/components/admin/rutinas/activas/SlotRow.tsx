@@ -1,17 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { Trash2, GripVertical } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { GripVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useUpdateSlot, useDeleteSlot } from '@/hooks/useAdminRutina';
-import { ExerciseSwapDialog } from './ExerciseSwapDialog';
-import type { RutinaSlot } from '@/types/api';
+import {
+  EditSlotPopover,
+  type SlotOverride,
+} from '@/components/admin/rutinas/EditSlotPopover';
+import type { RutinaSlot, SlotPatchInput } from '@/types/api';
 
 export function SlotRow({
   athleteId,
@@ -22,60 +24,49 @@ export function SlotRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: slot.id });
-  const style: React.CSSProperties = {
+  const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
   const update = useUpdateSlot(athleteId);
   const remove = useDeleteSlot(athleteId);
-  const [swapOpen, setSwapOpen] = useState(false);
-  const [notes, setNotes] = useState(slot.notes ?? '');
-  const notesRef = useRef(notes);
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    const v = slot.notes ?? '';
-    setNotes(v);
-    notesRef.current = v;
-  }, [slot.notes]);
-
-  function commitNotes() {
-    const current = notesRef.current;
-    if ((slot.notes ?? '') === current) return;
+  function onSave(payload: SlotOverride) {
+    const patch: SlotPatchInput = { notes: payload.notes ?? null };
+    // Only re-send exercise_id when it actually changed, so saving notes or
+    // the set scheme doesn't needlessly reseed the athlete's working weight.
+    if (payload.exercise_id !== slot.exercise_id) {
+      patch.exercise_id = payload.exercise_id;
+    }
+    // EditSlotPopover only emits the set scheme for accessories; principals and
+    // warmups follow the week's periodization.
+    if (slot.role === 'accesorio') {
+      patch.series = payload.series ?? null;
+      patch.reps = payload.reps ?? null;
+      patch.descanso = payload.descanso ?? null;
+    }
     update.mutate(
-      { slotId: slot.id, patch: { notes: current || null } },
-      { onError: () => toast.error('No se pudo guardar la nota') },
-    );
-  }
-
-  function onNotesChange(v: string) {
-    setNotes(v);
-    notesRef.current = v;
-    if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(commitNotes, 500);
-  }
-
-  function onSwap(newExerciseId: number) {
-    update.mutate(
-      { slotId: slot.id, patch: { exercise_id: newExerciseId } },
+      { slotId: slot.id, patch },
       {
         onError: (e: unknown) => {
           const status = (e as { response?: { status?: number } })?.response
             ?.status;
           if (status === 409) toast.error('Rutina ya no activa');
-          else toast.error('No se pudo cambiar el ejercicio');
+          else toast.error('No se pudo guardar el cambio');
         },
       },
     );
   }
 
   function onDelete() {
-    if (!confirm('¿Eliminar este ejercicio del día?')) return;
     remove.mutate(slot.id, {
       onError: () => toast.error('No se pudo eliminar'),
     });
   }
+
+  const hasScheme =
+    slot.series != null || slot.reps || slot.descanso;
 
   return (
     <div
@@ -92,47 +83,53 @@ export function SlotRow({
         <GripVertical size={14} />
       </button>
       <span className="rounded bg-muted px-2 py-0.5 text-xs">{slot.role}</span>
-      <div className="flex flex-1 items-center gap-2">
-        <button
-          onClick={() => setSwapOpen(true)}
-          className="text-left font-medium hover:underline"
-        >
-          {slot.exercise_name}
-        </button>
-        {slot.exercise_archived_at ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                Ejercicio archivado
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              Este ejercicio fue archivado. Cambiá por una alternativa no archivada.
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
+      <div className="flex flex-1 flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{slot.exercise_name}</span>
+          {slot.exercise_archived_at ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                  Ejercicio archivado
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                Este ejercicio fue archivado. Cambiá por una alternativa no
+                archivada.
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[10px] text-muted-foreground">
+          {hasScheme ? (
+            <>
+              {slot.series != null ? <span>{slot.series} series</span> : null}
+              {slot.reps ? <span>{slot.reps} reps</span> : null}
+              {slot.descanso ? <span>desc. {slot.descanso}</span> : null}
+            </>
+          ) : slot.role === 'accesorio' ? (
+            <span className="italic">Según periodización</span>
+          ) : (
+            <span className="italic">Según periodización de la semana</span>
+          )}
+          {slot.notes ? (
+            <span className="normal-case not-italic text-foreground/70">
+              · {slot.notes}
+            </span>
+          ) : null}
+        </div>
       </div>
-      <input
-        value={notes}
-        onChange={(e) => onNotesChange(e.target.value)}
-        onBlur={commitNotes}
-        placeholder="Notas..."
-        className="w-48 rounded border border-border bg-background px-2 py-1 text-xs"
-      />
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onDelete}
-        disabled={remove.isPending}
-      >
-        <Trash2 size={14} />
-      </Button>
-      <ExerciseSwapDialog
-        open={swapOpen}
-        onClose={() => setSwapOpen(false)}
-        onSelect={onSwap}
-        title="Cambiar ejercicio"
-        muscleGroup={slot.muscle_group}
+      <EditSlotPopover
+        role={slot.role}
+        currentExerciseId={slot.exercise_id}
+        currentExerciseName={slot.exercise_name ?? ''}
+        currentMuscleGroup={slot.muscle_group}
+        currentNotes={slot.notes ?? undefined}
+        currentSeries={slot.series}
+        currentReps={slot.reps}
+        currentDescanso={slot.descanso}
+        onSave={onSave}
+        onDelete={onDelete}
       />
     </div>
   );

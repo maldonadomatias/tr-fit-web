@@ -310,6 +310,10 @@ export interface SlotPatchInput {
   notes?: string | null;
   slot_index?: number;
   day_of_week?: number;
+  // Per-slot prescription (accessories). null clears back to periodization.
+  series?: number | null;
+  reps?: string | null;
+  descanso?: string | null;
 }
 
 export interface ReorderInput {

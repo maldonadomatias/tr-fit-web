@@ -308,6 +308,10 @@ export const adminSlotPatchPayload = z
     notes: z.string().max(2000).nullable().optional(),
     slot_index: z.number().int().min(1).max(12).optional(),
     day_of_week: z.number().int().min(1).max(7).optional(),
+    // Per-slot prescription (accessories). null clears back to periodization.
+    series: z.number().int().min(1).max(6).nullable().optional(),
+    reps: z.string().min(1).max(40).nullable().optional(),
+    descanso: z.string().min(1).max(40).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: 'empty_patch',

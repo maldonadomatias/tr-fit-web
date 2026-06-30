@@ -24,10 +24,12 @@ export function ExerciseSwapDialog({
 }) {
   const [q, setQ] = useState('');
   const [onlyGroup, setOnlyGroup] = useState(true);
+  // Widen to the whole parent group: 'Pecho - Mayor' shows all 'Pecho - *'.
+  const parentGroup = muscleGroup?.split(' - ')[0];
   const filterGroup = muscleGroup && onlyGroup ? muscleGroup : undefined;
   const { data } = useAdminExercises({
     q: q.trim() || undefined,
-    muscle_group: filterGroup,
+    muscle_group_parent: filterGroup,
     archived: 'false',
   });
 
@@ -60,7 +62,7 @@ export function ExerciseSwapDialog({
                 : 'border-border text-muted-foreground hover:bg-muted'
             }`}
           >
-            {onlyGroup ? `Solo ${muscleGroup}` : 'Todos los grupos'}
+            {onlyGroup ? `Solo ${parentGroup}` : 'Todos los grupos'}
           </button>
         ) : null}
         <div className="max-h-96 divide-y divide-border overflow-y-auto rounded-md border">

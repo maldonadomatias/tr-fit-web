@@ -11,6 +11,7 @@ router.use(requireAuth, requireRole('athlete', 'admin', 'superadmin'));
 
 const listQuery = z.object({
   q: z.string().trim().min(1).max(120).optional(),
+  muscle_group: z.string().trim().min(1).max(60).optional(),
   limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
@@ -21,6 +22,9 @@ router.get('/', async (req: Request, res: Response) => {
   }
   const result = await listExercisesAdmin({
     q: parsed.data.q,
+    // The slot sends its full subgroup (e.g. 'Pecho - Mayor') and we widen it
+    // to the whole parent group so the buscador shows all 'Pecho' exercises.
+    muscle_group_parent: parsed.data.muscle_group,
     limit: parsed.data.limit ?? 8,
     archived: 'false',
   });

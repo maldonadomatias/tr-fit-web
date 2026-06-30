@@ -5,6 +5,7 @@ import type { Equipment, Exercise, MovementPattern } from '@/types/api';
 export interface AdminExercisesFilters {
   q?: string;
   muscle_group?: string;
+  muscle_group_parent?: string;
   equipment?: Equipment;
   movement_pattern?: MovementPattern;
   archived?: 'true' | 'false' | 'all';
@@ -28,16 +29,21 @@ export function useAdminExercises(filters: AdminExercisesFilters) {
 export interface ExercisesSearchOptions {
   enabled?: boolean;
   limit?: number;
+  muscle_group?: string;
 }
 
 export function useExercisesSearch(q: string, opts: ExercisesSearchOptions = {}) {
-  const { enabled = true, limit = 8 } = opts;
+  const { enabled = true, limit = 8, muscle_group } = opts;
   return useQuery({
-    queryKey: ['exercises', 'search', q, limit],
+    queryKey: ['exercises', 'search', q, limit, muscle_group],
     enabled,
     queryFn: async () => {
       const r = await api.get<{ items: Exercise[] }>('/exercises', {
-        params: q.trim() ? { q: q.trim(), limit } : { limit },
+        params: {
+          limit,
+          ...(q.trim() ? { q: q.trim() } : {}),
+          ...(muscle_group ? { muscle_group } : {}),
+        },
       });
       return r.data.items;
     },

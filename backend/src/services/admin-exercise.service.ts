@@ -38,6 +38,9 @@ export type UpdateExerciseInput = Partial<CreateExerciseInput>;
 export interface ListExercisesFilters {
   q?: string;
   muscle_group?: string;
+  // Matches every exercise sharing the same parent group as the given value,
+  // e.g. 'Pecho - Mayor' matches all 'Pecho - *' (and bare 'Pecho').
+  muscle_group_parent?: string;
   equipment?: Equipment;
   movement_pattern?: MovementPattern;
   archived?: 'true' | 'false' | 'all';
@@ -76,6 +79,12 @@ export async function listExercises(
   if (f.muscle_group) {
     params.push(f.muscle_group);
     where.push(`muscle_group = $${params.length}`);
+  }
+  if (f.muscle_group_parent) {
+    params.push(f.muscle_group_parent);
+    where.push(
+      `split_part(muscle_group, ' - ', 1) = split_part($${params.length}, ' - ', 1)`,
+    );
   }
   if (f.equipment) {
     params.push(f.equipment);

@@ -50,6 +50,7 @@ export function EditSlotPopover({
   const editableScheme = role === 'accesorio';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(currentExerciseName);
+  const [onlyGroup, setOnlyGroup] = useState(true);
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [notes, setNotes] = useState(currentNotes ?? '');
   const [series, setSeries] = useState(currentSeries != null ? String(currentSeries) : '');
@@ -60,6 +61,7 @@ export function EditSlotPopover({
   useEffect(() => {
     if (open) {
       setQuery(currentExerciseName);
+      setOnlyGroup(true);
       setSelected(null);
       setNotes(currentNotes ?? '');
       setSeries(currentSeries != null ? String(currentSeries) : '');
@@ -69,9 +71,15 @@ export function EditSlotPopover({
     }
   }, [open, currentExerciseName, currentNotes, currentSeries, currentReps, currentDescanso]);
 
+  // Slots store a subgroup like 'Pecho - Mayor'; show only the parent ('Pecho')
+  // in the toggle since the filter widens to the whole parent group.
+  const parentGroup = currentMuscleGroup?.split(' - ')[0];
+  const filterGroup =
+    currentMuscleGroup && onlyGroup ? currentMuscleGroup : undefined;
   const { data: results = [] } = useExercisesSearch(query, {
     enabled: open,
     limit: 8,
+    muscle_group: filterGroup,
   });
 
   function commit() {
@@ -143,6 +151,20 @@ export function EditSlotPopover({
               className="h-9 w-full rounded-md border border-input bg-background pl-7 pr-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
             />
           </div>
+          {currentMuscleGroup ? (
+            <button
+              type="button"
+              onClick={() => setOnlyGroup((v) => !v)}
+              className={cn(
+                'mt-1.5 rounded-full border px-3 py-1 text-[11px] capitalize transition',
+                onlyGroup
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:bg-muted',
+              )}
+            >
+              {onlyGroup ? `Solo ${parentGroup}` : 'Todos los grupos'}
+            </button>
+          ) : null}
           <ul className="mt-1 max-h-44 overflow-y-auto rounded-md border border-border">
             {results.length === 0 && (
               <li className="px-2 py-1.5 text-[12px] text-muted-foreground">

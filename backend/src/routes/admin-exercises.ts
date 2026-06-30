@@ -36,6 +36,7 @@ const LevelEnum = z.enum(['principiante', 'intermedio', 'avanzado']);
 const listQuery = z.object({
   q: z.string().trim().min(1).max(120).optional(),
   muscle_group: z.string().trim().min(1).max(60).optional(),
+  muscle_group_parent: z.string().trim().min(1).max(60).optional(),
   equipment: EquipmentEnum.optional(),
   movement_pattern: PatternEnum.optional(),
   archived: z.enum(['true', 'false', 'all']).optional(),
