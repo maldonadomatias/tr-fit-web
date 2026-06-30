@@ -12,7 +12,7 @@ router.use(requireAuth, requireRole('athlete', 'admin', 'superadmin'));
 const listQuery = z.object({
   q: z.string().trim().min(1).max(120).optional(),
   muscle_group: z.string().trim().min(1).max(60).optional(),
-  limit: z.coerce.number().int().min(1).max(50).optional(),
+  limit: z.coerce.number().int().min(1).max(300).optional(),
 });
 
 router.get('/', async (req: Request, res: Response) => {

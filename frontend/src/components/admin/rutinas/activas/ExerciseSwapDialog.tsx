@@ -31,6 +31,8 @@ export function ExerciseSwapDialog({
     q: q.trim() || undefined,
     muscle_group_parent: filterGroup,
     archived: 'false',
+    // List the full group / catalog instead of the default page of 50.
+    limit: 200,
   });
 
   return (

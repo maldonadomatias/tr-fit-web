@@ -57,6 +57,21 @@ export function EditSlotPopover({
   const [reps, setReps] = useState(currentReps ?? '');
   const [descanso, setDescanso] = useState(currentDescanso ?? '');
   const searchRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Radix repositions the popover to follow the trigger while the page scrolls,
+  // which makes it jump/flip near the viewport edges. Close it instead when the
+  // user scrolls anything other than the popover's own results list.
+  useEffect(() => {
+    if (!open) return;
+    function onScroll(e: Event) {
+      const target = e.target as Node | null;
+      if (target && contentRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -78,7 +93,9 @@ export function EditSlotPopover({
     currentMuscleGroup && onlyGroup ? currentMuscleGroup : undefined;
   const { data: results = [] } = useExercisesSearch(query, {
     enabled: open,
-    limit: 8,
+    // High enough to list a whole muscle group (and the full catalog when the
+    // group filter is off) instead of truncating to a short autocomplete.
+    limit: 250,
     muscle_group: filterGroup,
   });
 
@@ -130,7 +147,12 @@ export function EditSlotPopover({
           <Pencil size={13} />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[340px] space-y-3">
+      <PopoverContent
+        ref={contentRef}
+        align="end"
+        collisionPadding={12}
+        className="w-[340px] space-y-3"
+      >
         <div>
           <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Ejercicio
@@ -165,7 +187,7 @@ export function EditSlotPopover({
               {onlyGroup ? `Solo ${parentGroup}` : 'Todos los grupos'}
             </button>
           ) : null}
-          <ul className="mt-1 max-h-44 overflow-y-auto rounded-md border border-border">
+          <ul className="mt-1 max-h-60 overflow-y-auto rounded-md border border-border">
             {results.length === 0 && (
               <li className="px-2 py-1.5 text-[12px] text-muted-foreground">
                 Sin resultados.
