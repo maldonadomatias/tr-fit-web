@@ -10,11 +10,19 @@ afterAll(async () => { await closePool(); });
 
 async function setup(coachId: string, athleteId: string) {
   const p = await pool.query<{ id: number; name: string }>(
-    `SELECT id, name FROM exercises WHERE is_principal = TRUE LIMIT 1`,
+    `SELECT id, name FROM exercises WHERE is_principal = TRUE ORDER BY id LIMIT 1`,
   );
+  // Deterministic pick (exercises are shared seed state mutated by other
+  // suites, so an unordered LIMIT 1 varies with heap order). Exclude names
+  // with per-exercise increments in applyIncrement so the standard mancuerna
+  // path (next weight in PESOS_MANCUERNAS: 10 → 12.5) applies.
   const a = await pool.query<{ id: number; name: string; equipment: string }>(
     `SELECT id, name, equipment FROM exercises
-      WHERE is_principal = FALSE AND equipment = 'mancuerna' LIMIT 1`,
+      WHERE is_principal = FALSE AND equipment = 'mancuerna'
+        AND archived_at IS NULL
+        AND lower(name) !~ '(jalon|face pull|flexion|fondos|prensa|nordico|desplante|pantorrilla|mariposa|svend)'
+        AND lower(muscle_group) !~ '(abdomen|calentamiento|cardio|superserie|rest-pause)'
+      ORDER BY id LIMIT 1`,
   );
   const ai = {
     rationale: 'r',

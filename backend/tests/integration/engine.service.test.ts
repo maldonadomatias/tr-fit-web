@@ -51,7 +51,7 @@ async function setWeight(
     `UPDATE athlete_exercise_weights
         SET current_weight_kg = $1,
             current_reps_text = COALESCE($2, current_reps_text),
-            updated_by = 'admin'
+            updated_by = 'coach'
       WHERE athlete_id = $3 AND exercise_id = $4`,
     [weight, reps ?? null, athleteId, exerciseId],
   );

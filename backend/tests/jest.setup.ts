@@ -15,3 +15,4 @@ process.env.MP_PLAN_ID_FULL = 'test-plan-full';
 process.env.MP_PLAN_ID_PREMIUM = 'test-plan-premium';
 process.env.MP_BACK_URL = 'trfit://upgrade/success';
 process.env.MP_NOTIFICATION_URL = 'http://localhost:5001/webhooks/mp';
+process.env.OWNER_COACH_EMAIL = 'owner@trfit.local';

@@ -51,7 +51,7 @@ describe('migration 013 — push notifications', () => {
     expect(u[0].timezone).toBe('America/Argentina/Buenos_Aires');
   });
 
-  it('users.notification_prefs has all 6 keys true by default', async () => {
+  it('users.notification_prefs has all default keys true (013 + 032 membership)', async () => {
     const { rows: u } = await pool.query<{ notification_prefs: Record<string, boolean> }>(
       `INSERT INTO users (email, password_hash, role)
        VALUES ('p4@t.local','x','athlete')
@@ -64,6 +64,8 @@ describe('migration 013 — push notifications', () => {
       skeleton_approved: true,
       sos_resolved: true,
       rm_test_week: true,
+      membership_expiring: true,
+      membership_expired: true,
     });
   });
 

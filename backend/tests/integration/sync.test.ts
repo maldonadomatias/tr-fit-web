@@ -38,7 +38,7 @@ async function setupSession() {
 it('syncSets accepts all on first sync, idempotent on re-sync', async () => {
   const { ath, sessionId, principalId } = await setupSession();
   const sets = [1, 2, 3].map((i) => ({
-    exercise_id: principalId, set_index: i, unit: 'kg', value: 80, reps: 8,
+    exercise_id: principalId, set_index: i, unit: 'kg' as const, value: 80, reps: 8,
     completed: true, client_id: randomUUID(),
     client_ts: new Date().toISOString(),
   }));
