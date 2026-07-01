@@ -195,7 +195,7 @@ export type AlertResolutionAction =
 
 export interface CoachAlert {
   id: string;
-  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting' | 'membership_expiring' | 'membership_overdue';
+  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting' | 'membership_expiring' | 'membership_overdue' | 'sos_no_machine' | 'program_reset';
   severity: 'red' | 'yellow' | 'info';
   athlete_id: string;
   athlete_name: string;
