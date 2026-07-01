@@ -168,7 +168,7 @@ describe('PATCH /api/athlete/me', () => {
 });
 
 describe('POST /api/athlete/skeleton/regenerate', () => {
-  it('premium returns 201', async () => {
+  it('premium returns 202 with jobId', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -179,13 +179,13 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(201);
-    expect(r.body.skeletonId).toBeDefined();
-    expect(r.body.status).toBe('pending_review');
+    expect(r.status).toBe(202);
+    expect(r.body.jobId).toBeDefined();
+    expect(r.body.status).toBe('queued');
   });
 
   // Tier gating removed — regeneration is always allowed, no 403/429 fires.
-  it('basico after a prior regen still returns 201 (no tier_blocked)', async () => {
+  it('basico after a prior regen still returns 202 (no tier_blocked)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -200,11 +200,11 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(201);
-    expect(r.body.status).toBe('pending_review');
+    expect(r.status).toBe(202);
+    expect(r.body.status).toBe('queued');
   });
 
-  it('full second regen within 30 days still returns 201 (no rate_limit)', async () => {
+  it('full second regen within 30 days still returns 202 (no rate_limit)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -219,8 +219,8 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(201);
-    expect(r.body.status).toBe('pending_review');
+    expect(r.status).toBe(202);
+    expect(r.body.status).toBe('queued');
   });
 
   it('rejects unauth', async () => {
@@ -243,7 +243,9 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const first = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(first.status).toBe(201);
+    expect(first.status).toBe(202);
+    expect(first.body.jobId).toBeDefined();
+
     const second = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
     expect(second.status).toBe(409);
@@ -254,7 +256,7 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
 });
 
 describe('GET /api/athlete/me', () => {
-  it('GET /athlete/me returns pendingReview=false with no pending, true after regen', async () => {
+  it('GET /athlete/me returns pendingReview=false with no pending, stays false right after enqueue (generation is async)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -269,8 +271,10 @@ describe('GET /api/athlete/me', () => {
     await agent.post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
 
+    // The regenerate call only enqueues a job; no skeleton is created until the
+    // worker runs runRegenJob, so pendingReview stays false right after enqueue.
     const after = await agent.get('/api/athlete/me')
       .set('Authorization', `Bearer ${tok}`);
-    expect(after.body.pendingReview).toBe(true);
+    expect(after.body.pendingReview).toBe(false);
   });
 });

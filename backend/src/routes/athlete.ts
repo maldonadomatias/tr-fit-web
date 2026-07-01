@@ -9,7 +9,7 @@ import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
 import { recordRm, recordAmrap } from '../services/rm.service.js';
 import { getUserTier } from '../services/tier.service.js';
-import { regenerateSkeleton, PendingReviewExistsError } from '../services/skeleton-regen.service.js';
+import { enqueueRegenJob, PendingReviewExistsError } from '../services/skeleton-regen.service.js';
 import { buildDashboard } from '../services/dashboard.service.js';
 import { buildPlan } from '../services/plan.service.js';
 import { buildAthleteStats } from '../services/athlete-stats.service.js';
@@ -43,12 +43,10 @@ router.get('/me/stats', async (req, res) => {
 });
 
 router.post('/skeleton/regenerate', async (req, res) => {
-  // One pending rutina per athlete: reject while one is already in review.
+  // Enqueue a background job; generation runs in the worker, not the request.
   try {
-    const result = await regenerateSkeleton(req.user!.id);
-    res.status(201).json({
-      skeletonId: result.skeletonId, status: 'pending_review',
-    });
+    const { jobId } = await enqueueRegenJob(req.user!.id);
+    res.status(202).json({ jobId, status: 'queued' });
   } catch (e) {
     if (e instanceof PendingReviewExistsError) {
       return res.status(409).json({

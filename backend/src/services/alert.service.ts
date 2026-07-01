@@ -7,7 +7,7 @@ import {
   type AlertResolutionAction,
   type AlertType,
 } from '../domain/alert-actions.js';
-import { regenerateSkeleton } from './skeleton-regen.service.js';
+import { enqueueRegenJob } from './skeleton-regen.service.js';
 
 export class AlertError extends Error {
   constructor(public reason: 'no_coach_assigned' | 'not_found' | 'forbidden') {
@@ -327,11 +327,11 @@ export async function resolveAlert(
     // DB connections / external services).
     if (input.action === 'regen_skeleton') {
       try {
-        await regenerateSkeleton(alert.athlete_id);
+        await enqueueRegenJob(alert.athlete_id);
       } catch (e) {
         logger.error(
           { err: e, alertId: alert.id },
-          'resolveAlert: regenerateSkeleton failed post-commit; alert is resolved but skeleton was not regenerated',
+          'enqueueRegenJob failed post-commit; alert is resolved but regen was not enqueued',
         );
         // Do NOT rethrow — the alert is already resolved. Coach can re-trigger
         // regen separately or via the admin rutina page.
