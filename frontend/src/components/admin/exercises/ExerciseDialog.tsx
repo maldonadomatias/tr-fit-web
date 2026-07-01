@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
+import { Plus, X } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -14,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
+  useAdminExercises,
   useCreateExercise,
   useUpdateExercise,
   useArchiveExercise,
@@ -21,6 +23,7 @@ import {
   useUploadExerciseVideo,
   type CreateExerciseInput,
 } from '@/hooks/useAdminExercises';
+import { ExerciseSwapDialog } from '@/components/admin/rutinas/activas/ExerciseSwapDialog';
 import type { Exercise } from '@/types/api';
 
 const EQUIPMENT = [
@@ -42,7 +45,7 @@ const schema = z.object({
   level_min: z.enum(LEVELS),
   contraindicated_for: z.string(), // comma-separated → parse on submit
   default_increment_kg: z.coerce.number().min(0).max(99.99),
-  alternatives_ids: z.string(), // comma-separated ints → parse on submit
+  alternatives_ids: z.array(z.number().int().positive()),
   video_url: z.union([z.string().url(), z.literal('')]).nullable(),
   illustration_url: z.union([z.string().url(), z.literal('')]).nullable(),
   modality: z.enum(MODALITIES),
@@ -59,7 +62,7 @@ function exerciseToForm(e: Exercise | null): FormValues {
       equipment: 'barra', movement_pattern: 'isolation', level_min: 'principiante',
       is_principal: false, is_unilateral: false,
       contraindicated_for: '', default_increment_kg: 2.5,
-      alternatives_ids: '', video_url: '', illustration_url: '',
+      alternatives_ids: [], video_url: '', illustration_url: '',
       modality: 'reps', default_target: '',
       rep_cycle_threshold: 12,
     };
@@ -70,7 +73,7 @@ function exerciseToForm(e: Exercise | null): FormValues {
     is_principal: e.is_principal, is_unilateral: e.is_unilateral,
     contraindicated_for: e.contraindicated_for.join(', '),
     default_increment_kg: e.default_increment_kg,
-    alternatives_ids: e.alternatives_ids.join(', '),
+    alternatives_ids: e.alternatives_ids,
     video_url: e.video_url ?? '',
     illustration_url: e.illustration_url ?? '',
     modality: e.modality,
@@ -91,8 +94,7 @@ function formToPayload(v: FormValues): CreateExerciseInput {
     contraindicated_for: v.contraindicated_for
       .split(',').map((s) => s.trim()).filter(Boolean),
     default_increment_kg: Number(v.default_increment_kg),
-    alternatives_ids: v.alternatives_ids
-      .split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0),
+    alternatives_ids: v.alternatives_ids,
     video_url: v.video_url && v.video_url !== '' ? v.video_url : null,
     illustration_url: v.illustration_url && v.illustration_url !== '' ? v.illustration_url : null,
     modality: v.modality,
@@ -125,6 +127,29 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
   const uploadVideo = useUploadExerciseVideo(exercise?.id ?? 0);
 
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [altPickerOpen, setAltPickerOpen] = useState(false);
+
+  // Catalog for resolving alternative ids → names (≈180 exercises, cap 200).
+  const { data: allExercises } = useAdminExercises({ archived: 'all', limit: 200 });
+  const nameById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const ex of allExercises?.items ?? []) m.set(ex.id, ex.name);
+    return m;
+  }, [allExercises]);
+  const altIds = form.watch('alternatives_ids');
+
+  function addAlt(id: number) {
+    if (id === exercise?.id) return; // no self-reference
+    if (altIds.includes(id)) return; // no duplicates
+    form.setValue('alternatives_ids', [...altIds, id], { shouldDirty: true });
+  }
+  function removeAlt(id: number) {
+    form.setValue(
+      'alternatives_ids',
+      altIds.filter((x) => x !== id),
+      { shouldDirty: true },
+    );
+  }
 
   async function handleVideoFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -264,8 +289,46 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                 <Input id="contra" {...form.register('contraindicated_for')} placeholder="lumbar, rodilla" />
               </div>
               <div>
-                <Label htmlFor="alts">IDs de alternativas (separados por coma)</Label>
-                <Input id="alts" {...form.register('alternatives_ids')} placeholder="12, 18, 23" />
+                <Label>Ejercicios alternativos</Label>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Aparecen en la app cuando el atleta necesita reemplazar este
+                  ejercicio.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {altIds.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Sin alternativas cargadas.
+                    </p>
+                  )}
+                  {altIds.map((id, i) => (
+                    <div
+                      key={id}
+                      className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <span className="text-xs text-muted-foreground">{i + 1})</span>
+                      <span className="flex-1 font-medium">
+                        {nameById.get(id) ?? `Ejercicio #${id}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeAlt(id)}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label="Quitar alternativa"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => setAltPickerOpen(true)}
+                  >
+                    <Plus size={14} className="mr-1" /> Añadir ejercicio alternativo
+                  </Button>
+                </div>
               </div>
               <div>
                 <Label>Modalidad</Label>
@@ -364,6 +427,13 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ExerciseSwapDialog
+        open={altPickerOpen}
+        onClose={() => setAltPickerOpen(false)}
+        onSelect={addAlt}
+        title="Añadir ejercicio alternativo"
+      />
 
       <Dialog open={archiveConfirm} onOpenChange={setArchiveConfirm}>
         <DialogContent className="max-w-md">
