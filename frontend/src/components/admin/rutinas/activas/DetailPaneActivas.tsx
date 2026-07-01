@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { useActiveRutina, useReorderSlots } from '@/hooks/useAdminRutina';
+import { useAlerts } from '@/hooks/useAlerts';
 import { DayCard } from './DayCard';
 
 export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
@@ -18,6 +19,14 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
   const rutina = data?.rutina ?? null;
   const pendingSkeletonId = data?.pending_skeleton_id ?? null;
   const reorder = useReorderSlots(athleteId);
+  // Open alerts for this athlete → flag every routine slot whose exercise the
+  // athlete reported pain on (matched by exercise_id).
+  const { data: alertsData } = useAlerts({ status: 'open', athleteId });
+  const flaggedExerciseIds = new Set<number>(
+    (alertsData?.items ?? [])
+      .filter((a) => a.type === 'sos_pain' && a.exercise_id != null)
+      .map((a) => a.exercise_id as number),
+  );
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
@@ -142,6 +151,7 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
               dayOfWeek={d}
               focus={dayFocus.get(d) ?? null}
               slots={slotsByDay.get(d) ?? []}
+              flaggedExerciseIds={flaggedExerciseIds}
             />
           ))}
         </DndContext>

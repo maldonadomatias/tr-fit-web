@@ -23,11 +23,13 @@ export function DayCard({
   dayOfWeek,
   focus,
   slots,
+  flaggedExerciseIds,
 }: {
   athleteId: string;
   dayOfWeek: number;
   focus: string | null;
   slots: RutinaSlot[];
+  flaggedExerciseIds: Set<number>;
 }) {
   const nextIndex = slots.length + 1;
 
@@ -50,7 +52,12 @@ export function DayCard({
           strategy={verticalListSortingStrategy}
         >
           {slots.map((s) => (
-            <SlotRow key={s.id} athleteId={athleteId} slot={s} />
+            <SlotRow
+              key={s.id}
+              athleteId={athleteId}
+              slot={s}
+              flagged={flaggedExerciseIds.has(s.exercise_id)}
+            />
           ))}
         </SortableContext>
       </div>

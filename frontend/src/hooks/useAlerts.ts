@@ -47,6 +47,16 @@ export function useMarkAlertRead() {
   });
 }
 
+export function useMarkAlertResolved() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.patch(`/admin/alerts/${id}/resolved`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'alerts'] }),
+  });
+}
+
 export interface ResolveArgs {
   id: string;
   action: AlertResolutionAction;

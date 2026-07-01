@@ -4,6 +4,7 @@ import { requireAdmin } from '../middleware/role.js';
 import {
   listAlertsForCoach,
   markRead,
+  markResolved,
   resolveAlert,
   AlertError,
   ResolveAlertError,
@@ -48,6 +49,18 @@ router.get('/:id/context', async (req: Request, res: Response) => {
 router.patch('/:id/read', async (req: Request, res: Response) => {
   try {
     await markRead(req.params.id, req.user!.id);
+    return res.status(204).end();
+  } catch (e) {
+    if (e instanceof AlertError) return res.status(404).json({ error: 'not_found' });
+    throw e;
+  }
+});
+
+// Plain close: mark the alert resolved without a specific resolution action,
+// so it leaves the open list. Used when the coach handled it out-of-band.
+router.patch('/:id/resolved', async (req: Request, res: Response) => {
+  try {
+    await markResolved(req.params.id, req.user!.id);
     return res.status(204).end();
   } catch (e) {
     if (e instanceof AlertError) return res.status(404).json({ error: 'not_found' });

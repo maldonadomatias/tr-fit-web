@@ -18,9 +18,11 @@ import type { RutinaSlot, SlotPatchInput } from '@/types/api';
 export function SlotRow({
   athleteId,
   slot,
+  flagged = false,
 }: {
   athleteId: string;
   slot: RutinaSlot;
+  flagged?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: slot.id });
@@ -86,6 +88,19 @@ export function SlotRow({
       <div className="flex flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span className="font-medium">{slot.exercise_name}</span>
+          {flagged ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full bg-red-500"
+                  aria-label="Alerta de dolor abierta en este ejercicio"
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                Alerta de dolor abierta en este ejercicio.
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
           {slot.exercise_archived_at ? (
             <Tooltip>
               <TooltipTrigger asChild>
