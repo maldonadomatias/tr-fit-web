@@ -108,6 +108,21 @@ Implemented (branch `feat/per-slot-accessory-prescription`):
   (RM/AMRAP/pct).**
 - ✅ Frontend `leg_days` collected (tr-fit-app, branch `feat/onboarding-leg-days`).
 
+### ✅ APPLIED — phase 3: few-shot corpus example injection
+The generator now injects the nearest corpus routine as a few-shot
+`coach_example` in the OpenAI user message (`pickCorpusExample` in
+`backend/src/services/corpus-examples.ts`, wired in `openai.service.ts`):
+- One condensed example per corpus profile combo (♀ 3/4/5 días; ♂ 3/4/5 ×
+  1/2 piernas), selected by gender + days_per_week + leg_days (nearest match).
+- ♀ 3d/4d are verbatim slot-level ground truth (002, 003); ♀ 5d and all ♂
+  examples are reconstructed from day tables + confirmed M1-M5 mechanics.
+- Every example is test-guarded (`tests/unit/corpus-examples.test.ts`) to
+  satisfy the generator's own validators (slot range, principal rules, volume
+  caps) so imitation never triggers a retry. Where the raw corpus exceeds the
+  app's volume caps (e.g. 003 D4 legs > 10 series) the example was trimmed to
+  the cap; same-base-group second principals (PM after Hip Thrust) are encoded
+  as heavy accessories (3×6).
+
 ### ⏳ STILL DEFERRED
 - **M2 RIR per slot-role**: `SessionItem` has no `target_rir` field and the mobile
   app doesn't render RIR — surfacing it is a cross-repo change.

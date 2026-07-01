@@ -257,6 +257,37 @@ it('includes gender-aware split_guidance in the user prompt', async () => {
   expect(userMsg).toContain('"leg_days":1');
 });
 
+it('includes a coach corpus example matched to the profile in the user prompt', async () => {
+  openaiMod.__mockParse.mockResolvedValue(ok(validOutput));
+  await generateSkeleton({ profile, exercises }); // male, 4 days, leg_days 1
+  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
+    Array<{ messages: Array<{ role: string; content: string }> }>
+  >;
+  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
+  expect(userMsg).toContain('"coach_example"');
+  const parsed = JSON.parse(userMsg) as {
+    coach_example: {
+      source: string;
+      days: Array<{ focus: string; slots: unknown[] }>;
+    };
+  };
+  expect(parsed.coach_example.days).toHaveLength(4);
+  expect(parsed.coach_example.source).toMatch(/hombre/);
+});
+
+it('omits coach_example when no corpus example matches (gender other)', async () => {
+  openaiMod.__mockParse.mockResolvedValue(ok(validOutput));
+  await generateSkeleton({
+    profile: { ...profile, gender: 'other' as const },
+    exercises,
+  });
+  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
+    Array<{ messages: Array<{ role: string; content: string }> }>
+  >;
+  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
+  expect(userMsg).not.toContain('"coach_example"');
+});
+
 describe('buildSplitGuidance', () => {
   const base = { ...profile };
   it('women ≤3 days → full-body, lower bias', () => {

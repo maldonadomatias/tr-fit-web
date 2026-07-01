@@ -3,6 +3,7 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { env } from '../config/env.js';
 import { aiSkeletonOutput, type AiSkeletonOutput } from '../domain/schemas.js';
 import type { AthleteProfile, Exercise } from '../domain/types.js';
+import { pickCorpusExample } from './corpus-examples.js';
 import logger from '../utils/logger.js';
 
 const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -103,6 +104,8 @@ const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de 
 Reglas estrictas:
 - El array "days" DEBE tener EXACTAMENTE la cantidad N indicada en el mensaje del usuario como days_per_week. Ni más, ni menos. Si N=3, devolvé 3 días. Si N=4, devolvé 4 días. Esta regla es la más importante: violarla invalida toda la respuesta.
 
+- EJEMPLO DEL ENTRENADOR: si el mensaje incluye "coach_example", es una rutina REAL de este entrenador para un perfil similar. Usála como referencia principal de estructura y estilo (orden de bloques, calentamientos, esquemas por accesorio), adaptando ejercicios y días al atleta según su "note".
+
 - ESTRUCTURA DEL SPLIT (depende de sexo + días + leg_days): seguí EXACTAMENTE el objeto "split_guidance" del mensaje del usuario. Resumen del criterio:
   · days_per_week <= 3 → FULL-BODY cada día (cada día toca varias regiones), con énfasis rotativo. NO uses un split Push/Pull/Legs salvo que split_guidance lo indique explícitamente (sólo hombre con 1 día de pierna).
   · days_per_week >= 4 → SPLIT (días enfocados por región).
@@ -147,6 +150,7 @@ export async function generateSkeleton(
   const minutes = profile.exercise_minutes ?? 60;
   const validIds = exercises.map((e) => e.id);
   const split = buildSplitGuidance(profile);
+  const corpusExample = pickCorpusExample(profile);
   const userMessage = JSON.stringify({
     REQUIRED_DAYS_COUNT: N,
     note: `El array "days" debe tener exactamente ${N} elementos. Cualquier otra cantidad será rechazada.`,
@@ -167,6 +171,19 @@ export async function generateSkeleton(
       leg_days: split.leg_days,
       instruction: split.text,
     },
+    ...(corpusExample
+      ? {
+          coach_example: {
+            note:
+              'Rutina REAL de este entrenador para un perfil similar. Replicá su ESTRUCTURA y ESTILO: orden de bloques por día, calentamientos intercalados, principal que abre cada bloque, intensidad descendente, finishers 10x10x10, core al cierre, y los esquemas series/reps/descanso de cada accesorio. Adaptá los ejercicios al catálogo provisto y al atleta (lesiones, equipment, nivel). Si days_per_week o exercise_minutes difieren del ejemplo, mantené el estilo pero respetá REQUIRED_DAYS_COUNT y los constraints.',
+            source: corpusExample.source,
+            days: corpusExample.days_detail.map((d) => ({
+              focus: d.focus,
+              slots: d.slots,
+            })),
+          },
+        }
+      : {}),
     constraints: {
       days: N,
       slots_per_day: slotRangeFor(minutes),
