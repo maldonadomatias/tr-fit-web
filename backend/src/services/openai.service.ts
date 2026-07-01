@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { aiSkeletonOutput, type AiSkeletonOutput } from '../domain/schemas.js';
 import type { AthleteProfile, Exercise } from '../domain/types.js';
 import { pickCorpusExample } from './corpus-examples.js';
+import { enforceFirstWarmup } from './warmup-rule.js';
 import logger from '../utils/logger.js';
 
 const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -113,6 +114,7 @@ Reglas estrictas:
   · HOMBRE: sesgo a tren SUPERIOR (pecho/espalda/hombros/brazos). La cantidad de días de pierna la fija leg_days (1 o 2). Pierna centrada en Sentadilla/Peso Muerto; NO uses Hip Thrust como principal en hombre. Con 2 días de pierna: uno de Cuádriceps y otro de Femorales.
   Respetá el "bias" y el "leg_days" de split_guidance al repartir los días.
 
+- CALENTAMIENTO OBLIGATORIO EN SLOT 1: si el día es de tren superior, el PRIMER ejercicio debe ser "Movimiento Articular con y sin elastico"; si es de tren inferior, el PRIMER ejercicio debe ser "Movimientos Articulares completos Piernas". Si el día mezcla ambos trenes, usá el del grupo predominante. Buscá esos ejercicios por nombre en el catálogo.
 - CALENTAMIENTO intercalado: cada día arranca con 1-2 slots role="calentamiento" (del muscle_group "Calentamiento"). Si el día cruza de un bloque de tren inferior a uno de tren superior (o viceversa), poné un SEGUNDO calentamiento JUSTO ANTES del segundo bloque (no ambos al inicio). Si el día trabaja una sola región o exercise_minutes <= 30, usá 1 solo calentamiento al inicio.
 
 - PRINCIPALES: cada día debe tener entre 1 y 3 slots role="principal" (compuestos pesados, abren cada bloque muscular). Cantidad según cuántas regiones grandes toque el día (full-body suele tener 2-3; un día enfocado en 1 región suele tener 1-2). REGLA CRÍTICA: todos los principales de un mismo día DEBEN trabajar grupos base distintos. El "grupo base" es la palabra antes del guión en muscle_group (ej. "Pecho - Mayor" → "Pecho", "Piernas - Cuadriceps" → "Piernas"). NO puede haber dos principales con el mismo grupo base en un día. OK: Sentadilla (Piernas) + Press Militar (Hombros); Hip Thrust (Piernas) + Jalón (Espalda) + Press Militar (Hombros). KO: Press Plano (Pecho) + Press Inclinado (Pecho).
@@ -327,7 +329,10 @@ export async function generateSkeleton(
       continue;
     }
 
-    return out;
+    // Coach rule (deterministic backstop, prompt alone is not enough): every
+    // upper-body day opens with the articular warm-up with/without band and
+    // every lower-body day with the full leg articular warm-up.
+    return enforceFirstWarmup(out, exercises);
   }
 
   throw new Error(`skeleton generation invalid after ${MAX_ATTEMPTS} attempts: ${lastError}`);
