@@ -71,6 +71,14 @@ router.get('/me', async (req, res) => {
   const state = stateR.rows[0] ?? null;
   const skeleton = await findActiveByAthlete(userId);
 
+  const pendingR = await pool.query<{ exists: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM athlete_skeletons
+       WHERE athlete_id = $1 AND status = 'pending_review'
+     ) AS exists`,
+    [userId],
+  );
+
   let blockedReason: string | null = null;
   if (!skeleton.skeleton || skeleton.status !== 'approved') blockedReason = 'awaiting_review';
   if (state?.rm_test_blocking) blockedReason = 'rm_test_required';
@@ -78,6 +86,7 @@ router.get('/me', async (req, res) => {
   res.json({
     profile, programState: state,
     skeletonStatus: skeleton.status,
+    pendingReview: pendingR.rows[0].exists,
     blockedReason,
   });
 });

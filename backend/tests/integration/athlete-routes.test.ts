@@ -252,3 +252,25 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     );
   });
 });
+
+describe('GET /api/athlete/me', () => {
+  it('GET /athlete/me returns pendingReview=false with no pending, true after regen', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const agent = request(app);
+
+    const before = await agent.get('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(before.status).toBe(200);
+    expect(before.body.pendingReview).toBe(false);
+
+    await agent.post('/api/athlete/skeleton/regenerate')
+      .set('Authorization', `Bearer ${tok}`).send({});
+
+    const after = await agent.get('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(after.body.pendingReview).toBe(true);
+  });
+});
