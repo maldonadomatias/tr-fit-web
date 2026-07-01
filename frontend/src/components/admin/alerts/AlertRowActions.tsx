@@ -19,10 +19,12 @@ const MATRIX: Record<CoachAlert['type'], AlertResolutionAction[]> = {
   sos_pain:              ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
   sos_machine:           ['approve_switch', 'revert_switch', 'swap_exercise', 'note_only'],
   rpe_flag:              ['reduce_intensity', 'skip_week', 'note_only'],
-  rm_skipped:            ['note_only'],
+  rm_skipped:            ['reschedule_rm', 'skip_rm_block', 'note_only'],
   rm_week_starting:      ['acknowledge', 'note_only'],
   membership_expiring:   ['acknowledge', 'note_only'],
   membership_overdue:    ['acknowledge', 'note_only'],
+  sos_no_machine:        ['note_only'],
+  program_reset:         ['note_only'],
 };
 
 const ITEM_LABEL: Record<AlertResolutionAction, string> = {
@@ -43,7 +45,9 @@ export function AlertRowActions({ alert }: { alert: CoachAlert }) {
   const [active, setActive] = useState<AlertResolutionAction | null>(null);
   const markRead = useMarkAlertRead();
   const markResolved = useMarkAlertResolved();
-  const actions = MATRIX[alert.type];
+  // Fallback guards against alert types not in MATRIX (avoids crashing on
+  // .map of undefined when the backend adds a new type).
+  const actions = MATRIX[alert.type] ?? ['note_only'];
 
   const choose = (a: AlertResolutionAction) => { setActive(a); setOpen(false); };
 

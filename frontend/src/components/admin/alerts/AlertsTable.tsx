@@ -23,6 +23,8 @@ const TYPE_LABEL: Record<CoachAlert['type'], string> = {
   rm_week_starting: 'Semana RM',
   membership_expiring: 'Cuota por vencer',
   membership_overdue: 'Cuota vencida',
+  sos_no_machine: 'SOS sin máquina',
+  program_reset: 'Programa reiniciado',
 };
 
 function summary(a: CoachAlert): string {
@@ -68,7 +70,7 @@ export function AlertsTable({ alerts }: Props) {
               <span className={cn('inline-block h-2.5 w-2.5 rounded-full', SEV_DOT[a.severity])} />
             </TableCell>
             <TableCell className="font-medium">{a.athlete_name}</TableCell>
-            <TableCell>{TYPE_LABEL[a.type]}</TableCell>
+            <TableCell>{TYPE_LABEL[a.type] ?? a.type}</TableCell>
             <TableCell className="text-sm">{summary(a)}</TableCell>
             <TableCell className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(a.created_at), { locale: es, addSuffix: false })}
