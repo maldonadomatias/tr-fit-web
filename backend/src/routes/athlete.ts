@@ -69,13 +69,27 @@ router.get('/me', async (req, res) => {
   const state = stateR.rows[0] ?? null;
   const skeleton = await findActiveByAthlete(userId);
 
-  const pendingR = await pool.query<{ exists: boolean }>(
-    `SELECT EXISTS(
-       SELECT 1 FROM athlete_skeletons
-       WHERE athlete_id = $1 AND status = 'pending_review'
-     ) AS exists`,
+  const stateR2 = await pool.query<{
+    active: boolean; pending: boolean; failed: boolean;
+  }>(
+    `SELECT
+       EXISTS(SELECT 1 FROM skeleton_regen_jobs
+               WHERE athlete_id = $1 AND status IN ('queued','running')) AS active,
+       EXISTS(SELECT 1 FROM athlete_skeletons
+               WHERE athlete_id = $1 AND status = 'pending_review') AS pending,
+       (SELECT status FROM skeleton_regen_jobs
+          WHERE athlete_id = $1
+          ORDER BY created_at DESC LIMIT 1) = 'failed' AS failed`,
     [userId],
   );
+  const rs = stateR2.rows[0];
+  const regenState = rs.active
+    ? 'generating'
+    : rs.pending
+      ? 'pending_review'
+      : rs.failed
+        ? 'failed'
+        : 'idle';
 
   let blockedReason: string | null = null;
   if (!skeleton.skeleton || skeleton.status !== 'approved') blockedReason = 'awaiting_review';
@@ -84,7 +98,7 @@ router.get('/me', async (req, res) => {
   res.json({
     profile, programState: state,
     skeletonStatus: skeleton.status,
-    pendingReview: pendingR.rows[0].exists,
+    regenState,
     blockedReason,
   });
 });

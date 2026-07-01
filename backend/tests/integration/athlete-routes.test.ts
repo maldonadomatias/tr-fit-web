@@ -256,25 +256,35 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
 });
 
 describe('GET /api/athlete/me', () => {
-  it('GET /athlete/me returns pendingReview=false with no pending, stays false right after enqueue (generation is async)', async () => {
-    await ensureFirstExercise();
+  it('GET /athlete/me reports regenState across the lifecycle', async () => {
     const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
-    const agent = request(app);
 
-    const before = await agent.get('/api/athlete/me')
+    const me = () => request(app).get('/api/athlete/me')
       .set('Authorization', `Bearer ${tok}`);
-    expect(before.status).toBe(200);
-    expect(before.body.pendingReview).toBe(false);
 
-    await agent.post('/api/athlete/skeleton/regenerate')
-      .set('Authorization', `Bearer ${tok}`).send({});
+    expect((await me()).body.regenState).toBe('idle');
 
-    // The regenerate call only enqueues a job; no skeleton is created until the
-    // worker runs runRegenJob, so pendingReview stays false right after enqueue.
-    const after = await agent.get('/api/athlete/me')
-      .set('Authorization', `Bearer ${tok}`);
-    expect(after.body.pendingReview).toBe(false);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status) VALUES ($1,'queued')`, [a],
+    );
+    expect((await me()).body.regenState).toBe('generating');
+
+    await pool.query(`UPDATE skeleton_regen_jobs SET status='done', finished_at=now()
+                       WHERE athlete_id=$1`, [a]);
+    await pool.query(
+      `INSERT INTO athlete_skeletons
+         (athlete_id, status, generated_by, generation_prompt, generation_rationale)
+       VALUES ($1,'pending_review','ai','{}'::jsonb,'x')`, [a],
+    );
+    expect((await me()).body.regenState).toBe('pending_review');
+
+    await pool.query(`UPDATE athlete_skeletons SET status='superseded' WHERE athlete_id=$1`, [a]);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, finished_at)
+       VALUES ($1,'failed', now())`, [a],
+    );
+    expect((await me()).body.regenState).toBe('failed');
   });
 });
