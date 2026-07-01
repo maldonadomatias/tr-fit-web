@@ -11,10 +11,11 @@ const resend = new Resend(env.RESEND_API_KEY);
 async function send(opts: { to: string; subject: string; html: string }): Promise<void> {
   try {
     const result = await resend.emails.send({
-      from: env.EMAIL_FROM,
+      from: `${env.EMAIL_FROM_NAME} <${env.EMAIL_FROM}>`,
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
+      ...(env.SUPPORT_EMAIL ? { replyTo: env.SUPPORT_EMAIL } : {}),
     });
     // Resend v6 returns { data, error } discriminated union — check error
     if (result && 'error' in result && result.error) {
@@ -34,7 +35,7 @@ export async function sendVerifyEmail(email: string, token: string): Promise<voi
   const link = `${env.APP_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
   await send({
     to: email,
-    subject: 'Verificá tu email — TR-FIT',
+    subject: 'Verificá tu email — TR Fit',
     html: verifyTemplate(link),
   });
 }
@@ -45,7 +46,7 @@ export async function sendPasswordResetEmail(
 ): Promise<void> {
   await send({
     to: email,
-    subject: 'Tu código FORMA',
+    subject: 'Tu código de recuperación — TR Fit',
     html: resetCodeTemplate(code),
   });
 }
