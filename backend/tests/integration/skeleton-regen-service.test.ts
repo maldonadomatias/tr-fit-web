@@ -13,7 +13,7 @@ const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/tes
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
-const { regenerateSkeleton } = await import('../../src/services/skeleton-regen.service.js');
+const { regenerateSkeleton, PendingReviewExistsError } = await import('../../src/services/skeleton-regen.service.js');
 
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
@@ -110,20 +110,71 @@ describe('regenerateSkeleton (no tier gating)', () => {
 });
 
 describe('regenerateSkeleton concurrency', () => {
-  it('serializes concurrent calls via advisory lock — both succeed', async () => {
+  it('serializes concurrent calls — one succeeds, the other is rejected', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
     await setTier(a, 'basico');
 
-    // Fire two regens at once. The advisory lock still serializes them so they
-    // don't race on the same athlete, but neither is blocked by a tier budget.
-    const [r1, r2] = await Promise.all([
+    const results = await Promise.allSettled([
       regenerateSkeleton(a),
       regenerateSkeleton(a),
     ]);
 
-    expect([r1, r2].filter((r) => r.ok).length).toBe(2);
-    expect(mockGenerate).toHaveBeenCalledTimes(2);
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+      PendingReviewExistsError,
+    );
+
+    const rows = await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM athlete_skeletons
+        WHERE athlete_id = $1 AND status = 'pending_review'`,
+      [a],
+    );
+    expect(rows.rows[0].n).toBe(1);
+  });
+});
+
+describe('regenerateSkeleton single-pending guard', () => {
+  it('rejects a second regen while a pending_review skeleton exists', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    await setTier(a, 'basico');
+
+    const first = await regenerateSkeleton(a);
+    expect(first.ok).toBe(true);
+
+    await expect(regenerateSkeleton(a)).rejects.toBeInstanceOf(
+      PendingReviewExistsError,
+    );
+
+    const rows = await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM athlete_skeletons
+        WHERE athlete_id = $1 AND status = 'pending_review'`,
+      [a],
+    );
+    expect(rows.rows[0].n).toBe(1);
+    // Second attempt must not call the (mocked) generator.
+    expect(mockGenerate).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows regen again after the pending is approved/superseded', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    await setTier(a, 'basico');
+
+    await regenerateSkeleton(a);
+    await pool.query(
+      `UPDATE athlete_skeletons SET status = 'superseded'
+        WHERE athlete_id = $1 AND status = 'pending_review'`,
+      [a],
+    );
+    const again = await regenerateSkeleton(a);
+    expect(again.ok).toBe(true);
   });
 });

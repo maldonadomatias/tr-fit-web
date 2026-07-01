@@ -235,4 +235,20 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
       .set('Authorization', `Bearer ${tok}`).send({});
     expect(r.status).toBe(403);
   });
+
+  it('returns 409 with message when a pending exists', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const first = await request(app).post('/api/athlete/skeleton/regenerate')
+      .set('Authorization', `Bearer ${tok}`).send({});
+    expect(first.status).toBe(201);
+    const second = await request(app).post('/api/athlete/skeleton/regenerate')
+      .set('Authorization', `Bearer ${tok}`).send({});
+    expect(second.status).toBe(409);
+    expect(second.body.message).toBe(
+      'Ya tenés una rutina en revisión. Esperá a que tu coach la apruebe.',
+    );
+  });
 });

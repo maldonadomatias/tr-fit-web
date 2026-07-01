@@ -4,6 +4,14 @@ import { createPendingSkeleton } from './skeleton.service.js';
 import { listExercisesForAthlete } from './exercise.service.js';
 import type { AthleteProfile } from '../domain/types.js';
 
+export class PendingReviewExistsError extends Error {
+  statusCode = 409;
+  constructor() {
+    super('pending_review skeleton already exists for this athlete');
+    this.name = 'PendingReviewExistsError';
+  }
+}
+
 // Tier-based regeneration limits (basico = 1 total, full = 1/month) were removed
 // when the app unlocked all features client-side. Regeneration is now always
 // allowed; the only failure mode is an unexpected error (which throws → 500).
@@ -20,6 +28,17 @@ export async function regenerateSkeleton(athleteId: string): Promise<RegenResult
       `SELECT pg_advisory_xact_lock(hashtext($1))`,
       [athleteId],
     );
+
+    const pendingR = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM athlete_skeletons
+         WHERE athlete_id = $1 AND status = 'pending_review'
+       ) AS exists`,
+      [athleteId],
+    );
+    if (pendingR.rows[0].exists) {
+      throw new PendingReviewExistsError();
+    }
 
     const profileR = await client.query<AthleteProfile>(
       `SELECT * FROM athlete_profiles WHERE user_id = $1`, [athleteId],
