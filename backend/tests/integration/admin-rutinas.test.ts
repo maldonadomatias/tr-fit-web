@@ -6,6 +6,7 @@ import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import {
   createPendingSkeleton,
   approveSkeleton,
+  listPendingForCoach,
 } from '../../src/services/skeleton.service.js';
 import app from '../../src/app.js';
 
@@ -321,6 +322,36 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
     const byId = Object.fromEntries(after.rows.map((row) => [row.id, row.slot_index]));
     expect(byId[slotA.id]).toBe(slotB.slot_index);
     expect(byId[slotB.id]).toBe(slotA.slot_index);
+  });
+});
+
+// ── Test: listPendingForCoach dedups to one row per athlete ──
+
+describe('listPendingForCoach', () => {
+  it('returns one row per athlete (latest pending)', async () => {
+    const coach = await createAdmin();
+    const athlete = await createAthlete(coach);
+
+    // Two accumulated pending skeletons for the same athlete.
+    await pool.query(
+      `INSERT INTO athlete_skeletons
+         (athlete_id, status, generated_by, generation_prompt, generation_rationale)
+       VALUES
+         ($1,'pending_review','ai','{}'::jsonb,'older'),
+         ($1,'pending_review','ai','{}'::jsonb,'newer')`,
+      [athlete],
+    );
+    // Force a deterministic ordering: make 'newer' the latest.
+    await pool.query(
+      `UPDATE athlete_skeletons SET created_at = now() - interval '1 hour'
+        WHERE athlete_id = $1 AND generation_rationale = 'older'`,
+      [athlete],
+    );
+
+    const list = await listPendingForCoach(coach);
+    const forAthlete = list.filter((r) => r.athlete_id === athlete);
+    expect(forAthlete).toHaveLength(1);
+    expect(forAthlete[0].generation_rationale).toBe('newer');
   });
 });
 
