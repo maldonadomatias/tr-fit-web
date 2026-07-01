@@ -8,6 +8,7 @@ export async function resetDatabase(): Promise<void> {
       payments,
       memberships,
       subscriptions,
+      skeleton_regen_jobs,
       skeleton_regen_log,
       notification_log,
       push_tokens,

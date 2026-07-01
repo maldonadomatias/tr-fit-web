@@ -7,27 +7,59 @@ import type { AthleteProfile } from '../domain/types.js';
 export class PendingReviewExistsError extends Error {
   statusCode = 409;
   constructor() {
-    super('pending_review skeleton already exists for this athlete');
+    super('pending_review skeleton or active regen job already exists');
     this.name = 'PendingReviewExistsError';
   }
 }
 
-// Tier-based regeneration limits (basico = 1 total, full = 1/month) were removed
-// when the app unlocked all features client-side. Regeneration is now always
-// allowed; the only failure mode is an unexpected error (which throws → 500).
-export type RegenResult = { ok: true; skeletonId: string };
-
-export async function regenerateSkeleton(athleteId: string): Promise<RegenResult> {
+// Enqueue a background regeneration job. Rejects if the athlete already has an
+// active job (queued/running) or a pending_review skeleton awaiting the coach.
+export async function enqueueRegenJob(
+  athleteId: string,
+): Promise<{ jobId: string }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Advisory lock keyed by athlete UUID — serializes concurrent regen requests per user
-    // so two in-flight requests don't generate duplicate skeletons.
-    // hashtext returns int4 which pg_advisory_xact_lock accepts.
-    await client.query(
-      `SELECT pg_advisory_xact_lock(hashtext($1))`,
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [athleteId]);
+
+    const active = await client.query<{ exists: boolean }>(
+      `SELECT (
+         EXISTS(SELECT 1 FROM skeleton_regen_jobs
+                 WHERE athlete_id = $1 AND status IN ('queued','running'))
+         OR
+         EXISTS(SELECT 1 FROM athlete_skeletons
+                 WHERE athlete_id = $1 AND status = 'pending_review')
+       ) AS exists`,
       [athleteId],
     );
+    if (active.rows[0].exists) {
+      throw new PendingReviewExistsError();
+    }
+
+    const ins = await client.query<{ id: string }>(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status)
+       VALUES ($1, 'queued') RETURNING id`,
+      [athleteId],
+    );
+    await client.query('COMMIT');
+    return { jobId: ins.rows[0].id };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Run the actual generation for one athlete. Used by the worker. Idempotent:
+// if a pending_review skeleton already exists, returns { skeletonId: null }.
+export async function runRegenJob(
+  athleteId: string,
+): Promise<{ skeletonId: string | null }> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [athleteId]);
 
     const pendingR = await client.query<{ exists: boolean }>(
       `SELECT EXISTS(
@@ -37,7 +69,8 @@ export async function regenerateSkeleton(athleteId: string): Promise<RegenResult
       [athleteId],
     );
     if (pendingR.rows[0].exists) {
-      throw new PendingReviewExistsError();
+      await client.query('COMMIT');
+      return { skeletonId: null };
     }
 
     const profileR = await client.query<AthleteProfile>(
@@ -59,7 +92,7 @@ export async function regenerateSkeleton(athleteId: string): Promise<RegenResult
       [athleteId],
     );
     await client.query('COMMIT');
-    return { ok: true, skeletonId };
+    return { skeletonId };
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     throw e;

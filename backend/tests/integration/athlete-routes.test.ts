@@ -168,7 +168,7 @@ describe('PATCH /api/athlete/me', () => {
 });
 
 describe('POST /api/athlete/skeleton/regenerate', () => {
-  it('premium returns 201', async () => {
+  it('premium returns 202 with jobId', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -179,13 +179,13 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(201);
-    expect(r.body.skeletonId).toBeDefined();
-    expect(r.body.status).toBe('pending_review');
+    expect(r.status).toBe(202);
+    expect(r.body.jobId).toBeDefined();
+    expect(r.body.status).toBe('queued');
   });
 
   // Tier gating removed — regeneration is always allowed, no 403/429 fires.
-  it('basico after a prior regen still returns 201 (no tier_blocked)', async () => {
+  it('basico after a prior regen still returns 202 (no tier_blocked)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -200,11 +200,11 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(201);
-    expect(r.body.status).toBe('pending_review');
+    expect(r.status).toBe(202);
+    expect(r.body.status).toBe('queued');
   });
 
-  it('full second regen within 30 days still returns 201 (no rate_limit)', async () => {
+  it('full second regen within 30 days still returns 202 (no rate_limit)', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();
     const a = await createAthlete(c);
@@ -219,8 +219,8 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const r = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(r.status).toBe(201);
-    expect(r.body.status).toBe('pending_review');
+    expect(r.status).toBe(202);
+    expect(r.body.status).toBe('queued');
   });
 
   it('rejects unauth', async () => {
@@ -243,7 +243,9 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
     const tok = signToken({ id: a, role: 'athlete' });
     const first = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
-    expect(first.status).toBe(201);
+    expect(first.status).toBe(202);
+    expect(first.body.jobId).toBeDefined();
+
     const second = await request(app).post('/api/athlete/skeleton/regenerate')
       .set('Authorization', `Bearer ${tok}`).send({});
     expect(second.status).toBe(409);
@@ -254,23 +256,35 @@ describe('POST /api/athlete/skeleton/regenerate', () => {
 });
 
 describe('GET /api/athlete/me', () => {
-  it('GET /athlete/me returns pendingReview=false with no pending, true after regen', async () => {
-    await ensureFirstExercise();
+  it('GET /athlete/me reports regenState across the lifecycle', async () => {
     const c = await createAdmin();
     const a = await createAthlete(c);
     const tok = signToken({ id: a, role: 'athlete' });
-    const agent = request(app);
 
-    const before = await agent.get('/api/athlete/me')
+    const me = () => request(app).get('/api/athlete/me')
       .set('Authorization', `Bearer ${tok}`);
-    expect(before.status).toBe(200);
-    expect(before.body.pendingReview).toBe(false);
 
-    await agent.post('/api/athlete/skeleton/regenerate')
-      .set('Authorization', `Bearer ${tok}`).send({});
+    expect((await me()).body.regenState).toBe('idle');
 
-    const after = await agent.get('/api/athlete/me')
-      .set('Authorization', `Bearer ${tok}`);
-    expect(after.body.pendingReview).toBe(true);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status) VALUES ($1,'queued')`, [a],
+    );
+    expect((await me()).body.regenState).toBe('generating');
+
+    await pool.query(`UPDATE skeleton_regen_jobs SET status='done', finished_at=now()
+                       WHERE athlete_id=$1`, [a]);
+    await pool.query(
+      `INSERT INTO athlete_skeletons
+         (athlete_id, status, generated_by, generation_prompt, generation_rationale)
+       VALUES ($1,'pending_review','ai','{}'::jsonb,'x')`, [a],
+    );
+    expect((await me()).body.regenState).toBe('pending_review');
+
+    await pool.query(`UPDATE athlete_skeletons SET status='superseded' WHERE athlete_id=$1`, [a]);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, finished_at)
+       VALUES ($1,'failed', now())`, [a],
+    );
+    expect((await me()).body.regenState).toBe('failed');
   });
 });
