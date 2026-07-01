@@ -9,7 +9,7 @@ import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
 import { recordRm, recordAmrap } from '../services/rm.service.js';
 import { getUserTier } from '../services/tier.service.js';
-import { regenerateSkeleton } from '../services/skeleton-regen.service.js';
+import { regenerateSkeleton, PendingReviewExistsError } from '../services/skeleton-regen.service.js';
 import { buildDashboard } from '../services/dashboard.service.js';
 import { buildPlan } from '../services/plan.service.js';
 import { buildAthleteStats } from '../services/athlete-stats.service.js';
@@ -43,11 +43,20 @@ router.get('/me/stats', async (req, res) => {
 });
 
 router.post('/skeleton/regenerate', async (req, res) => {
-  // Tier gating removed — regeneration is always allowed for any enabled athlete.
-  const result = await regenerateSkeleton(req.user!.id);
-  res.status(201).json({
-    skeletonId: result.skeletonId, status: 'pending_review',
-  });
+  // One pending rutina per athlete: reject while one is already in review.
+  try {
+    const result = await regenerateSkeleton(req.user!.id);
+    res.status(201).json({
+      skeletonId: result.skeletonId, status: 'pending_review',
+    });
+  } catch (e) {
+    if (e instanceof PendingReviewExistsError) {
+      return res.status(409).json({
+        message: 'Ya tenés una rutina en revisión. Esperá a que tu coach la apruebe.',
+      });
+    }
+    throw e;
+  }
 });
 
 router.get('/me', async (req, res) => {
@@ -62,6 +71,14 @@ router.get('/me', async (req, res) => {
   const state = stateR.rows[0] ?? null;
   const skeleton = await findActiveByAthlete(userId);
 
+  const pendingR = await pool.query<{ exists: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM athlete_skeletons
+       WHERE athlete_id = $1 AND status = 'pending_review'
+     ) AS exists`,
+    [userId],
+  );
+
   let blockedReason: string | null = null;
   if (!skeleton.skeleton || skeleton.status !== 'approved') blockedReason = 'awaiting_review';
   if (state?.rm_test_blocking) blockedReason = 'rm_test_required';
@@ -69,6 +86,7 @@ router.get('/me', async (req, res) => {
   res.json({
     profile, programState: state,
     skeletonStatus: skeleton.status,
+    pendingReview: pendingR.rows[0].exists,
     blockedReason,
   });
 });

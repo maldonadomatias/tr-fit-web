@@ -322,12 +322,17 @@ export async function rejectSkeleton(
 
 export async function listPendingForCoach(coachId: string) {
   const { rows } = await pool.query(
-    `SELECT s.id, s.athlete_id, s.created_at, s.generation_rationale,
-            ap.name AS athlete_name
-       FROM athlete_skeletons s
-       JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
-      WHERE s.status = 'pending_review' AND ap.coach_id = $1
-      ORDER BY s.created_at ASC`,
+    `SELECT id, athlete_id, created_at, generation_rationale, athlete_name
+       FROM (
+         SELECT DISTINCT ON (s.athlete_id)
+                s.id, s.athlete_id, s.created_at, s.generation_rationale,
+                ap.name AS athlete_name
+           FROM athlete_skeletons s
+           JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
+          WHERE s.status = 'pending_review' AND ap.coach_id = $1
+          ORDER BY s.athlete_id, s.created_at DESC
+       ) t
+      ORDER BY created_at ASC`,
     [coachId],
   );
   return rows;
