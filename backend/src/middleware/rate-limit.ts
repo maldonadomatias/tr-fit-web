@@ -57,6 +57,22 @@ export const resendVerifyLimiter = rateLimit({
   handler: json429,
 });
 
+// Account deletion: keyed by user id — limits password guesses against
+// the confirmation step without locking the IP out of login.
+export const deleteAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    return userId
+      ? `delete-account:${userId}`
+      : `delete-account:${ipKeyGenerator(req.ip ?? '')}`;
+  },
+  handler: json429,
+});
+
 // Helper to disable rate limiting in tests by default.
 // Tests can opt in via RATE_LIMIT_TEST=on.
 export function skipInTests(handler: RequestHandler): RequestHandler {

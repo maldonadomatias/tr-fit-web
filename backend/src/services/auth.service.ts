@@ -18,6 +18,8 @@ import {
   sendVerifyEmail,
   sendPasswordResetEmail,
 } from './email.service.js';
+import { logAudit } from './admin.service.js';
+import { getStorageBucket } from '../config/firebase.js';
 
 const BCRYPT_COST = 10;
 
@@ -569,5 +571,59 @@ export async function resetPassword(
     throw e;
   } finally {
     client.release();
+  }
+}
+
+// ─── Self-service account deletion (App Store 5.1.1(v)) ─────────────
+export class DeleteAccountError extends Error {
+  constructor(public reason: 'invalid_credentials' | 'not_found' | 'not_athlete') {
+    super(reason);
+  }
+}
+
+export async function deleteAccount(userId: string, password: string): Promise<void> {
+  const r = await pool.query<{
+    email: string;
+    password_hash: string;
+    role: string;
+    avatar_url: string | null;
+  }>(
+    `SELECT u.email, u.password_hash, u.role, ap.avatar_url
+       FROM users u
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
+      WHERE u.id = $1`,
+    [userId],
+  );
+  const user = r.rows[0];
+  if (!user) throw new DeleteAccountError('not_found');
+  if (user.role !== 'athlete') throw new DeleteAccountError('not_athlete');
+
+  const ok = await comparePassword(password, user.password_hash);
+  if (!ok) throw new DeleteAccountError('invalid_credentials');
+
+  // Avatar objects live outside Postgres, so the FK cascade can't clean them up.
+  await deleteAvatarObject(user.avatar_url);
+
+  await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
+
+  await logAudit({
+    type: 'user_deleted',
+    actor: user.email,
+    target: user.email,
+    target_id: userId,
+    severity: 'destructive',
+    meta: { self_service: true },
+  });
+}
+
+async function deleteAvatarObject(avatarUrl: string | null): Promise<void> {
+  if (!avatarUrl) return;
+  try {
+    const encoded = new URL(avatarUrl).pathname.split('/o/')[1] ?? '';
+    const objectPath = decodeURIComponent(encoded);
+    if (!objectPath) return;
+    await getStorageBucket().file(objectPath).delete();
+  } catch (e) {
+    logger.warn({ err: e, avatarUrl }, 'account-delete: avatar cleanup failed');
   }
 }

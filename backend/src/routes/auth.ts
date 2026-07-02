@@ -4,17 +4,18 @@ import { requireAuth } from '../middleware/auth.js';
 import logger from '../utils/logger.js';
 import {
   loginLimiter, signupLimiter, forgotPasswordLimiter, resendVerifyLimiter,
-  skipInTests,
+  deleteAccountLimiter, skipInTests,
 } from '../middleware/rate-limit.js';
 import {
   signupPayload, loginPayload, refreshPayload, logoutPayload,
   forgotPasswordPayload, verifyResetCodePayload, resetPasswordPayload,
+  deleteAccountPayload,
 } from '../domain/schemas.js';
 import {
   signup, login, refresh, logout,
   verifyEmail, resendVerification,
-  forgotPassword, verifyResetCode, resetPassword,
-  LoginError, RefreshError, VerifyError, ResetError,
+  forgotPassword, verifyResetCode, resetPassword, deleteAccount,
+  LoginError, RefreshError, VerifyError, ResetError, DeleteAccountError,
 } from '../services/auth.service.js';
 import {
   verifySuccessPage, verifyErrorPage,
@@ -86,6 +87,27 @@ router.post('/logout', async (req: Request, res: Response) => {
   if (!parsed.success) return res.status(204).end();
   await logout(parsed.data.refreshToken);
   return res.status(204).end();
+});
+
+// Self-service account deletion (App Store Guideline 5.1.1(v)).
+// Wrong password returns 403 — not 401, which would trigger the mobile
+// client's token-refresh-and-retry path.
+router.delete('/account', requireAuth, skipInTests(deleteAccountLimiter), async (req: Request, res: Response) => {
+  const parsed = deleteAccountPayload.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  try {
+    await deleteAccount(req.user!.id, parsed.data.password);
+    return res.status(204).end();
+  } catch (e) {
+    if (e instanceof DeleteAccountError) {
+      const status =
+        e.reason === 'invalid_credentials' ? 403 :
+        e.reason === 'not_athlete' ? 403 :
+        404;
+      return res.status(status).json({ error: e.reason });
+    }
+    throw e;
+  }
 });
 
 router.get('/verify-email', async (req: Request, res: Response) => {
