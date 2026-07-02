@@ -38,7 +38,7 @@ async function setupSession() {
 it('syncSets accepts all on first sync, idempotent on re-sync', async () => {
   const { ath, sessionId, principalId } = await setupSession();
   const sets = [1, 2, 3].map((i) => ({
-    exercise_id: principalId, set_index: i, unit: 'kg', value: 80, reps: 8,
+    exercise_id: principalId, set_index: i, unit: 'kg' as const, value: 80, reps: 8,
     completed: true, client_id: randomUUID(),
     client_ts: new Date().toISOString(),
   }));
@@ -62,12 +62,12 @@ it('syncSets rejects with older_ts when existing has newer ts', async () => {
   const older = new Date(Date.now() - 60_000).toISOString();
 
   await syncSets(ath, sessionId, [{
-    exercise_id: principalId, set_index: 1, unit: 'kg', value: 80, reps: 8,
+    exercise_id: principalId, set_index: 1, unit: 'kg' as const, value: 80, reps: 8,
     completed: true, client_id: clientId, client_ts: newer,
   }]);
 
   const r2 = await syncSets(ath, sessionId, [{
-    exercise_id: principalId, set_index: 1, unit: 'kg', value: 70, reps: 8,
+    exercise_id: principalId, set_index: 1, unit: 'kg' as const, value: 70, reps: 8,
     completed: true, client_id: clientId, client_ts: older,
   }]);
   expect(r2.conflicts).toHaveLength(1);
@@ -81,7 +81,7 @@ it('syncSets returns not_found for foreign session', async () => {
      VALUES ('foreign@t.local', 'x', 'athlete') RETURNING id`,
   );
   const r = await syncSets(otherR.rows[0].id, sessionId, [{
-    exercise_id: principalId, set_index: 1, unit: 'kg', value: 80, reps: 8,
+    exercise_id: principalId, set_index: 1, unit: 'kg' as const, value: 80, reps: 8,
     completed: true, client_id: randomUUID(),
     client_ts: new Date().toISOString(),
   }]);

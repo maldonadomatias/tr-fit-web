@@ -1,16 +1,17 @@
 import { jest } from '@jest/globals';
 
-const mockGenerate = jest.fn<() => Promise<{
+const mockAdjust = jest.fn<() => Promise<{
   rationale: string;
   days: Array<{ day_index: number; focus: string;
     slots: Array<{
       slot_index: number; exercise_id: number;
       role: 'calentamiento' | 'principal' | 'accesorio';
       notes: string | null;
+      series: number | null; reps: string | null; descanso: string | null;
     }> }>;
 }>>();
 jest.unstable_mockModule('../../src/services/openai.service.js', () => ({
-  generateSkeleton: mockGenerate,
+  adjustSkeleton: mockAdjust,
 }));
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
@@ -26,11 +27,12 @@ const app = appMod.default;
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
   await resetDatabase();
-  mockGenerate.mockReset();
-  mockGenerate.mockResolvedValue({
+  mockAdjust.mockReset();
+  mockAdjust.mockResolvedValue({
     rationale: 'r',
     days: [{ day_index: 1, focus: 'f',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null }] }],
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null,
+        series: null, reps: null, descanso: null }] }],
   });
 });
 afterAll(async () => { await closePool(); });

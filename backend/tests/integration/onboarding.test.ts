@@ -3,25 +3,28 @@ process.env.OWNER_COACH_EMAIL = 'owner-test@example.local';
 import { jest } from '@jest/globals';
 import bcrypt from 'bcrypt';
 
-// Mock openai BEFORE importing the app
+// Mock the OpenAI SDK BEFORE importing the app. Template-first generation
+// only reaches the model (chat.completions.parse in adjustSkeleton) when the
+// profile can't use a coach template verbatim; clean profiles must never
+// touch it.
 jest.unstable_mockModule('openai', () => {
-  const create = jest.fn();
+  const parse = jest.fn();
   return {
     default: jest.fn().mockImplementation(() => ({
-      chat: { completions: { create } },
+      chat: { completions: { parse } },
     })),
-    __mockCreate: create,
+    __mockParse: parse,
   };
 });
 
-type MockCreate = jest.Mock<
-  () => Promise<{ choices: Array<{ message: { content: string } }> }>
->;
-
-const openaiMod = (await import('openai')) as unknown as { __mockCreate: MockCreate };
+const openaiMod = (await import('openai')) as unknown as {
+  __mockParse: jest.Mock<() => Promise<unknown>>;
+};
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { createAdmin } = await import('./helpers/fixtures.js');
 const { signToken } = await import('../../src/middleware/auth.js');
+const { selectTemplate, buildSkeletonFromTemplate } =
+  await import('../../src/services/template.service.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const requestMod = await import('supertest');
@@ -52,7 +55,7 @@ beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
   await resetDatabase();
   await seedOwnerAdmin();
-  openaiMod.__mockCreate.mockReset();
+  openaiMod.__mockParse.mockReset();
 });
 afterAll(async () => { await closePool(); });
 
@@ -65,6 +68,8 @@ async function makeAthleteUser() {
   return rows[0].id;
 }
 
+// Clean profile: gym_completo + 60 min + 4 days inside the coach matrix →
+// the coach template is used verbatim and OpenAI is never called.
 const validPayload = {
   name: 'Mati', gender: 'male', age: 30, height_cm: 175, weight_kg: 75,
   level: 'medio', goal: 'hipertrofia', days_per_week: 4,
@@ -74,6 +79,15 @@ const validPayload = {
   days_specific: ['lun', 'mar', 'jue', 'sab'],
   referral_source: 'google',
 };
+
+function expectedTemplateSkeleton() {
+  const { template, exactMatch } = selectTemplate({
+    gender: 'male', days_per_week: 4, leg_days: null,
+    days_specific: ['lun', 'mar', 'jue', 'sab'],
+  });
+  expect(exactMatch).toBe(true);
+  return buildSkeletonFromTemplate(template);
+}
 
 it('rejects unauthenticated', async () => {
   const r = await request(app).post('/api/onboarding/complete').send(validPayload);
@@ -90,29 +104,9 @@ it('rejects payload validation errors', async () => {
   expect(r.status).toBe(400);
 });
 
-it('creates profile + skeleton + slots on success', async () => {
+it('clean profile: creates profile + template skeleton verbatim, no OpenAI call', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-
-  const ex = await pool.query<{ id: number; principal: boolean }>(
-    `(SELECT id, true AS principal FROM exercises WHERE is_principal = TRUE LIMIT 1)
-     UNION ALL
-     (SELECT id, false AS principal FROM exercises WHERE is_principal = FALSE LIMIT 1)`,
-  );
-  const pid = ex.rows.find((r) => r.principal)!.id;
-  const aid = ex.rows.find((r) => !r.principal)!.id;
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
-      rationale: 'r',
-      days: [1, 2, 3, 4].map((d) => ({
-        day_index: d, focus: 'd',
-        slots: [
-          { slot_index: 1, exercise_id: pid, role: 'principal', notes: null },
-          { slot_index: 2, exercise_id: aid, role: 'accesorio', notes: null },
-        ],
-      })),
-    }) } }],
-  });
 
   const r = await request(app)
     .post('/api/onboarding/complete')
@@ -120,9 +114,32 @@ it('creates profile + skeleton + slots on success', async () => {
     .send(validPayload);
   expect(r.status).toBe(201);
   expect(r.body.status).toBe('pending_review');
+  expect(openaiMod.__mockParse).not.toHaveBeenCalled();
 
-  const slots = await pool.query(`SELECT count(*)::int AS n FROM skeleton_slots`);
-  expect(slots.rows[0].n).toBe(8);
+  // Skeleton rows must be the selected coach template, slot by slot.
+  const expected = expectedTemplateSkeleton();
+  const slots = await pool.query<{
+    day_of_week: number; slot_index: number; exercise_id: number;
+    role: string; series: number | null; reps: string | null;
+    descanso: string | null;
+  }>(
+    `SELECT day_of_week, slot_index, exercise_id, role, series, reps, descanso
+       FROM skeleton_slots
+      ORDER BY day_of_week, slot_index`,
+  );
+  const expectedRows = expected.days.flatMap((d) =>
+    d.slots.map((s) => ({
+      day_of_week: d.day_index, slot_index: s.slot_index,
+      exercise_id: s.exercise_id, role: s.role,
+      series: s.series, reps: s.reps, descanso: s.descanso,
+    })),
+  );
+  expect(slots.rows).toEqual(expectedRows);
+
+  const sk = await pool.query<{ generation_rationale: string }>(
+    `SELECT generation_rationale FROM athlete_skeletons WHERE athlete_id = $1`, [u],
+  );
+  expect(sk.rows[0].generation_rationale).toBe(expected.rationale);
 
   const prof = await pool.query<{ coach_id: string | null }>(
     `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`, [u],
@@ -130,28 +147,16 @@ it('creates profile + skeleton + slots on success', async () => {
   expect(prof.rows[0].coach_id).toBe(ownerCoachId);
 });
 
-it('onboarded athlete is visible in coach pending inbox', async () => {
-  const coachId = await createAdmin();
+it('onboarded athlete is visible in the owner coach pending inbox', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  const ex = await pool.query<{ id: number }>(
-    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
-  );
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
-      rationale: 'r',
-      days: [1, 2, 3, 4].map((d) => ({
-        day_index: d, focus: 'd',
-        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal', notes: null }],
-      })),
-    }) } }],
-  });
   const onboardR = await request(app).post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`).send(validPayload);
   expect(onboardR.status).toBe(201);
 
-  // Coach should see it
-  const coachTok = signToken({ id: coachId, role: 'admin' });
+  // Onboarding routes every athlete to OWNER_COACH_EMAIL, so the owner
+  // admin (not an arbitrary admin) sees the pending skeleton.
+  const coachTok = signToken({ id: ownerCoachId, role: 'admin' });
   const inbox = await request(app)
     .get('/api/admin/operations/skeletons/pending')
     .set('Authorization', `Bearer ${coachTok}`);
@@ -163,18 +168,6 @@ it('onboarded athlete is visible in coach pending inbox', async () => {
 it('returns 409 on duplicate onboarding', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  const ex = await pool.query<{ id: number }>(
-    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
-  );
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
-      rationale: 'r',
-      days: [1, 2, 3, 4].map((d) => ({
-        day_index: d, focus: 'd',
-        slots: [{ slot_index: 1, exercise_id: ex.rows[0].id, role: 'principal', notes: null }],
-      })),
-    }) } }],
-  });
   await request(app).post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`).send(validPayload);
   const r2 = await request(app).post('/api/onboarding/complete')
@@ -182,16 +175,20 @@ it('returns 409 on duplicate onboarding', async () => {
   expect(r2.status).toBe(409);
 });
 
-it('returns 502 when skeleton generation fails', async () => {
+it('returns 502 and rolls back when the AI adjustment fails', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: '{"bad": true}' } }],
-  });
+  // 2 days/week is outside the coach matrix (3-5) → template can't be used
+  // verbatim → adjustSkeleton calls OpenAI, which we make blow up.
+  openaiMod.__mockParse.mockRejectedValue(new Error('openai down'));
   const r = await request(app).post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)
-    .send({ ...validPayload, measurements: { chest_cm: 100 } });
+    .send({
+      ...validPayload, days_per_week: 2, days_specific: ['lun', 'jue'],
+      measurements: { chest_cm: 100 },
+    });
   expect(r.status).toBe(502);
+  expect(openaiMod.__mockParse).toHaveBeenCalled();
   // Verify rollback: profile + measurements rows were removed
   const prof = await pool.query(
     `SELECT 1 FROM athlete_profiles WHERE user_id = $1`, [u],
@@ -207,19 +204,6 @@ it('persists new fields and measurements', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
   await createAdmin();
-  const ex = await pool.query<{ id: number }>(
-    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
-  );
-  const pid = ex.rows[0].id;
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
-      rationale: 'ok',
-      days: [1, 2, 3, 4].map((d) => ({
-        day_index: d, focus: 'full',
-        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal', notes: null }],
-      })),
-    }) } }],
-  });
   const r = await request(app)
     .post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)
@@ -246,19 +230,6 @@ it('skips measurements INSERT when all values null', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
   await createAdmin();
-  const ex = await pool.query<{ id: number }>(
-    `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
-  );
-  const pid = ex.rows[0].id;
-  openaiMod.__mockCreate.mockResolvedValue({
-    choices: [{ message: { content: JSON.stringify({
-      rationale: 'ok',
-      days: [1, 2, 3, 4].map((d) => ({
-        day_index: d, focus: 'f',
-        slots: [{ slot_index: 1, exercise_id: pid, role: 'principal', notes: null }],
-      })),
-    }) } }],
-  });
   const r = await request(app)
     .post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)

@@ -69,7 +69,7 @@ it('POST /api/sessions/:id/sets 201 + idempotent 200 on dup client_id', async ()
   const r1 = await request(app).post(`/api/sessions/${sess.body.sessionId}/sets`)
     .set('Authorization', `Bearer ${tok}`)
     .send({
-      exercise_id: principalId, set_index: 1, weight_kg: 80, reps: 8,
+      exercise_id: principalId, set_index: 1, value: 80, unit: 'kg', reps: 8,
       completed: true, rpe: 7, client_id: cid,
       client_ts: new Date().toISOString(),
     });
@@ -77,7 +77,7 @@ it('POST /api/sessions/:id/sets 201 + idempotent 200 on dup client_id', async ()
   const r2 = await request(app).post(`/api/sessions/${sess.body.sessionId}/sets`)
     .set('Authorization', `Bearer ${tok}`)
     .send({
-      exercise_id: principalId, set_index: 1, weight_kg: 80, reps: 8,
+      exercise_id: principalId, set_index: 1, value: 80, unit: 'kg', reps: 8,
       completed: true, rpe: 7, client_id: cid,
       client_ts: new Date().toISOString(),
     });
@@ -92,7 +92,7 @@ it('PATCH /api/sessions/:id/finish returns summary', async () => {
   await request(app).post(`/api/sessions/${sess.body.sessionId}/sets`)
     .set('Authorization', `Bearer ${tok}`)
     .send({
-      exercise_id: principalId, set_index: 1, weight_kg: 80, reps: 8,
+      exercise_id: principalId, set_index: 1, value: 80, unit: 'kg', reps: 8,
       completed: true, client_id: randomUUID(),
       client_ts: new Date().toISOString(),
     });
