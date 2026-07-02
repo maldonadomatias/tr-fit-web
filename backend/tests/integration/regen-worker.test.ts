@@ -1,12 +1,15 @@
 import { jest } from '@jest/globals';
 
-const mockGenerate = jest.fn<() => Promise<{
+// Template-first generation only calls the AI adjuster when the profile
+// can't use a coach template verbatim (e.g. days_per_week outside 3-5).
+const mockAdjust = jest.fn<() => Promise<{
   rationale: string;
   days: Array<{ day_index: number; focus: string;
-    slots: Array<{ slot_index: number; exercise_id: number; role: 'principal', notes: null }> }>;
+    slots: Array<{ slot_index: number; exercise_id: number; role: 'principal', notes: null,
+      series: null, reps: null, descanso: null }> }>;
 }>>();
 jest.unstable_mockModule('../../src/services/openai.service.js', () => ({
-  generateSkeleton: mockGenerate,
+  adjustSkeleton: mockAdjust,
 }));
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
@@ -20,11 +23,12 @@ const { regenTick, MAX_JOB_ATTEMPTS } =
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
   await resetDatabase();
-  mockGenerate.mockReset();
-  mockGenerate.mockResolvedValue({
+  mockAdjust.mockReset();
+  mockAdjust.mockResolvedValue({
     rationale: 'r',
     days: [{ day_index: 1, focus: 'f',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null }] }],
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null,
+        series: null, reps: null, descanso: null }] }],
   });
 });
 afterAll(async () => { await closePool(); });
@@ -70,9 +74,10 @@ describe('regenTick', () => {
 
   it('requeues with incremented attempts on a transient failure', async () => {
     const c = await createAdmin();
-    const a = await createAthlete(c);
+    // 2 days/week is outside the coach template matrix → AI adjust path.
+    const a = await createAthlete(c, { days_per_week: 2 });
     const { jobId } = await enqueueRegenJob(a);
-    mockGenerate.mockRejectedValueOnce(new Error('openai down'));
+    mockAdjust.mockRejectedValueOnce(new Error('openai down'));
 
     await regenTick();
 
@@ -87,9 +92,9 @@ describe('regenTick', () => {
 
   it('marks failed after MAX_JOB_ATTEMPTS transient failures', async () => {
     const c = await createAdmin();
-    const a = await createAthlete(c);
+    const a = await createAthlete(c, { days_per_week: 2 });
     const { jobId } = await enqueueRegenJob(a);
-    mockGenerate.mockRejectedValue(new Error('openai down'));
+    mockAdjust.mockRejectedValue(new Error('openai down'));
 
     for (let i = 0; i < MAX_JOB_ATTEMPTS; i++) {
       await makeClaimable(jobId);
@@ -122,6 +127,6 @@ describe('regenTick', () => {
 
   it('is a no-op when there are no queued jobs', async () => {
     await expect(regenTick()).resolves.toBeUndefined();
-    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(mockAdjust).not.toHaveBeenCalled();
   });
 });

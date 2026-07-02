@@ -1,12 +1,16 @@
 import { jest } from '@jest/globals';
 
-const mockGenerate = jest.fn<() => Promise<{
+// Template-first generation only calls the AI adjuster when the profile
+// can't use a coach template verbatim; the default fixture athlete is clean
+// (male, 4 days, gym_completo, 60 min) so regen resolves from the template.
+const mockAdjust = jest.fn<() => Promise<{
   rationale: string;
   days: Array<{ day_index: number; focus: string;
-    slots: Array<{ slot_index: number; exercise_id: number; role: 'principal', notes: null }> }>;
+    slots: Array<{ slot_index: number; exercise_id: number; role: 'principal', notes: null,
+      series: null, reps: null, descanso: null }> }>;
 }>>();
 jest.unstable_mockModule('../../src/services/openai.service.js', () => ({
-  generateSkeleton: mockGenerate,
+  adjustSkeleton: mockAdjust,
 }));
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
@@ -19,11 +23,12 @@ const { enqueueRegenJob, runRegenJob, PendingReviewExistsError } =
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
   await resetDatabase();
-  mockGenerate.mockReset();
-  mockGenerate.mockResolvedValue({
+  mockAdjust.mockReset();
+  mockAdjust.mockResolvedValue({
     rationale: 'r',
     days: [{ day_index: 1, focus: 'f',
-      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null }] }],
+      slots: [{ slot_index: 1, exercise_id: 1, role: 'principal', notes: null,
+        series: null, reps: null, descanso: null }] }],
   });
 });
 afterAll(async () => { await closePool(); });
@@ -49,7 +54,7 @@ describe('enqueueRegenJob', () => {
       `SELECT status FROM skeleton_regen_jobs WHERE id = $1`, [jobId],
     );
     expect(job.rows[0].status).toBe('queued');
-    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(mockAdjust).not.toHaveBeenCalled();
     const sk = await pool.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM athlete_skeletons WHERE athlete_id = $1`, [a],
     );
@@ -83,15 +88,39 @@ describe('runRegenJob', () => {
     const a = await createAthlete(c);
     const { skeletonId } = await runRegenJob(a);
     expect(skeletonId).toBeTruthy();
-    expect(mockGenerate).toHaveBeenCalledTimes(1);
-    const sk = await pool.query<{ status: string }>(
-      `SELECT status FROM athlete_skeletons WHERE id = $1`, [skeletonId],
+    // Clean fixture athlete → coach template verbatim, no AI call.
+    expect(mockAdjust).not.toHaveBeenCalled();
+    const sk = await pool.query<{ status: string; source: string }>(
+      `SELECT status, generation_prompt->>'source' AS source
+         FROM athlete_skeletons WHERE id = $1`, [skeletonId],
     );
     expect(sk.rows[0].status).toBe('pending_review');
+    expect(sk.rows[0].source).toBe('template');
+    const slotCount = await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM skeleton_slots WHERE skeleton_id = $1`,
+      [skeletonId],
+    );
+    expect(slotCount.rows[0].n).toBeGreaterThan(0);
     const log = await pool.query<{ result: string }>(
       `SELECT result FROM skeleton_regen_log WHERE athlete_id = $1`, [a],
     );
     expect(log.rows[0].result).toBe('approved_gen');
+  });
+
+  it('profile outside the template matrix goes through the AI adjuster', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    // 2 days/week is outside the coach template matrix (3-5).
+    const a = await createAthlete(c, { days_per_week: 2 });
+    const { skeletonId } = await runRegenJob(a);
+    expect(skeletonId).toBeTruthy();
+    expect(mockAdjust).toHaveBeenCalledTimes(1);
+    const sk = await pool.query<{ status: string; source: string }>(
+      `SELECT status, generation_prompt->>'source' AS source
+         FROM athlete_skeletons WHERE id = $1`, [skeletonId],
+    );
+    expect(sk.rows[0].status).toBe('pending_review');
+    expect(sk.rows[0].source).toBe('template+ai');
   });
 
   it('is idempotent when a pending_review skeleton already exists', async () => {
@@ -105,6 +134,6 @@ describe('runRegenJob', () => {
     );
     const { skeletonId } = await runRegenJob(a);
     expect(skeletonId).toBeNull();
-    expect(mockGenerate).not.toHaveBeenCalled();
+    expect(mockAdjust).not.toHaveBeenCalled();
   });
 });
