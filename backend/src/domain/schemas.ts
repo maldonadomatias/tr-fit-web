@@ -203,6 +203,10 @@ export const logoutPayload = z.object({
   refreshToken: z.string().min(32),
 });
 
+export const deleteAccountPayload = z.object({
+  password: z.string().min(1),
+});
+
 export const forgotPasswordPayload = z.object({
   email: z.string().email().toLowerCase(),
 });
