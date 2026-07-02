@@ -4,7 +4,7 @@ import { requireRole } from '../middleware/role.js';
 import { onboardingPayload } from '../domain/schemas.js';
 import pool from '../db/connect.js';
 import { listExercisesForAthlete } from '../services/exercise.service.js';
-import { generateSkeleton } from '../services/openai.service.js';
+import { generateRoutine } from '../services/routine-generation.service.js';
 import { createPendingSkeleton } from '../services/skeleton.service.js';
 import logger from '../utils/logger.js';
 import { env } from '../config/env.js';
@@ -81,14 +81,17 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
   const exercises = await listExercisesForAthlete(profile, userId);
 
   try {
-    const ai = await generateSkeleton({ profile, exercises });
+    const gen = await generateRoutine({ profile, exercises });
     const { skeletonId } = await createPendingSkeleton(
       {
         athleteId: userId,
-        generationPrompt: { profile, exercises_count: exercises.length },
-        generationRationale: ai.rationale,
+        generationPrompt: {
+          profile, exercises_count: exercises.length,
+          source: gen.source, template: gen.templateSource, reasons: gen.reasons,
+        },
+        generationRationale: gen.skeleton.rationale,
       },
-      ai,
+      gen.skeleton,
     );
     return res.status(201).json({ skeletonId, status: 'pending_review' });
   } catch (e) {

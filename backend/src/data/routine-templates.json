@@ -1,0 +1,5173 @@
+[
+  {
+    "source": "APP RUTINA 3 DIAS MUJER (LUN-MAR-MIE _ LUN-MAR-JUE _ LUN-MAR-VIE _ LUN-MIE-JUE _ LUN-JUE-VIE _ MAR-MIE-VIE _ MAR-MIE-SAB _ MAR-JUE-VIE _ MIE-VIER-SAB) 1HS 15-30 MIN.xlsx",
+    "gender": "female",
+    "days": 3,
+    "leg_days": null,
+    "schedules": [
+      [
+        "lun",
+        "mar",
+        "mie"
+      ],
+      [
+        "lun",
+        "mar",
+        "jue"
+      ],
+      [
+        "lun",
+        "mar",
+        "vie"
+      ],
+      [
+        "lun",
+        "mie",
+        "jue"
+      ],
+      [
+        "lun",
+        "jue",
+        "vie"
+      ],
+      [
+        "mar",
+        "mie",
+        "vie"
+      ],
+      [
+        "mar",
+        "mie",
+        "sab"
+      ],
+      [
+        "mar",
+        "jue",
+        "vie"
+      ],
+      [
+        "mie",
+        "vie",
+        "sab"
+      ]
+    ],
+    "days_detail": [
+      {
+        "focus": "Piernas / Espalda / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 35,
+            "exercise_name": "Pantorrillas en Maquina Parado",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 1,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VLEOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Hombros / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 38,
+            "exercise_name": "Press Plano con Mancuernas",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "CONTROLAR VELOCIDAD EN LA VUELTA"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 78,
+            "exercise_name": "Posteriores en Maquina Mariposa",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Espalda / Biceps",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 171,
+            "exercise_name": "Peso Muerto en Smith",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA VUELTA"
+          },
+          {
+            "exercise_id": 27,
+            "exercise_name": "Abductores en Maquina",
+            "muscle_group": "Piernas - Abductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 52,
+            "exercise_name": "Jalon al Pecho agarre Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 3 DIAS MUJER (LUN-MIER-VIER _ LUN-JUE-SAB _ LUN-MIE-SAB _ MAR-JUE-SAB) 1 HS 15-30 MIN.xlsx",
+    "gender": "female",
+    "days": 3,
+    "leg_days": null,
+    "schedules": [
+      [
+        "lun",
+        "mie",
+        "vie"
+      ],
+      [
+        "lun",
+        "jue",
+        "sab"
+      ],
+      [
+        "lun",
+        "mie",
+        "sab"
+      ],
+      [
+        "mar",
+        "jue",
+        "sab"
+      ]
+    ],
+    "days_detail": [
+      {
+        "focus": "Piernas / Espalda / Hombros / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 123,
+            "exercise_name": "Elevacion de Cadera espalda en el piso",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 22,
+            "exercise_name": "Patada Gluteos polea media - baja",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "SUBIRSE A UN STEP PARA MAYOR RECORRIDO"
+          },
+          {
+            "exercise_id": 27,
+            "exercise_name": "Abductores en Maquina",
+            "muscle_group": "Piernas - Abductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "APROXIMAR SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERLA + 10 CADERAZOS AL PISO C/L"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Pecho / Hombros / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 35,
+            "exercise_name": "Pantorrillas en Maquina Parado",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 38,
+            "exercise_name": "Press Plano con Mancuernas",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "APROXIMAR SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR LA VLEOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Hombros / Biceps / Triceps",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 14,
+            "exercise_name": "Peso Muerto Rumano con Mancuernas",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VELOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 78,
+            "exercise_name": "Posteriores en Maquina Mariposa",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "1:45 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 - 8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "AUMENTAR PESO A FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 4 DIAS MUJER (LUN-MAR-JUE-VIE _ LUN-MAR-VIE-SAB _ MAR-MIE-JUE-VIE _ MIE-JUE-VIE-SAB _ MAR-JUE-VIE-SAB) 1 HS 15-30 MIN.xlsx",
+    "gender": "female",
+    "days": 4,
+    "leg_days": null,
+    "schedules": [
+      [
+        "lun",
+        "mar",
+        "jue",
+        "vie"
+      ],
+      [
+        "lun",
+        "mar",
+        "vie",
+        "sab"
+      ],
+      [
+        "mar",
+        "mie",
+        "jue",
+        "vie"
+      ],
+      [
+        "mie",
+        "jue",
+        "vie",
+        "sab"
+      ],
+      [
+        "mar",
+        "jue",
+        "vie",
+        "sab"
+      ]
+    ],
+    "days_detail": [
+      {
+        "focus": "Piernas / Hombros / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 31,
+            "exercise_name": "Pantorrillas en Maquina Smith Talones afuera con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION SI ES NECESARIO."
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROL EN LA VLEOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Biceps / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 38,
+            "exercise_name": "Press Plano con Mancuernas",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION SI ES NEC."
+          },
+          {
+            "exercise_id": 40,
+            "exercise_name": "Press Inclinado con Mancuernas",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERAL + 10 CADERZOS AL PISO C/L"
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Hombros / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 125,
+            "exercise_name": "Jalon al Pecho",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION SI ES NEC."
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VELOCIDAD EN LA VUELTA"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 133,
+            "exercise_name": "Vuelos Frontales con soga en Polea Baja",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "INCLINARSE LEVEMENTE HACIA DELANTE"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 78,
+            "exercise_name": "Posteriores en Maquina Mariposa",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": "CONTROLAR VLEOCIDAD A LA VUELTA"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTORLAR VLEOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Biceps",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 171,
+            "exercise_name": "Peso Muerto en Smith",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VLEOCIDAD AL VOLVER"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 27,
+            "exercise_name": "Abductores en Maquina",
+            "muscle_group": "Piernas - Abductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "NO BALANCEARSE"
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 4 DIAS MUJER (LUN-MAR-MIE-VIER _ MAR-MIE-JUE- SAB _ LUN-MIE-JUE-SAB _ LUN-MAR-JUE-SAB) 1 HS 15-30 MIN.xlsx",
+    "gender": "female",
+    "days": 4,
+    "leg_days": null,
+    "schedules": [
+      [
+        "lun",
+        "mar",
+        "mie",
+        "vie"
+      ],
+      [
+        "mar",
+        "mie",
+        "jue",
+        "sab"
+      ],
+      [
+        "lun",
+        "mie",
+        "jue",
+        "sab"
+      ],
+      [
+        "lun",
+        "mar",
+        "jue",
+        "sab"
+      ]
+    ],
+    "days_detail": [
+      {
+        "focus": "Piernas / Espalda",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 22,
+            "exercise_name": "Patada Gluteos polea media - baja",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "PARARSE SOBRE STEP PARA MAYOR RECORRIDO"
+          },
+          {
+            "exercise_id": 27,
+            "exercise_name": "Abductores en Maquina",
+            "muscle_group": "Piernas - Abductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "APROXIMAR SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Hombros / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 38,
+            "exercise_name": "Press Plano con Mancuernas",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION SI ES NEC"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 78,
+            "exercise_name": "Posteriores en Maquina Mariposa",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": "CONTROLAR VLEOCIDAD A LA VUELTA"
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERLA = 10 CADERAZOS AL PISO C/L"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Triceps",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 7,
+            "exercise_name": "Sentadilla Hack",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 35,
+            "exercise_name": "Pantorrillas en Maquina Parado",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 91,
+            "exercise_name": "Press Frances en Polea alta con Soga",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 1,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Espalda / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 171,
+            "exercise_name": "Peso Muerto en Smith",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PEOS CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "APROXIMAR SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VLEOCIDAD DE GIRO"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 4 DIAS MUJER (LUN-MIE-JUE-VIE _ LUN-JUE-VIE-SAB _ MAR-JUE-VIE-SAB) 1 HS 30MIN.xlsx",
+    "gender": "female",
+    "days": 4,
+    "leg_days": null,
+    "schedules": [
+      [
+        "lun",
+        "mie",
+        "jue",
+        "vie"
+      ],
+      [
+        "lun",
+        "jue",
+        "vie",
+        "sab"
+      ],
+      [
+        "mar",
+        "jue",
+        "vie",
+        "sab"
+      ]
+    ],
+    "days_detail": [
+      {
+        "focus": "Piernas / Espalda / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 171,
+            "exercise_name": "Peso Muerto en Smith",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 22,
+            "exercise_name": "Patada Gluteos polea media - baja",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "SUBBIRSE A UN STEP PARA MAYOR RECORRIDO"
+          },
+          {
+            "exercise_id": 27,
+            "exercise_name": "Abductores en Maquina",
+            "muscle_group": "Piernas - Abductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "APROXIMAR SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROL EN LA VELOCIDAD. LENTO"
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 35,
+            "exercise_name": "Pantorrillas en Maquina Parado",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR LA VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Hombros / Triceps",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 38,
+            "exercise_name": "Press Plano con Mancuernas",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8 a 10",
+            "rir": "2",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 78,
+            "exercise_name": "Posteriores en Maquina Mariposa",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": "CONTROLAR VLEOCIDAD A LA VUELTA"
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Espalda / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 171,
+            "exercise_name": "Peso Muerto en Smith",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA VUELTA"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NECESARIO"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LAT + 10 CADERAZOS AL PISO POR LADO"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 5 DIAS MUJER 1 HS 15-30 MIN.xlsx",
+    "gender": "female",
+    "days": 5,
+    "leg_days": null,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Piernas / Espalda / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 56,
+            "exercise_name": "Remo en Polea Baja agarre Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 C/L",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR LA VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Hombros / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 38,
+            "exercise_name": "Press Plano con Mancuernas",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 40,
+            "exercise_name": "Press Inclinado con Mancuernas",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 78,
+            "exercise_name": "Posteriores en Maquina Mariposa",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 21,
+            "exercise_name": "Hip Thrust",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 22,
+            "exercise_name": "Patada Gluteos polea media - baja",
+            "muscle_group": "Piernas - Gluteos",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "PARARSE SOBRE UN STEP PARA MAYOR RECORRIDO"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VLEOCIDAD AL ABRIR"
+          },
+          {
+            "exercise_id": 27,
+            "exercise_name": "Abductores en Maquina",
+            "muscle_group": "Piernas - Abductores",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 113,
+            "exercise_name": "Plancha",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG. DE PLANCHA LATERAL + 10 CADERAZOS AL PISO POR LADO"
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Hombros / Biceps",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NEC"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 56,
+            "exercise_name": "Remo en Polea Baja agarre Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 13,
+            "exercise_name": "Peso Muerto con Barra",
+            "muscle_group": "Piernas - Femorales",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 15,
+            "exercise_name": "Peso Muerto a una pierna con Mancuerna",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 7,
+            "exercise_name": "Sentadilla Hack",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 35,
+            "exercise_name": "Pantorrillas en Maquina Parado",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LAT + 10 CADERZOS AL PISO POR LADO"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 3 DIAS HOMBRE 1 DIA PIERNA (LUN-MAR-MIE Y CUALQUER MEZCLA DE 3 DIAS SEMANALES) 1 HS 30 MIN.xlsx",
+    "gender": "male",
+    "days": 3,
+    "leg_days": 1,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Pecho / Hombros / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 37,
+            "exercise_name": "Press Plano con Barra",
+            "muscle_group": "Pecho - Mayor",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Abdomen / Cardio",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "6",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 171,
+            "exercise_name": "Peso Muerto en Smith",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERLA + 10 CADERZOS AL PISO POR LADO"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR LA VELOCIDAD DE GIRO"
+          },
+          {
+            "exercise_id": 130,
+            "exercise_name": "Bicicleta Fija",
+            "muscle_group": "Cardio",
+            "role": "accesorio",
+            "series": 1,
+            "reps": "15 min",
+            "rir": null,
+            "descanso": null,
+            "notes": "CONSTANTE, NO SUAVE, NO INTENSO."
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Hombros / Biceps",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 52,
+            "exercise_name": "Jalon al Pecho agarre Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NECESARIO."
+          },
+          {
+            "exercise_id": 72,
+            "exercise_name": "Press Militar con Barra parado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTRAER ESCAPULAS"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 75,
+            "exercise_name": "Vuelo Lateral Unilateral en polea altura Rodilla",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": "NO CHOCAR MANCUERNAS DEBAJO"
+          },
+          {
+            "exercise_id": 94,
+            "exercise_name": "Biceps Scott con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR LA VELOCIDAD DE BAJADA"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 3 DIAS HOMBRE 2 DIAS PIERNAS (LUN-MAR-MIE Y CUALQUER MEZCLA DE 3 DIAS SEMANALES) 1 HS 30 MIN.xlsx",
+    "gender": "male",
+    "days": 3,
+    "leg_days": 2,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Piernas / Espalda / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 31,
+            "exercise_name": "Pantorrillas en Maquina Smith Talones afuera con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 52,
+            "exercise_name": "Jalon al Pecho agarre Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NEC."
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 4,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTRAER ESCAPULAS"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Biceps / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 37,
+            "exercise_name": "Press Plano con Barra",
+            "muscle_group": "Pecho - Mayor",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 45,
+            "exercise_name": "Cruces en Polea Alta",
+            "muscle_group": "Pecho - Inferior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 92,
+            "exercise_name": "Curl de Biceps con Barra Plana",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUEMNTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Hombros",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 13,
+            "exercise_name": "Peso Muerto con Barra",
+            "muscle_group": "Piernas - Femorales",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VELOCIDAD AL VOLVER"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 72,
+            "exercise_name": "Press Militar con Barra parado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "NO CHOCAR MANCUERNAS DEBAJO"
+          },
+          {
+            "exercise_id": 75,
+            "exercise_name": "Vuelo Lateral Unilateral en polea altura Rodilla",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 4 DIAS HOMBRE 1 DIA PIERNA (LUN-MAR-MIE-JUE Y CUALQUER MEZCLA DE 4 DIAS SEMANALES) 1 HS 30 MIN.xlsx",
+    "gender": "male",
+    "days": 4,
+    "leg_days": 1,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Pecho / Hombros / Triceps",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 37,
+            "exercise_name": "Press Plano con Barra",
+            "muscle_group": "Pecho - Mayor",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 45,
+            "exercise_name": "Cruces en Polea Alta",
+            "muscle_group": "Pecho - Inferior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 55,
+            "exercise_name": "Remo con Barra Plana",
+            "muscle_group": "Espalda",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTRACCION RAPIDA, VUELTA LENTA"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTRAER ESCAPULAS"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 94,
+            "exercise_name": "Biceps Scott con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER UNA SERIE DE APROXIMAICON SI ES NEC"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VELOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERAL + 10 CADERAZOS AL PISO POR LADO"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Abdomen / Cardio",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA VUELTA"
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 14,
+            "exercise_name": "Peso Muerto Rumano con Mancuernas",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 139,
+            "exercise_name": "Abdominales en Banco Declinado con Disco",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 130,
+            "exercise_name": "Bicicleta Fija",
+            "muscle_group": "Cardio",
+            "role": "accesorio",
+            "series": 1,
+            "reps": "15 min",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONSTANTE, NO SUAVE, NO INTENSO. INTERMEDIO"
+          }
+        ]
+      },
+      {
+        "focus": "Hombros / Pecho / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 72,
+            "exercise_name": "Press Militar con Barra parado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VELOCIDAD AL BAJAR"
+          },
+          {
+            "exercise_id": 47,
+            "exercise_name": "Cruces en Polea Baja",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": "NO CHOCAR LAS MANCUERNAS ABAJO"
+          },
+          {
+            "exercise_id": 75,
+            "exercise_name": "Vuelo Lateral Unilateral en polea altura Rodilla",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 117,
+            "exercise_name": "Press Pallof",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 4 DIAS HOMBRE 2 DIAS PIERNAS (LUN-MAR-MIE-JUE Y CUALQUER MEZCLA DE 4 DIAS SEMANALES) 1 HS 30 MIN.xlsx",
+    "gender": "male",
+    "days": 4,
+    "leg_days": 2,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Piernas / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 37,
+            "exercise_name": "Press Plano con Barra",
+            "muscle_group": "Pecho - Mayor",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 89,
+            "exercise_name": "Press Frances con Mancuerna Acostado Banco Plano",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR LA VELOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERAL + 10 CADERAZOS AL PISO POR LADO"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Hombros / Antebrazos / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 52,
+            "exercise_name": "Jalon al Pecho agarre Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NECESARIO."
+          },
+          {
+            "exercise_id": 72,
+            "exercise_name": "Press Militar con Barra parado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTRACICON RAPIDA, VUELTA LENTA"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 104,
+            "exercise_name": "Extension de Muñecas con Mancuernas agarre Supino",
+            "muscle_group": "Antebrazos",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "fallo",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 113,
+            "exercise_name": "Plancha",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "40 seg",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Biceps",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 13,
+            "exercise_name": "Peso Muerto con Barra",
+            "muscle_group": "Piernas - Femorales",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR LA VELOCIDAD AL VOLVER"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 94,
+            "exercise_name": "Biceps Scott con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "1:45 a 2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 5 DIAS HOMBRE 1 DIA DE PIERNA - 1 HS 30 MIN.xlsx",
+    "gender": "male",
+    "days": 5,
+    "leg_days": 1,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Pecho / Hombros / Triceps",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 37,
+            "exercise_name": "Press Plano con Barra",
+            "muscle_group": "Pecho - Mayor",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 71,
+            "exercise_name": "Press Militar con Mancuernas Sentado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 45,
+            "exercise_name": "Cruces en Polea Alta",
+            "muscle_group": "Pecho - Inferior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 55,
+            "exercise_name": "Remo con Barra Plana",
+            "muscle_group": "Espalda",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTRACCION RAPIDA, VUELTA LENTA"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTRAER ESCAPULAS"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 94,
+            "exercise_name": "Biceps Scott con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "HACER UNA SERIE DE APROXIMAICON SI ES NEC"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VELOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERAL + 10 CADERAZOS AL PISO POR LADO"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Abdomen / Cardio",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VLEOCIDAD EN LA VUELTA"
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 14,
+            "exercise_name": "Peso Muerto Rumano con Mancuernas",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 139,
+            "exercise_name": "Abdominales en Banco Declinado con Disco",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 130,
+            "exercise_name": "Bicicleta Fija",
+            "muscle_group": "Cardio",
+            "role": "accesorio",
+            "series": 1,
+            "reps": "15 min",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONSTANTE, NO SUAVE, NO INTENSO. INTERMEDIO"
+          }
+        ]
+      },
+      {
+        "focus": "Hombros / Pecho / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": null,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 72,
+            "exercise_name": "Press Militar con Barra parado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR VELOCIDAD AL BAJAR"
+          },
+          {
+            "exercise_id": 47,
+            "exercise_name": "Cruces en Polea Baja",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": "NO CHOCAR LAS MANCUERNAS ABAJO"
+          },
+          {
+            "exercise_id": 75,
+            "exercise_name": "Vuelo Lateral Unilateral en polea altura Rodilla",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 117,
+            "exercise_name": "Press Pallof",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Biceps / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 53,
+            "exercise_name": "Jalon al Pecho agarre Cerrado Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NEC"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTRAER ESCAPULAS"
+          },
+          {
+            "exercise_id": 54,
+            "exercise_name": "Jalon unilateral en Polea Alta en estocada",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTROLAR VELOCIDAD AL VOLVER"
+          },
+          {
+            "exercise_id": 103,
+            "exercise_name": "Biceps Martillo con Mancuernas en Scott",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 89,
+            "exercise_name": "Press Frances con Mancuerna Acostado Banco Plano",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "source": "APP RUTINA 5 DIAS HOMBRE 2 DIAS DE PIERNAS - 1 HS 30 MIN.xlsx",
+    "gender": "male",
+    "days": 5,
+    "leg_days": 2,
+    "schedules": [],
+    "days_detail": [
+      {
+        "focus": "Piernas / Biceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 1,
+            "exercise_name": "Sentadilla con Barra Plana",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 2,
+            "exercise_name": "Sentadilla Bulgara con Mancuernas",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 11,
+            "exercise_name": "Extension Cuadriceps Sentado en maquina",
+            "muscle_group": "Piernas - Cuadriceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 93,
+            "exercise_name": "Curl de Biceps con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 37,
+            "exercise_name": "Press Plano con Barra",
+            "muscle_group": "Pecho - Mayor",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 42,
+            "exercise_name": "Pecho Sentado en Mariposa",
+            "muscle_group": "Pecho - Mayor",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 89,
+            "exercise_name": "Press Frances con Mancuerna Acostado Banco Plano",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": "CONTROLAR LA VELOCIDAD EN LA BAJADA"
+          },
+          {
+            "exercise_id": 84,
+            "exercise_name": "Triceps con Soga en Polea Alta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 114,
+            "exercise_name": "Oblicuos en Plancha Lateral con movimiento al Piso",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "30 seg + 10 cad",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "30 SEG DE PLANCHA LATERAL + 10 CADERAZOS AL PISO POR LADO"
+          },
+          {
+            "exercise_id": 112,
+            "exercise_name": "Oblicuos Giro Ruso con Pesa Rusa piernas elevadas",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": "CONTROLAR VELOCIDAD DE GIRO"
+          }
+        ]
+      },
+      {
+        "focus": "Espalda / Hombros / Antebrazos / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 52,
+            "exercise_name": "Jalon al Pecho agarre Neutro",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "APROXIMAR SI ES NECESARIO."
+          },
+          {
+            "exercise_id": 72,
+            "exercise_name": "Press Militar con Barra parado",
+            "muscle_group": "Hombros",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 57,
+            "exercise_name": "Remo en Polea Baja agarre Cerrado Neutro Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": "CONTRACICON RAPIDA, VUELTA LENTA"
+          },
+          {
+            "exercise_id": 61,
+            "exercise_name": "Remo en Maquina Sentado",
+            "muscle_group": "Espalda",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 77,
+            "exercise_name": "Vuelos Posteriores Sentado con Mancuernas",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10 a 12",
+            "rir": "1",
+            "descanso": "1:30 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 104,
+            "exercise_name": "Extension de Muñecas con Mancuernas agarre Supino",
+            "muscle_group": "Antebrazos",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "fallo",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 113,
+            "exercise_name": "Plancha",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "40 seg",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      },
+      {
+        "focus": "Piernas / Biceps",
+        "slots": [
+          {
+            "exercise_id": 120,
+            "exercise_name": "Movimientos Articulares completos Piernas",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 13,
+            "exercise_name": "Peso Muerto con Barra",
+            "muscle_group": "Piernas - Femorales",
+            "role": "principal",
+            "series": 3,
+            "reps": "6 a 8",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 18,
+            "exercise_name": "Curl Femoral Acostado en maquina",
+            "muscle_group": "Piernas - Femorales",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "CONTROLAR LA VELOCIDAD AL VOLVER"
+          },
+          {
+            "exercise_id": 30,
+            "exercise_name": "Aductores en Maquina",
+            "muscle_group": "Piernas - Aductores",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 32,
+            "exercise_name": "Pantorrilas en Maquina Smith Talones medio con Step",
+            "muscle_group": "Piernas - Pantorrillas",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 94,
+            "exercise_name": "Biceps Scott con Barra W",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 96,
+            "exercise_name": "Biceps Martillo con Mancuernas",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 99,
+            "exercise_name": "Curl con Barra Plana pequena en Polea Baja",
+            "muscle_group": "Biceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "1:45 a 2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          }
+        ]
+      },
+      {
+        "focus": "Pecho / Hombros / Triceps / Abdomen",
+        "slots": [
+          {
+            "exercise_id": 118,
+            "exercise_name": "Movimiento Articular con y sin elastico",
+            "muscle_group": "Calentamiento",
+            "role": "calentamiento",
+            "series": 2,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 169,
+            "exercise_name": "Pecho Inclinado en Smith",
+            "muscle_group": "Pecho - Superior",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "6",
+            "rir": "2",
+            "descanso": "2 a 3 min",
+            "notes": "HACER SERIES DE APROXIMACION"
+          },
+          {
+            "exercise_id": 45,
+            "exercise_name": "Cruces en Polea Alta",
+            "muscle_group": "Pecho - Inferior",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "1:45 a 2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 73,
+            "exercise_name": "Vuelos Laterales con Mancuerna",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "1",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 75,
+            "exercise_name": "Vuelo Lateral Unilateral en polea altura Rodilla",
+            "muscle_group": "Hombros",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "10x10x10",
+            "rir": null,
+            "descanso": "2 min",
+            "notes": "DISMINUIR PESO CADA 10 REPES"
+          },
+          {
+            "exercise_id": 132,
+            "exercise_name": "Triceps en Polea alta con barra plana corta",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10 - 8 - 6",
+            "rir": "2",
+            "descanso": "2 min",
+            "notes": "AUMENTAR PESO AL FINALIZAR CADA SERIE"
+          },
+          {
+            "exercise_id": 91,
+            "exercise_name": "Press Frances en Polea alta con Soga",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "8",
+            "rir": "2",
+            "descanso": "1:45 a 2 min",
+            "notes": null
+          },
+          {
+            "exercise_id": 86,
+            "exercise_name": "Triceps Fondo de Banco",
+            "muscle_group": "Triceps",
+            "role": "accesorio",
+            "series": 2,
+            "reps": "8 a 10",
+            "rir": "1",
+            "descanso": "1:45 min",
+            "notes": "PONER DISCO EN CUADRICEPS PARA MAYOR ESTIMULO"
+          },
+          {
+            "exercise_id": 109,
+            "exercise_name": "Rueda Abdominal",
+            "muscle_group": "Abdomen",
+            "role": "accesorio",
+            "series": 3,
+            "reps": "10",
+            "rir": null,
+            "descanso": "1 min",
+            "notes": null
+          }
+        ]
+      }
+    ]
+  }
+]

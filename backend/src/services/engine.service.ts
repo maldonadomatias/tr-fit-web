@@ -227,9 +227,11 @@ export function buildWarmupItem(
 ): SessionItem {
   const warmupTarget =
     exercise.default_target ?? (exercise.modality === 'reps' ? '10' : '');
+  // 1 serie SIEMPRE (coach-corrections-001 C1; was 2 before the coach's
+  // video update).
   return baseItem(
     exercise, 'calentamiento', slotIndex, null, unit,
-    2, warmupTarget, '1 min', notes,
+    1, warmupTarget, '1 min', notes,
   );
 }
 

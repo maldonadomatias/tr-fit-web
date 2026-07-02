@@ -44,4 +44,8 @@ describe('buildWarmupItem', () => {
     expect(item.modality).toBe('tiempo');
     expect(item.reps).toBe('');
   });
+  it('warmups prescribe exactly 1 serie (coach-corrections-001 C1)', () => {
+    expect(buildWarmupItem(articular, 'kg', 0, null).series).toBe(1);
+    expect(buildWarmupItem(cardio, 'kg', 0, null).series).toBe(1);
+  });
 });

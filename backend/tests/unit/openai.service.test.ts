@@ -10,17 +10,11 @@ jest.unstable_mockModule('openai', () => {
     __mockParse: parse,
   };
 });
-
-// zodResponseFormat is a thin schema helper — stub it to a no-op so the
-// service can call it without a real conversion taking place during tests.
 jest.unstable_mockModule('openai/helpers/zod', () => ({
   zodResponseFormat: jest.fn(() => ({ type: 'json_schema' })),
 }));
 
-type ParsedShape = {
-  rationale?: string;
-  days?: unknown[];
-};
+type ParsedShape = { rationale?: string; days?: unknown[] };
 type MockParse = jest.Mock<
   () => Promise<{
     choices: Array<{
@@ -30,285 +24,177 @@ type MockParse = jest.Mock<
 >;
 
 const openaiMod = (await import('openai')) as unknown as { __mockParse: MockParse };
-const { generateSkeleton, buildSplitGuidance } = await import(
-  '../../src/services/openai.service.js'
+const { adjustSkeleton } = await import('../../src/services/openai.service.js');
+const { selectTemplate, buildSkeletonFromTemplate } = await import(
+  '../../src/services/template.service.js'
 );
+
+const TEMPLATE = selectTemplate({
+  gender: 'male', days_per_week: 4, leg_days: 1, days_specific: null,
+}).template;
+
+// Catalog fixture: every template exercise + one spare replacement, with the
+// principal flag mirroring the template's derived roles so the validator has
+// real data to check against.
+const principalIds = new Set(
+  TEMPLATE.days_detail.flatMap((d) =>
+    d.slots.filter((s) => s.role === 'principal').map((s) => s.exercise_id),
+  ),
+);
+const exercises = [
+  ...new Map(
+    TEMPLATE.days_detail
+      .flatMap((d) => d.slots)
+      .map((s) => [s.exercise_id, s]),
+  ).values(),
+].map((s) => ({
+  id: s.exercise_id, name: s.exercise_name, muscle_group: s.muscle_group,
+  equipment: 'maquina' as const, movement_pattern: 'push_h' as const,
+  is_principal: principalIds.has(s.exercise_id), is_unilateral: false,
+  level_min: 'principiante' as const, contraindicated_for: [],
+  default_increment_kg: 1, alternatives_ids: [],
+  video_url: null, illustration_url: null,
+  modality: 'reps' as const, default_target: null, rep_cycle_threshold: 12,
+}));
 
 const profile = {
   user_id: 'u1', name: 'Test', gender: 'male' as const, age: 30,
   height_cm: 175, weight_kg: 75, level: 'medio' as const,
   goal: 'hipertrofia' as const, days_per_week: 4, leg_days: 1,
   equipment: 'gym_completo' as const, injuries: [],
-  coach_id: null, onboarded_at: '2026-05-08',
-  phone: null, plan_interest: null, training_mode: null,
-  commitment: null, exercise_minutes: null, days_specific: null,
-  referral_source: null, sport_focus: null,
+  coach_id: null, onboarded_at: '2026-07-02',
+  phone: null, plan_interest: null, training_mode: 'gym' as const,
+  commitment: 'normal' as const, exercise_minutes: 60,
+  days_specific: null, referral_source: null, sport_focus: null,
 };
 
-const ex = (
-  id: number,
-  name: string,
-  muscle_group: string,
-  is_principal: boolean,
-) => ({
-  id, name, muscle_group,
-  equipment: 'barra' as const, movement_pattern: 'push_h' as const,
-  is_principal, is_unilateral: false, level_min: 'principiante' as const,
-  contraindicated_for: [], default_increment_kg: 2.5, alternatives_ids: [],
-  video_url: null, illustration_url: null,
-  modality: 'reps' as const, default_target: null,
-  rep_cycle_threshold: 12,
-});
-
-const exercises = [
-  ex(1, 'Press Plano con Barra', 'Pecho - Mayor', true),
-  ex(2, 'Curl Biceps con Mancuerna', 'Biceps', false),
-  ex(3, 'Remo con Barra', 'Espalda', true),
-  ex(4, 'Sentadilla con Barra', 'Piernas - Cuadriceps', true),
-  ex(5, 'Movimiento Articular', 'Calentamiento', false),
-  ex(6, 'Press Militar', 'Hombros', true),
-  // Accessory pool spread across distinct base muscles so padded days stay
-  // under the per-muscle volume cap (≤10 working series / base muscle / day).
-  ex(7, 'Extensión Triceps en Polea', 'Triceps', false),
-  ex(8, 'Elevaciones Laterales', 'Hombros - Lateral', false),
-  ex(9, 'Curl Femoral Acostado', 'Piernas - Femoral', false),
-];
-
-// Accessory exercise_ids cycled when padding a day. Distinct base muscles keep
-// any single muscle's series under the cap.
-const ACCESSORY_IDS = [2, 7, 8, 9];
-
-// Build a day with `principalIds` principals + accessories padded to `total`
-// slots (default 8, valid for the 60-min range 8-10).
-type Slot = {
-  slot_index: number;
-  exercise_id: number;
-  role: 'calentamiento' | 'principal' | 'accesorio';
-  notes: string | null;
-};
-
-const mkDay = (
-  dayIndex: number,
-  principalIds: number[],
-  total = 8,
-) => {
-  const slots: Slot[] = principalIds.map((id, i) => ({
-    slot_index: i + 1, exercise_id: id, role: 'principal', notes: null,
-  }));
-  while (slots.length < total) {
-    const accIdx = slots.length - principalIds.length;
-    slots.push({
-      slot_index: slots.length + 1,
-      exercise_id: ACCESSORY_IDS[accIdx % ACCESSORY_IDS.length],
-      role: 'accesorio', notes: null,
-    });
-  }
-  return { day_index: dayIndex, focus: 'f', slots };
-};
-
-const validOutput = {
-  rationale: 'split adecuado',
-  days: [mkDay(1, [1]), mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
-};
-
-beforeEach(() => openaiMod.__mockParse.mockReset());
+const REASONS = ['motivo de prueba'];
+const baseOutput = buildSkeletonFromTemplate(TEMPLATE);
 
 const ok = (parsed: ParsedShape | null) => ({
   choices: [{ message: { parsed, refusal: null as string | null } }],
 });
 
-it('returns parsed skeleton on first valid response', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok(validOutput));
-  const out = await generateSkeleton({ profile, exercises });
+beforeEach(() => openaiMod.__mockParse.mockReset());
+
+it('accepts a template-faithful adjustment on first attempt', async () => {
+  openaiMod.__mockParse.mockResolvedValue(ok(baseOutput));
+  const out = await adjustSkeleton({
+    template: TEMPLATE, profile, exercises, reasons: REASONS,
+  });
   expect(out.days).toHaveLength(4);
-  expect(out.rationale).toBe('split adecuado');
   expect(openaiMod.__mockParse).toHaveBeenCalledTimes(1);
 });
 
-it('retries when business constraints fail, then succeeds', async () => {
-  openaiMod.__mockParse
-    .mockResolvedValueOnce(ok({ ...validOutput, days: [validOutput.days[0]!] }))
-    .mockResolvedValueOnce(ok({ ...validOutput, days: validOutput.days.slice(0, 2) }))
-    .mockResolvedValueOnce(ok(validOutput));
-  const out = await generateSkeleton({ profile, exercises });
-  expect(out.days).toHaveLength(4);
-  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(3);
+it('sends the base routine, reasons and filtered catalog to the model', async () => {
+  openaiMod.__mockParse.mockResolvedValue(ok(baseOutput));
+  await adjustSkeleton({
+    template: TEMPLATE, profile, exercises, reasons: ['lesión de rodilla'],
+  });
+  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
+    Array<{ messages: Array<{ role: string; content: string }> }>
+  >;
+  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
+  const parsed = JSON.parse(userMsg) as Record<string, unknown>;
+  expect(parsed.motivos_de_ajuste).toEqual(['lesión de rodilla']);
+  expect((parsed.rutina_base as { source: string }).source).toBe(TEMPLATE.source);
+  expect(parsed.REQUIRED_DAYS_COUNT).toBe(4);
+  expect(userMsg).not.toContain('series_budget_per_day'); // 60 min → no budget
 });
 
-it('throws after MAX_ATTEMPTS failed attempts', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok(null));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow(/skeleton.*invalid/i);
-  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(5);
-});
-
-it('rejects when output uses unknown exercise_id', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r',
-    days: Array.from({ length: 4 }, (_, i) => mkDay(i + 1, [999])),
-  }));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
-});
-
-it('rejects when day count !== days_per_week', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r', days: [mkDay(1, [1])],
-  }));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
-});
-
-it('accepts up to 3 principals of distinct base groups in a day', async () => {
-  // day 1 has 3 principals (Pecho/Espalda/Piernas) — allowed by the 1-3 range.
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r',
-    days: [mkDay(1, [1, 3, 4]), mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
-  }));
-  const out = await generateSkeleton({ profile, exercises });
-  expect(out.days[0]!.slots.filter((s) => s.role === 'principal')).toHaveLength(3);
-});
-
-it('rejects more than 3 principals in a day', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r',
-    days: [mkDay(1, [1, 3, 4, 6]), mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
-  }));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
-});
-
-it('rejects two principals sharing a base group', async () => {
-  // ids 1 (Pecho-Mayor) duplicated → same base group "pecho".
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r',
-    days: [mkDay(1, [1, 1]), mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
-  }));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow();
-});
-
-it('rejects a day exceeding 10 working series for one muscle', async () => {
-  // 1 principal + 7 biceps accessories → biceps = 7×2 = 14 series (> 10).
-  const accSlots = Array.from({ length: 7 }, (_, i) => ({
-    slot_index: i + 2, exercise_id: 2, role: 'accesorio' as const, notes: null,
-  }));
-  const heavyBiceps = {
-    day_index: 1, focus: 'f',
-    slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null }, ...accSlots],
-  };
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r',
-    days: [heavyBiceps, mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
-  }));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow(/series/);
-});
-
-it('rejects a day exceeding 20 total working series', async () => {
-  // 3 principals (9 series) + 6 accessories spread across muscles (12 series)
-  // = 21 total (> 20), while no single muscle breaks the per-muscle cap.
-  const accSlots = Array.from({ length: 6 }, (_, i) => ({
-    slot_index: i + 4, exercise_id: ACCESSORY_IDS[i % ACCESSORY_IDS.length],
-    role: 'accesorio' as const, notes: null,
-  }));
-  const heavyDay = {
-    day_index: 1, focus: 'f',
+it('includes the series budget only when the session is shorter than 60', async () => {
+  // Hand-built 4 days inside the 45-min budget: 1 warmup + 3 accessories ×2
+  // series = 7 total each.
+  const warmupSlot = baseOutput.days[0]!.slots.find(
+    (s) => s.role === 'calentamiento',
+  )!;
+  const accs = exercises.filter((e) => !e.is_principal).slice(0, 3);
+  const trimmedDays = baseOutput.days.map((d, i) => ({
+    day_index: i + 1,
+    focus: 'f',
     slots: [
-      { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null },
-      { slot_index: 2, exercise_id: 3, role: 'principal' as const, notes: null },
-      { slot_index: 3, exercise_id: 4, role: 'principal' as const, notes: null },
-      ...accSlots,
+      { ...warmupSlot, slot_index: 1 },
+      ...accs.map((e, j) => ({
+        slot_index: j + 2, exercise_id: e.id, role: 'accesorio' as const,
+        notes: null, series: 2, reps: '8', descanso: '2 min',
+      })),
     ],
-  };
-  openaiMod.__mockParse.mockResolvedValue(ok({
-    rationale: 'r',
-    days: [heavyDay, mkDay(2, [3]), mkDay(3, [4]), mkDay(4, [6])],
   }));
-  await expect(generateSkeleton({ profile, exercises })).rejects.toThrow(/series/);
-});
-
-it('includes commitment + training_mode + exercise_minutes in user prompt', async () => {
-  openaiMod.__mockParse.mockResolvedValueOnce(ok({
-    rationale: 'r',
-    days: [mkDay(1, [1], 6)],
-  }));
-  const enriched = {
-    ...profile, days_per_week: 1, exercise_minutes: 45 as number,
-    training_mode: 'casa' as const, commitment: 'exigente' as const,
-    phone: '+5491111111111', plan_interest: 'full' as const,
-    days_specific: ['lun'] as const, referral_source: 'google' as const,
-  } as never;
-
-  await generateSkeleton({ profile: enriched, exercises });
-
-  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
-    Array<{ messages: Array<{ role: string; content: string }> }>
-  >;
-  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
-  expect(userMsg).toContain('"training_mode":"casa"');
-  expect(userMsg).toContain('"commitment":"exigente"');
-  expect(userMsg).toContain('"exercise_minutes":45');
-});
-
-it('includes gender-aware split_guidance in the user prompt', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok(validOutput));
-  await generateSkeleton({ profile, exercises });
-  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
-    Array<{ messages: Array<{ role: string; content: string }> }>
-  >;
-  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
-  expect(userMsg).toContain('"split_guidance"');
-  expect(userMsg).toContain('"bias":"upper"'); // male
-  expect(userMsg).toContain('"leg_days":1');
-});
-
-it('includes a coach corpus example matched to the profile in the user prompt', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok(validOutput));
-  await generateSkeleton({ profile, exercises }); // male, 4 days, leg_days 1
-  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
-    Array<{ messages: Array<{ role: string; content: string }> }>
-  >;
-  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
-  expect(userMsg).toContain('"coach_example"');
-  const parsed = JSON.parse(userMsg) as {
-    coach_example: {
-      source: string;
-      days: Array<{ focus: string; slots: unknown[] }>;
-    };
-  };
-  expect(parsed.coach_example.days).toHaveLength(4);
-  expect(parsed.coach_example.source).toMatch(/hombre/);
-});
-
-it('omits coach_example when no corpus example matches (gender other)', async () => {
-  openaiMod.__mockParse.mockResolvedValue(ok(validOutput));
-  await generateSkeleton({
-    profile: { ...profile, gender: 'other' as const },
+  openaiMod.__mockParse.mockResolvedValue(ok({ ...baseOutput, days: trimmedDays }));
+  await adjustSkeleton({
+    template: TEMPLATE,
+    profile: { ...profile, exercise_minutes: 45 },
     exercises,
+    reasons: REASONS,
   });
   const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
     Array<{ messages: Array<{ role: string; content: string }> }>
   >;
-  const userMsg = calls[0]![0]!.messages.find((m) => m.role === 'user')!.content;
-  expect(userMsg).not.toContain('"coach_example"');
+  expect(calls[0]![0]!.messages[1]!.content).toContain('series_budget_per_day');
 });
 
-describe('buildSplitGuidance', () => {
-  const base = { ...profile };
-  it('women ≤3 days → full-body, lower bias', () => {
-    const g = buildSplitGuidance({ ...base, gender: 'female', days_per_week: 3, leg_days: null });
-    expect(g.strategy).toBe('full_body');
-    expect(g.bias).toBe('lower');
+it('rejects wrong day count and retries with the error appended', async () => {
+  openaiMod.__mockParse
+    .mockResolvedValueOnce(ok({ ...baseOutput, days: baseOutput.days.slice(0, 2) }))
+    .mockResolvedValueOnce(ok(baseOutput));
+  const out = await adjustSkeleton({
+    template: TEMPLATE, profile, exercises, reasons: REASONS,
   });
-  it('women 5 days → split with 3 leg days', () => {
-    const g = buildSplitGuidance({ ...base, gender: 'female', days_per_week: 5, leg_days: null });
-    expect(g.strategy).toBe('split');
-    expect(g.leg_days).toBe(3);
-  });
-  it('men 3 days 1 leg → full_body strategy, upper bias, PPL text', () => {
-    const g = buildSplitGuidance({ ...base, gender: 'male', days_per_week: 3, leg_days: 1 });
-    expect(g.bias).toBe('upper');
-    expect(g.leg_days).toBe(1);
-    expect(g.text).toMatch(/PPL/);
-  });
-  it('men default leg_days to 1 when null', () => {
-    const g = buildSplitGuidance({ ...base, gender: 'male', days_per_week: 4, leg_days: null });
-    expect(g.leg_days).toBe(1);
-    expect(g.strategy).toBe('split');
-  });
+  expect(out.days).toHaveLength(4);
+  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(2);
+  const calls = openaiMod.__mockParse.mock.calls as unknown as Array<
+    Array<{ messages: Array<{ role: string; content: string }> }>
+  >;
+  expect(calls[1]![0]!.messages[2]!.content).toMatch(/days\.length/);
+});
+
+it('rejects exercises outside the athlete-allowed catalog', async () => {
+  const tampered = {
+    ...baseOutput,
+    days: baseOutput.days.map((d, i) =>
+      i === 0
+        ? {
+            ...d,
+            slots: d.slots.map((s, si) =>
+              si === 1 ? { ...s, exercise_id: 99999 } : s,
+            ),
+          }
+        : d,
+    ),
+  };
+  openaiMod.__mockParse.mockResolvedValue(ok(tampered));
+  await expect(
+    adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }),
+  ).rejects.toThrow(/no está en el catálogo/);
+});
+
+it('rejects a principal on a non-principal exercise', async () => {
+  const accessory = exercises.find((e) => !e.is_principal)!;
+  const tampered = {
+    ...baseOutput,
+    days: baseOutput.days.map((d, i) =>
+      i === 0
+        ? {
+            ...d,
+            slots: d.slots.map((s, si) =>
+              si === 1
+                ? { ...s, exercise_id: accessory.id, role: 'principal' as const }
+                : s,
+            ),
+          }
+        : d,
+    ),
+  };
+  openaiMod.__mockParse.mockResolvedValue(ok(tampered));
+  await expect(
+    adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }),
+  ).rejects.toThrow(/principal/);
+});
+
+it('throws after MAX_ATTEMPTS invalid responses', async () => {
+  openaiMod.__mockParse.mockResolvedValue(ok(null));
+  await expect(
+    adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }),
+  ).rejects.toThrow(/invalid after 5 attempts/);
+  expect(openaiMod.__mockParse).toHaveBeenCalledTimes(5);
 });

@@ -7,7 +7,7 @@ import {
   findSkeleton, listSlots, createPendingSkeleton,
 } from '../services/skeleton.service.js';
 import { listExercisesForAthlete } from '../services/exercise.service.js';
-import { generateSkeleton } from '../services/openai.service.js';
+import { generateRoutine } from '../services/routine-generation.service.js';
 import {
   listAthletesForAdmin,
   getAthleteDetailForAdmin,
@@ -67,17 +67,20 @@ router.post('/skeletons/:id/reject', async (req, res) => {
   )).rows[0];
   const exercises = await listExercisesForAthlete(profile, sk.athlete_id);
   try {
-    const ai = await generateSkeleton({
+    const gen = await generateRoutine({
       profile, exercises, rejectionFeedback: parsed.data.feedback,
     });
     const { skeletonId } = await createPendingSkeleton(
       {
         athleteId: sk.athlete_id,
-        generationPrompt: { profile, rejection_feedback: parsed.data.feedback },
-        generationRationale: ai.rationale,
+        generationPrompt: {
+          profile, rejection_feedback: parsed.data.feedback,
+          source: gen.source, template: gen.templateSource, reasons: gen.reasons,
+        },
+        generationRationale: gen.skeleton.rationale,
         rejectionFeedback: parsed.data.feedback,
       },
-      ai,
+      gen.skeleton,
     );
     res.status(201).json({ newSkeletonId: skeletonId });
   } catch (e) {

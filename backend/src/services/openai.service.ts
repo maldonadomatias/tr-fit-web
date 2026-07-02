@@ -1,211 +1,111 @@
+// AI ADJUSTER for template-first routine generation.
+//
+// The routine is NOT composed by the model anymore: the coach's Excel
+// template (template.service) is the literal base. This service receives the
+// template plus the reasons it can't be used verbatim (unavailable exercises,
+// shorter session, different day count, coach feedback) and asks the model to
+// return the COMPLETE routine with the minimum necessary modifications.
+// Server-side validators guard the result; on violation we retry with the
+// error appended (MAX_ATTEMPTS total).
+
 import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { env } from '../config/env.js';
 import { aiSkeletonOutput, type AiSkeletonOutput } from '../domain/schemas.js';
 import type { AthleteProfile, Exercise } from '../domain/types.js';
-import { pickCorpusExample } from './corpus-examples.js';
-import { enforceFirstWarmup } from './warmup-rule.js';
+import type { RoutineTemplate } from './template.service.js';
+import { seriesRangeFor } from './series-budget.js';
 import logger from '../utils/logger.js';
 
 const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-export interface GenerateSkeletonInput {
-  profile: AthleteProfile;
-  exercises: Exercise[];
-  rejectionFeedback?: string;
-}
-
 const MAX_ATTEMPTS = 5;
+const PRINCIPAL_MAX = 3;
+const PRINCIPAL_SERIES = 3;
+const ACCESSORY_SERIES_DEFAULT = 2;
 
-function slotRangeFor(minutes: number): { min: number; max: number } {
-  // The coach's gym session body is roughly constant (~8-10 working slots) for a
-  // 1-hour session regardless of the cardio add-on; ranges below are widened to
-  // fit the real corpus (docs/routine-corpus/shared-mechanics.md, M7).
-  if (minutes <= 30) return { min: 5, max: 6 };
-  if (minutes <= 45) return { min: 6, max: 8 };
-  if (minutes <= 60) return { min: 8, max: 10 };
-  if (minutes <= 75) return { min: 9, max: 11 };
-  return { min: 10, max: 12 };
+export interface AdjustSkeletonInput {
+  template: RoutineTemplate;
+  profile: AthleteProfile;
+  /** Athlete-filtered catalog: the only exercises the output may use. */
+  exercises: Exercise[];
+  /** Human-readable adjustment reasons built by routine-generation.service. */
+  reasons: string[];
 }
 
 function broadMuscleGroup(mg: string): string {
   return mg.split('-')[0].trim().toLowerCase();
 }
 
-// Min/max principal (heavy compound) slots per day. The coach runs 1-3 heavy
-// compounds at 3×6a8 RIR 2 per day depending on how many regions the day spans
-// (docs/routine-corpus: P3 revised). Never exactly-2-only.
-const PRINCIPAL_MIN = 1;
-const PRINCIPAL_MAX = 3;
+const SYSTEM_PROMPT = `Sos el asistente de un entrenador de fuerza real. Recibís la RUTINA BASE literal del entrenador (probada con sus alumnos) y una lista de MOTIVOS DE AJUSTE para un atleta puntual.
 
-// Volume caps ("ley de entrenamiento"). Working-series count per day uses 3
-// sets per principal (week-1 hypertrophy base) and each accessory's own series
-// (2 by default); warmups are excluded.
-const PRINCIPAL_SERIES_FOR_VOLUME = 3;
-const ACCESSORY_SERIES_DEFAULT = 2;
-const MAX_SERIES_PER_MUSCLE_PER_DAY = 10;
-const MAX_SERIES_PER_DAY = 20;
+Tu único trabajo: devolver la rutina COMPLETA en JSON aplicando SOLO los ajustes que piden los motivos. Todo lo que no esté afectado por un motivo se copia EXACTAMENTE igual: mismo orden de días y ejercicios, mismos roles, mismas series/reps/descansos, mismas notas.
 
-export type SplitStrategy = 'full_body' | 'split';
+Reglas duras:
+- El array "days" debe tener EXACTAMENTE la cantidad de días que pide el atleta (days_per_week del mensaje).
+- Sólo podés usar exercise_id del catálogo provisto (es el catálogo YA filtrado para este atleta: lesiones, equipamiento, nivel y exclusiones).
+- Al reemplazar un ejercicio: elegí el equivalente más cercano (mismo grupo muscular, mismo tipo de estímulo: pesado/aislado/descarga). Una descarga (10x10x10) sólo va en máquina, polea o Smith donde se descarga peso rápido — nunca en prensa ni con peso libre; si no hay equivalente apto, convertí ese slot en un accesorio efectivo (2x"6 a 8").
+- Si hay que bajar volumen por tiempo: quitá accesorios enteros (empezando por descargas y finishers) o bajá series; nunca toques los ejercicios principales que abren cada bloque salvo que no entren.
+- role en español: "calentamiento", "principal" o "accesorio". Sólo ejercicios con is_principal=true pueden llevar role "principal".
+- En slots role "accesorio" completá series/reps/descanso; en "principal" y "calentamiento" dejalos en null.
+- slot_index arranca en 1 y es consecutivo por día.
+- Devolvé TODOS los campos del schema, con "rationale" explicando en 1-2 frases qué ajustaste y por qué.`;
 
-// Picks the split shape from gender + frequency + leg-day choice. This is the
-// gender-specific layer the corpus established:
-//   women  → lower-biased; men → upper-biased; leg_days (men) sets leg frequency.
-//   days ≤3 → full-body (rotating emphasis); ≥4 → split.
-// See docs/routine-corpus/{mujer,hombre}/LOGIC.md.
-export function buildSplitGuidance(profile: AthleteProfile): {
-  strategy: SplitStrategy;
-  bias: 'lower' | 'upper' | 'balanced';
-  leg_days: number;
-  text: string;
-} {
-  const days = profile.days_per_week;
-  const strategy: SplitStrategy = days <= 3 ? 'full_body' : 'split';
-  if (profile.gender === 'female') {
-    const legDays = days <= 3 ? days : days >= 5 ? 3 : 2;
-    return {
-      strategy,
-      bias: 'lower',
-      leg_days: legDays,
-      text:
-        strategy === 'full_body'
-          ? `MUJER, ${days} días: FULL-BODY cada día (no PPL), con énfasis de tren inferior rotando entre Glúteos / Cuádriceps / Femorales. Hip Thrust es el principal estrella de glúteo. Cada día toca pierna + algo de tren superior (espalda/pecho/hombros) + core.`
-          : `MUJER, ${days} días: SPLIT con sesgo a tren inferior. Dedicá ${legDays} días a pierna (repartidos en énfasis Cuádriceps / Glúteos / Femorales) y el resto a tren superior (un día push: pecho/hombros/tríceps; un día pull: espalda/bíceps). Distribuí hombros y brazos entre los días; NO hagas un día de brazo puro. Hip Thrust como principal de glúteo. NUNCA PPL clásico.`,
-    };
-  }
-  if (profile.gender === 'male') {
-    const legDays = profile.leg_days ?? 1;
-    if (strategy === 'full_body') {
-      return {
-        strategy,
-        bias: 'upper',
-        leg_days: legDays,
-        text:
-          legDays >= 2
-            ? `HOMBRE, ${days} días, ${legDays} días de pierna: split con prioridad de pierna — un día de Cuádriceps (Sentadilla principal) y otro de Femorales (Peso Muerto principal), el día restante tren superior. SIN Hip Thrust; pierna centrada en sentadilla/peso muerto.`
-            : `HOMBRE, ${days} días, 1 día de pierna: usá PPL — Push (pecho/hombros/tríceps) / Pierna (cuádriceps+femoral+pantorrilla) / Pull (espalda/bíceps). Sesgo a tren superior. SIN Hip Thrust; pierna centrada en sentadilla/peso muerto.`,
-      };
-    }
-    return {
-      strategy,
-      bias: 'upper',
-      leg_days: legDays,
-      text: `HOMBRE, ${days} días, ${legDays} día(s) de pierna: SPLIT con sesgo a tren superior. Asigná ${legDays} día(s) a pierna (si son 2: uno Cuádriceps, otro Femorales) y el resto a push (pecho/hombros/tríceps) y pull (espalda/bíceps), repartiendo hombros y brazos. SIN Hip Thrust; pierna centrada en sentadilla/peso muerto. La emphasis general es pecho/espalda/hombros.`,
-    };
-  }
-  return {
-    strategy,
-    bias: 'balanced',
-    leg_days: days <= 3 ? days : 2,
-    text: `${days} días: ${strategy === 'full_body' ? 'full-body cada día con énfasis rotativo' : 'split balanceado entre tren superior e inferior'}.`,
-  };
-}
-
-const SYSTEM_PROMPT = `Sos un entrenador de fuerza experto. Generás rutinas de gimnasio en formato JSON, replicando el estilo de un entrenador real.
-Reglas estrictas:
-- El array "days" DEBE tener EXACTAMENTE la cantidad N indicada en el mensaje del usuario como days_per_week. Ni más, ni menos. Si N=3, devolvé 3 días. Si N=4, devolvé 4 días. Esta regla es la más importante: violarla invalida toda la respuesta.
-
-- EJEMPLO DEL ENTRENADOR: si el mensaje incluye "coach_example", es una rutina REAL de este entrenador para un perfil similar. Usála como referencia principal de estructura y estilo (orden de bloques, calentamientos, esquemas por accesorio), adaptando ejercicios y días al atleta según su "note".
-
-- ESTRUCTURA DEL SPLIT (depende de sexo + días + leg_days): seguí EXACTAMENTE el objeto "split_guidance" del mensaje del usuario. Resumen del criterio:
-  · days_per_week <= 3 → FULL-BODY cada día (cada día toca varias regiones), con énfasis rotativo. NO uses un split Push/Pull/Legs salvo que split_guidance lo indique explícitamente (sólo hombre con 1 día de pierna).
-  · days_per_week >= 4 → SPLIT (días enfocados por región).
-  · MUJER: sesgo a tren INFERIOR (glúteos/femoral/cuádriceps son prioridad). Hip Thrust es el principal estrella de glúteo. NUNCA PPL clásico.
-  · HOMBRE: sesgo a tren SUPERIOR (pecho/espalda/hombros/brazos). La cantidad de días de pierna la fija leg_days (1 o 2). Pierna centrada en Sentadilla/Peso Muerto; NO uses Hip Thrust como principal en hombre. Con 2 días de pierna: uno de Cuádriceps y otro de Femorales.
-  Respetá el "bias" y el "leg_days" de split_guidance al repartir los días.
-
-- CALENTAMIENTO OBLIGATORIO EN SLOT 1: si el día es de tren superior, el PRIMER ejercicio debe ser "Movimiento Articular con y sin elastico"; si es de tren inferior, el PRIMER ejercicio debe ser "Movimientos Articulares completos Piernas". Si el día mezcla ambos trenes, usá el del grupo predominante. Buscá esos ejercicios por nombre en el catálogo.
-- CALENTAMIENTO intercalado: cada día arranca con 1-2 slots role="calentamiento" (del muscle_group "Calentamiento"). Si el día cruza de un bloque de tren inferior a uno de tren superior (o viceversa), poné un SEGUNDO calentamiento JUSTO ANTES del segundo bloque (no ambos al inicio). Si el día trabaja una sola región o exercise_minutes <= 30, usá 1 solo calentamiento al inicio.
-
-- PRINCIPALES: cada día debe tener entre 1 y 3 slots role="principal" (compuestos pesados, abren cada bloque muscular). Cantidad según cuántas regiones grandes toque el día (full-body suele tener 2-3; un día enfocado en 1 región suele tener 1-2). REGLA CRÍTICA: todos los principales de un mismo día DEBEN trabajar grupos base distintos. El "grupo base" es la palabra antes del guión en muscle_group (ej. "Pecho - Mayor" → "Pecho", "Piernas - Cuadriceps" → "Piernas"). NO puede haber dos principales con el mismo grupo base en un día. OK: Sentadilla (Piernas) + Press Militar (Hombros); Hip Thrust (Piernas) + Jalón (Espalda) + Press Militar (Hombros). KO: Press Plano (Pecho) + Press Inclinado (Pecho).
-
-- ACCESORIOS: después de cada principal agregá accesorios role="accesorio" que completen ese bloque muscular, bajando la intensidad (compuesto pesado → accesorio → aislado → finisher metabólico). Cerrá la mayoría de los días con 1-2 slots de core/abs cuando exercise_minutes >= 60.
-
-- PRESCRIPCIÓN POR ACCESORIO (campos "series", "reps", "descanso"): en CADA slot role="accesorio" completá estos 3 campos según el tipo de serie. En slots role="principal" y role="calentamiento" dejalos en null (esos usan su propia periodización). Arrancamos CONSERVADOR: pocas series y reps bajas; el sistema progresa las reps solo cuando el atleta completa todas las series. Esquemas típicos del entrenador:
-  · Accesorio compuesto/efectivo (por defecto): series 2, reps "6 a 8", descanso "1:45 a 2 min".
-  · Finisher metabólico (drop-set, último accesorio del bloque): series 2, reps "10x10x10", descanso "2 min".
-  · Pirámide: series 2, reps "10 - 8 - 6", descanso "1:45 a 2 min".
-  · Core/abs: series 2, reps "10" o "30 seg" o "30 seg + 10 cad", descanso "1 min".
-  Bajá la intensidad a lo largo del bloque: el primer accesorio más pesado/efectivo, el último un finisher "10x10x10".
-
-- Cantidad TOTAL de slots por día (calentamiento + principal + accesorio) según exercise_minutes:
-  · 30 min → 5-6 slots · 45 min → 6-8 · 60 min → 8-10 · 75 min → 9-11 · 90 min → 10-12.
-  Este conteo es OBLIGATORIO: si exercise_minutes=60, devolvé entre 8 y 10 slots.
-
-- LÍMITES DE VOLUMEN (LEY DE ENTRENAMIENTO, OBLIGATORIO): contá las SERIES de trabajo por día. Cada principal hace 3 series; cada accesorio hace las series que le asignes (2 por defecto); el calentamiento NO cuenta. (a) Máximo 10 series por grupo muscular base por día (el "grupo base" es la palabra antes del guión en muscle_group, ej. "Pecho - Mayor" → "Pecho"). (b) Máximo 20 series de trabajo (principal + accesorio) por día. Si te pasás de cualquiera de los dos topes, quitá accesorios o bajá series. Preferimos arrancar con poco volumen.
-
-- slot_index empieza en 1 y es consecutivo.
-- El campo "role" SIEMPRE en español: exactamente "calentamiento", "principal" o "accesorio". Nunca "warmup", "accessory" ni "main".
-- Sólo podés usar exercise_id que aparezcan en el catálogo provisto.
-- No usar ejercicios contraindicados para las lesiones del atleta.
-- Evitá repetir el mismo grupo base como protagonista en días consecutivos (salvo que el sesgo del sexo lo requiera, ej. mujer con varios días de pierna).
-- Si training_mode='casa', priorizá ejercicios con equipment compatible (bw, mancuerna, elastico).
-- Campo "notes": indicación del coach por ejercicio, derivada del tipo de serie cuando aplique: drop-set ("DISMINUIR PESO CADA 10 REPES"), pirámide ("AUMENTAR PESO AL FINALIZAR CADA SERIE"), principal pesado ("HACER SERIES DE APROXIMACIÓN"), o cue técnico ("CONTROLAR VELOCIDAD EN LA BAJADA"). Usar null si no hay indicación.
-- Devolver SIEMPRE el JSON con TODOS los campos del schema, incluido "rationale" (string no vacío) y "notes" en cada slot (string o null).`;
-
-export async function generateSkeleton(
-  input: GenerateSkeletonInput,
+export async function adjustSkeleton(
+  input: AdjustSkeletonInput,
 ): Promise<AiSkeletonOutput> {
-  const { profile, exercises, rejectionFeedback } = input;
-
+  const { template, profile, exercises, reasons } = input;
   const N = profile.days_per_week;
   const minutes = profile.exercise_minutes ?? 60;
   const validIds = exercises.map((e) => e.id);
-  const split = buildSplitGuidance(profile);
-  const corpusExample = pickCorpusExample(profile);
+  const exerciseById = new Map(exercises.map((e) => [e.id, e]));
+  const timeAdjusted = minutes < 60;
+  const expectedSeries = timeAdjusted ? seriesRangeFor(minutes) : null;
+
   const userMessage = JSON.stringify({
     REQUIRED_DAYS_COUNT: N,
-    note: `El array "days" debe tener exactamente ${N} elementos. Cualquier otra cantidad será rechazada.`,
-    valid_exercise_ids: validIds,
-    valid_exercise_ids_note: `SOLO podés usar exercise_id que estén en valid_exercise_ids (${validIds.length} disponibles). Cualquier id fuera de esta lista será rechazado. NO inventes ids.`,
+    motivos_de_ajuste: reasons,
+    rutina_base: {
+      source: template.source,
+      days: template.days_detail.map((d, i) => ({
+        day_index: i + 1,
+        focus: d.focus,
+        slots: d.slots.map((s, si) => ({
+          slot_index: si + 1,
+          exercise_id: s.exercise_id,
+          exercise_name: s.exercise_name,
+          muscle_group: s.muscle_group,
+          role: s.role,
+          series: s.series,
+          reps: s.reps,
+          descanso: s.descanso,
+          notes: s.notes,
+        })),
+      })),
+    },
     athlete: {
-      gender: profile.gender, age: profile.age, height_cm: profile.height_cm,
-      weight_kg: profile.weight_kg, level: profile.level, goal: profile.goal,
-      days_per_week: N, leg_days: profile.leg_days, equipment: profile.equipment,
-      injuries: profile.injuries,
-      training_mode: profile.training_mode,
-      commitment: profile.commitment,
-      exercise_minutes: minutes,
+      gender: profile.gender, age: profile.age, level: profile.level,
+      goal: profile.goal, days_per_week: N,
+      leg_days: profile.leg_days, equipment: profile.equipment,
+      injuries: profile.injuries, training_mode: profile.training_mode,
+      exercise_minutes: minutes, days_specific: profile.days_specific,
     },
-    split_guidance: {
-      strategy: split.strategy,
-      bias: split.bias,
-      leg_days: split.leg_days,
-      instruction: split.text,
-    },
-    ...(corpusExample
+    ...(expectedSeries
       ? {
-          coach_example: {
-            note:
-              'Rutina REAL de este entrenador para un perfil similar. Replicá su ESTRUCTURA y ESTILO: orden de bloques por día, calentamientos intercalados, principal que abre cada bloque, intensidad descendente, finishers 10x10x10, core al cierre, y los esquemas series/reps/descanso de cada accesorio. Adaptá los ejercicios al catálogo provisto y al atleta (lesiones, equipment, nivel). Si days_per_week o exercise_minutes difieren del ejemplo, mantené el estilo pero respetá REQUIRED_DAYS_COUNT y los constraints.',
-            source: corpusExample.source,
-            days: corpusExample.days_detail.map((d) => ({
-              focus: d.focus,
-              slots: d.slots,
-            })),
+          series_budget_per_day: {
+            ...expectedSeries,
+            note: 'series TOTALES por día tras el ajuste (calentamientos cuentan 1, principales 3)',
           },
         }
       : {}),
-    constraints: {
-      days: N,
-      slots_per_day: slotRangeFor(minutes),
-      principal_per_day:
-        minutes <= 30 || profile.level === 'nunca'
-          ? { min: 1, max: 1 }
-          : { min: PRINCIPAL_MIN, max: PRINCIPAL_MAX },
-      accessory_per_day_min: minutes >= 60 ? 4 : 3,
-      include_core_when_minutes_gte_60: minutes >= 60,
-    },
+    valid_exercise_ids: validIds,
     exercise_catalog: exercises.map((e) => ({
       id: e.id, name: e.name, muscle_group: e.muscle_group,
       equipment: e.equipment, movement_pattern: e.movement_pattern,
       is_principal: e.is_principal, level_min: e.level_min,
-      contraindicated_for: e.contraindicated_for,
     })),
-    ...(rejectionFeedback ? { coach_feedback: rejectionFeedback } : {}),
   });
 
-  const exerciseIds = new Set(exercises.map((e) => e.id));
   let lastError: string | null = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -216,7 +116,7 @@ export async function generateSkeleton(
     if (lastError) {
       messages.push({
         role: 'user',
-        content: `ATENCIÓN: tu output anterior violó la restricción: "${lastError}". Recordatorios:\n- REQUIRED_DAYS_COUNT=${N} (array "days" debe tener exactamente ${N} elementos)\n- valid_exercise_ids tiene ${validIds.length} ids permitidos: [${validIds.join(', ')}]\n- SOLO usar ids de esa lista. NO inventes ids.\n- Cada día debe tener al menos 1 slot role="principal".\nGenerá nuevamente respetando TODAS las reglas.`,
+        content: `ATENCIÓN: tu output anterior violó la restricción: "${lastError}". Corregilo manteniendo la rutina base intacta en todo lo demás.`,
       });
     }
 
@@ -235,7 +135,6 @@ export async function generateSkeleton(
       logger.warn({ attempt, refusal: choice.message.refusal }, 'openai: refusal');
       continue;
     }
-
     const out = choice?.message?.parsed;
     if (!out) {
       lastError = 'no parsed output';
@@ -243,97 +142,90 @@ export async function generateSkeleton(
       continue;
     }
 
-    // Server-side business constraints (Structured Outputs cannot enforce these)
-    if (out.days.length !== profile.days_per_week) {
-      lastError = `days.length=${out.days.length} debe ser ${profile.days_per_week}`;
-      logger.warn({ attempt, error: lastError }, 'openai: business constraint');
+    lastError = validateAdjusted(out, {
+      N, minutes, exerciseById, expectedSeries,
+    });
+    if (lastError) {
+      logger.warn({ attempt, error: lastError }, 'openai: adjust constraint');
       continue;
     }
-    const expectedRange = slotRangeFor(minutes);
-    const exerciseById = new Map(exercises.map((e) => [e.id, e]));
-    let allValid = true;
-    for (const day of out.days) {
-      const principals = day.slots.filter(
-        (s: { role: string }) => s.role === 'principal',
-      );
-      if (principals.length === 0) {
-        lastError = `day ${day.day_index} sin principal`;
-        allValid = false; break;
-      }
-      if (principals.length > PRINCIPAL_MAX) {
-        lastError = `day ${day.day_index} tiene ${principals.length} principales; el máximo es ${PRINCIPAL_MAX}`;
-        allValid = false; break;
-      }
-      if (
-        day.slots.length < expectedRange.min ||
-        day.slots.length > expectedRange.max
-      ) {
-        lastError = `day ${day.day_index} tiene ${day.slots.length} slots; debe tener entre ${expectedRange.min} y ${expectedRange.max} (exercise_minutes=${minutes})`;
-        allValid = false; break;
-      }
-      for (const s of day.slots) {
-        if (!exerciseIds.has(s.exercise_id)) {
-          lastError = `exercise_id ${s.exercise_id} no en catálogo`;
-          allValid = false; break;
-        }
-      }
-      if (!allValid) break;
-      if (principals.length >= 2) {
-        const broadGroups = principals.map((s: { exercise_id: number }) => {
-          const ex = exerciseById.get(s.exercise_id);
-          return ex ? broadMuscleGroup(ex.muscle_group) : '';
-        });
-        const uniq = new Set(broadGroups);
-        if (uniq.size !== broadGroups.length) {
-          const names = principals
-            .map((s: { exercise_id: number }) => exerciseById.get(s.exercise_id)?.name ?? `id ${s.exercise_id}`)
-            .join(', ');
-          lastError = `day ${day.day_index} tiene principales del mismo grupo base (${[...uniq].join('/')}): ${names}. Los principales deben trabajar grupos base distintos.`;
-          allValid = false; break;
-        }
-      }
-
-      // Volume caps (ley de entrenamiento): ≤10 working series per base muscle
-      // per day and ≤20 working series total per day. Warmups don't count.
-      const seriesByMuscle = new Map<string, number>();
-      let daySeries = 0;
-      for (const s of day.slots as Array<{
-        role: string;
-        exercise_id: number;
-        series: number | null;
-      }>) {
-        if (s.role === 'calentamiento') continue;
-        const series =
-          s.role === 'principal'
-            ? PRINCIPAL_SERIES_FOR_VOLUME
-            : s.series ?? ACCESSORY_SERIES_DEFAULT;
-        daySeries += series;
-        const ex = exerciseById.get(s.exercise_id);
-        const g = ex ? broadMuscleGroup(ex.muscle_group) : 'otros';
-        seriesByMuscle.set(g, (seriesByMuscle.get(g) ?? 0) + series);
-      }
-      if (daySeries > MAX_SERIES_PER_DAY) {
-        lastError = `day ${day.day_index} tiene ${daySeries} series de trabajo; el máximo es ${MAX_SERIES_PER_DAY} por día.`;
-        allValid = false; break;
-      }
-      const overMuscle = [...seriesByMuscle.entries()].find(
-        ([, n]) => n > MAX_SERIES_PER_MUSCLE_PER_DAY,
-      );
-      if (overMuscle) {
-        lastError = `day ${day.day_index}: el grupo "${overMuscle[0]}" tiene ${overMuscle[1]} series; el máximo es ${MAX_SERIES_PER_MUSCLE_PER_DAY} por músculo por día.`;
-        allValid = false; break;
-      }
-    }
-    if (!allValid) {
-      logger.warn({ attempt, error: lastError }, 'openai: business constraint');
-      continue;
-    }
-
-    // Coach rule (deterministic backstop, prompt alone is not enough): every
-    // upper-body day opens with the articular warm-up with/without band and
-    // every lower-body day with the full leg articular warm-up.
-    return enforceFirstWarmup(out, exercises);
+    return out;
   }
 
-  throw new Error(`skeleton generation invalid after ${MAX_ATTEMPTS} attempts: ${lastError}`);
+  throw new Error(
+    `skeleton adjustment invalid after ${MAX_ATTEMPTS} attempts: ${lastError}`,
+  );
+}
+
+// Minimal safety net. The template itself is authoritative (the coach's own
+// Excels break some of his stated heuristics), so we only validate what the
+// ADJUSTMENT must guarantee: right day count, only athlete-allowed exercises,
+// sane principals, weekly coverage, and the series budget when the session
+// was shortened.
+function validateAdjusted(
+  out: AiSkeletonOutput,
+  ctx: {
+    N: number;
+    minutes: number;
+    exerciseById: Map<number, Exercise>;
+    expectedSeries: { min: number; max: number } | null;
+  },
+): string | null {
+  const { N, minutes, exerciseById, expectedSeries } = ctx;
+
+  if (out.days.length !== N) {
+    return `days.length=${out.days.length} debe ser ${N}`;
+  }
+
+  const weeklyGroups = new Set<string>();
+  for (const day of out.days) {
+    const principals = day.slots.filter((s) => s.role === 'principal');
+    if (principals.length > PRINCIPAL_MAX) {
+      return `day ${day.day_index} tiene ${principals.length} principales; máximo ${PRINCIPAL_MAX}`;
+    }
+    const principalBases: string[] = [];
+    let daySeries = 0;
+
+    for (const s of day.slots) {
+      const ex = exerciseById.get(s.exercise_id);
+      if (!ex) {
+        return `exercise_id ${s.exercise_id} no está en el catálogo permitido de este atleta`;
+      }
+      if (s.role === 'principal') {
+        if (!ex.is_principal) {
+          return `day ${day.day_index}: "${ex.name}" no puede ser principal (is_principal=false)`;
+        }
+        principalBases.push(broadMuscleGroup(ex.muscle_group));
+      }
+      if (s.role === 'calentamiento') {
+        daySeries += 1;
+        continue;
+      }
+      weeklyGroups.add(broadMuscleGroup(ex.muscle_group));
+      daySeries +=
+        s.role === 'principal'
+          ? PRINCIPAL_SERIES
+          : s.series ?? ACCESSORY_SERIES_DEFAULT;
+    }
+
+    if (new Set(principalBases).size !== principalBases.length) {
+      return `day ${day.day_index} tiene dos principales del mismo grupo base`;
+    }
+    if (
+      expectedSeries &&
+      (daySeries < expectedSeries.min || daySeries > expectedSeries.max)
+    ) {
+      return `day ${day.day_index} tiene ${daySeries} series totales; para ${minutes} min deben ser ${expectedSeries.min}-${expectedSeries.max}`;
+    }
+  }
+
+  if (minutes >= 60) {
+    const missing = [
+      'piernas', 'pecho', 'espalda', 'hombros', 'biceps', 'triceps', 'abdomen',
+    ].filter((g) => !weeklyGroups.has(g));
+    if (missing.length > 0) {
+      return `la semana no programa: ${missing.join(', ')} (los 7 grupos son obligatorios)`;
+    }
+  }
+  return null;
 }

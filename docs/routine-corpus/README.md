@@ -1,5 +1,16 @@
 # Routine Corpus — real coach routines that drive the generator
 
+> **⚠️ FASE 4 (2026-07-02): arquitectura TEMPLATE-FIRST.** La generación ya NO
+> compone rutinas con IA desde reglas: los Excels del coach (versionados en
+> `docs/routine-templates-src/`, importados a
+> `backend/src/data/routine-templates.json`) son la rutina base LITERAL, y la
+> IA sólo AJUSTA (ejercicios no disponibles por lesión/equipo/nivel, sesiones
+> <60 min, cantidad de días fuera de la matriz, feedback de rechazo del
+> coach). Ver `backend/src/services/{template,routine-generation,openai}.service.ts`.
+> Este corpus queda como registro histórico del análisis + las correcciones
+> escritas del coach (coach-corrections-*.md), que siguen siendo la referencia
+> para el prompt del ajustador.
+
 Living knowledge base. Each entry analyzes a **real human-made routine** (Excel
 templates from the coach) and extracts the patterns the AI generator should
 reproduce.
@@ -75,6 +86,15 @@ routine-corpus/
 
 **Men vs Women**: women lower-biased (glute/ham, Hip Thrust, no leg-choice);
 men upper-biased (chest/delt/back, squat/deadlift legs, leg-count is user choice).
+
+## Coach corrections (authoritative, no 2-sample gate)
+
+Direct written feedback from the coach reviewing generated output lives in
+`coach-corrections-NNN.md` and **overrides inferred corpus patterns** when in
+conflict. See [coach-corrections-001.md](coach-corrections-001.md) (2026-07-02):
+warmups 1 serie (updates M5), drop-set whitelist & ≤2/day, block pattern
+principal→unilateral→finisher, abs 3 series, weekly tríceps/deltoides
+coverage, principal validity, consecutive-days caveat.
 
 ## Codification status
 

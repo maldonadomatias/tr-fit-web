@@ -1,5 +1,5 @@
 import pool from '../db/connect.js';
-import { generateSkeleton } from './openai.service.js';
+import { generateRoutine } from './routine-generation.service.js';
 import { createPendingSkeleton } from './skeleton.service.js';
 import { listExercisesForAthlete } from './exercise.service.js';
 import type { AthleteProfile } from '../domain/types.js';
@@ -78,14 +78,17 @@ export async function runRegenJob(
     );
     const profile = profileR.rows[0];
     const exercises = await listExercisesForAthlete(profile, athleteId);
-    const ai = await generateSkeleton({ profile, exercises });
+    const gen = await generateRoutine({ profile, exercises });
     const { skeletonId } = await createPendingSkeleton(
       {
         athleteId,
-        generationPrompt: { profile, exercises_count: exercises.length, source: 'regen' },
-        generationRationale: ai.rationale,
+        generationPrompt: {
+          profile, exercises_count: exercises.length, trigger: 'regen',
+          source: gen.source, template: gen.templateSource, reasons: gen.reasons,
+        },
+        generationRationale: gen.skeleton.rationale,
       },
-      ai,
+      gen.skeleton,
     );
     await client.query(
       `INSERT INTO skeleton_regen_log (athlete_id, result) VALUES ($1, 'approved_gen')`,
