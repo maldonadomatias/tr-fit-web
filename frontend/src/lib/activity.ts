@@ -13,6 +13,7 @@ const LABELS: Record<AuditType, string> = {
   subscription_cancelled: 'Suscripción cancelada',
   subscription_authorized: 'Suscripción activada',
   subscription_paused: 'Suscripción pausada',
+  force_logout: 'Logout forzado',
 };
 
 export function activityLabel(type: AuditType): string {

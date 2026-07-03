@@ -96,6 +96,14 @@ export function useDeleteUser() {
   });
 }
 
+export function useForceLogout(id: string) {
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      await api.post(`/admin/users/${id}/force-logout`);
+    },
+  });
+}
+
 export function useUpsertSubscription(id: string) {
   const qc = useQueryClient();
   return useMutation({

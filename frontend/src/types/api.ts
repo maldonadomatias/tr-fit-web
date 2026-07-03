@@ -158,7 +158,8 @@ export type AuditType =
   | 'subscription_updated'
   | 'subscription_cancelled'
   | 'subscription_authorized'
-  | 'subscription_paused';
+  | 'subscription_paused'
+  | 'force_logout';
 
 export type ActivitySeverity = 'brand' | 'warning' | 'destructive' | null;
 

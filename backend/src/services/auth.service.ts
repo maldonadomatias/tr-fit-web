@@ -286,6 +286,16 @@ export async function logout(refreshToken: string): Promise<void> {
   );
 }
 
+// Admin action: kill every active session of a user. Their access token keeps
+// working until it expires (≤15m); the next refresh forces a re-login.
+export async function forceLogout(userId: string): Promise<void> {
+  await pool.query(
+    `UPDATE refresh_tokens SET revoked_at = NOW()
+      WHERE user_id = $1 AND revoked_at IS NULL`,
+    [userId],
+  );
+}
+
 // ─── Email verification ─────────────────────────────────────────
 export class VerifyError extends Error {
   constructor(public reason: 'invalid' | 'expired' | 'used') {

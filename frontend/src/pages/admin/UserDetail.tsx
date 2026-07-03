@@ -44,6 +44,7 @@ import {
   useAdminUser,
   useCancelSubscription,
   useDeleteUser,
+  useForceLogout,
   useUpdateAdminUser,
   useUpsertSubscription,
 } from '@/hooks/useAdminUsers';
@@ -193,6 +194,14 @@ function IdentityCard({
           toast.error(`No se pudo rechazar: ${(e as Error).message}`),
       },
     );
+  const forceLogout = useForceLogout(user.id);
+  const onForceLogout = () =>
+    forceLogout.mutate(undefined, {
+      onSuccess: () =>
+        toast.success('Sesiones cerradas. El logout se hace efectivo en unos minutos.'),
+      onError: (e) =>
+        toast.error(`No se pudo forzar el logout: ${(e as Error).message}`),
+    });
   function copyId() {
     void navigator.clipboard.writeText(user.id);
     toast.success('ID copiado');
@@ -297,7 +306,12 @@ function IdentityCard({
                 <Mail data-icon="inline-start" />
                 Reenviar verificación
               </Button>
-              <Button variant="outline" size="sm" disabled={isSelf}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onForceLogout}
+                disabled={isSelf || forceLogout.isPending}
+              >
                 <RefreshCw data-icon="inline-start" />
                 Forzar logout
               </Button>
@@ -965,6 +979,14 @@ function PeligroTab({
   isSelf: boolean;
   onAskDelete: () => void;
 }) {
+  const forceLogout = useForceLogout(user.id);
+  const onForceLogout = () =>
+    forceLogout.mutate(undefined, {
+      onSuccess: () =>
+        toast.success('Sesiones cerradas. El logout se hace efectivo en unos minutos.'),
+      onError: (e) =>
+        toast.error(`No se pudo forzar el logout: ${(e as Error).message}`),
+    });
   return (
     <div className="rounded-2xl border border-destructive/40 bg-card">
       <div className="flex flex-col gap-4 p-[22px]">
@@ -984,7 +1006,8 @@ function PeligroTab({
             title="Forzar logout en todos los dispositivos"
             body="Invalida los refresh tokens. El usuario va a tener que iniciar sesión de nuevo."
             action="Forzar logout"
-            disabled={isSelf}
+            onClick={onForceLogout}
+            disabled={isSelf || forceLogout.isPending}
           />
           <DangerRow
             title="Resetear contraseña"

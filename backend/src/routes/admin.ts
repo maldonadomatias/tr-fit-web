@@ -4,6 +4,7 @@ import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import { registerPayment, cancelMembership } from '../services/membership.service.js';
+import { forceLogout } from '../services/auth.service.js';
 import {
   listUsers,
   getUser,
@@ -346,6 +347,25 @@ router.post('/users/:id/payments', async (req: Request, res: Response) => {
   });
 
   res.status(201).json({ membership });
+});
+
+// Kill every active session of a user. Takes effect at the next token refresh
+// (access tokens keep working until they expire, ≤15m).
+router.post('/users/:id/force-logout', async (req: Request, res: Response) => {
+  if (req.params.id === req.user!.id) {
+    return res.status(400).json({ error: 'cannot_force_logout_self' });
+  }
+  const before = await getUser(req.params.id);
+  if (!before) return res.status(404).json({ error: 'not_found' });
+  await forceLogout(req.params.id);
+  await logAudit({
+    type: 'force_logout',
+    actor: await actorEmail(req),
+    target: before.email,
+    target_id: req.params.id,
+    severity: 'warning',
+  });
+  res.json({ ok: true });
 });
 
 router.post('/users/:id/membership/cancel', async (req: Request, res: Response) => {

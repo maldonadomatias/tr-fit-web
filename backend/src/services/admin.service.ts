@@ -313,7 +313,8 @@ export type AuditType =
   | 'subscription_paused'
   | 'payment_registered'
   | 'membership_cancelled'
-  | 'athlete_fee_changed';
+  | 'athlete_fee_changed'
+  | 'force_logout';
 
 export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
 
@@ -394,7 +395,7 @@ const CATEGORY_TYPES: Record<ActivityCategory, AuditType[]> = {
     'subscription_authorized',
     'subscription_paused',
   ],
-  auth: ['email_verified', 'email_unverified', 'role_changed'],
+  auth: ['email_verified', 'email_unverified', 'role_changed', 'force_logout'],
 };
 
 export interface ActivityFilters {
