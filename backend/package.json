@@ -16,8 +16,7 @@
     "seed:admin": "tsx src/scripts/create-admin.ts",
     "seed:superadmin": "tsx src/scripts/create-superadmin.ts",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
-    "mp:setup-plans": "tsx src/scripts/setup-mp-plans.ts"
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
   },
   "dependencies": {
     "@types/multer": "^2.1.0",

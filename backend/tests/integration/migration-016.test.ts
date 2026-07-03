@@ -70,18 +70,4 @@ describe('migration 011 — subscriptions', () => {
     );
     expect(r.rowCount).toBe(0);
   });
-
-  it('mp_webhook_log deduplicates by event_id', async () => {
-    await pool.query(
-      `INSERT INTO mp_webhook_log (event_id, payload) VALUES ('evt-1', '{}')`,
-    );
-    await pool.query(
-      `INSERT INTO mp_webhook_log (event_id, payload)
-       VALUES ('evt-1', '{}') ON CONFLICT (event_id) DO NOTHING`,
-    );
-    const r = await pool.query<{ n: string }>(
-      `SELECT COUNT(*)::text AS n FROM mp_webhook_log WHERE event_id = 'evt-1'`,
-    );
-    expect(parseInt(r.rows[0].n, 10)).toBe(1);
-  });
 });

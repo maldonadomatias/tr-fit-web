@@ -3,7 +3,6 @@ import cors from 'cors';
 import path from 'path';
 import { errorHandler } from './utils/errorHandler.js';
 import apiRoutes from './routes/index.js';
-import webhookRoutes from './routes/webhooks.js';
 
 const app: Express = express();
 
@@ -38,8 +37,6 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
-
-app.use('/webhooks', webhookRoutes);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

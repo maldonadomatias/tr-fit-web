@@ -26,13 +26,6 @@ const schema = z.object({
   FIREBASE_STORAGE_BUCKET: z
     .string()
     .default('tatoroblesfit-2c13e.firebasestorage.app'),
-  MP_ACCESS_TOKEN: z.string().min(1),
-  MP_WEBHOOK_SECRET: z.string().min(1),
-  MP_PLAN_ID_BASICO: z.string().min(1),
-  MP_PLAN_ID_FULL: z.string().min(1),
-  MP_PLAN_ID_PREMIUM: z.string().min(1),
-  MP_BACK_URL: z.string().default('trfit://upgrade/success'),
-  MP_NOTIFICATION_URL: z.string().default('http://localhost:5001/webhooks/mp'),
   OWNER_COACH_EMAIL: z.string().email(),
 });
 
