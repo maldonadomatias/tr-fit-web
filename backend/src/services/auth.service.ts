@@ -98,7 +98,8 @@ export class LoginError extends Error {
       | 'email_not_verified'
       | 'not_approved'
       | 'rejected'
-      | 'payment_required',
+      | 'payment_required'
+      | 'membership_paused',
   ) {
     super(reason);
   }
@@ -119,9 +120,11 @@ export async function login(
     email: string; email_verified: boolean;
     status: 'pending' | 'approved' | 'rejected';
     membership_active: boolean;
+    membership_status: string | null;
   }>(
     `SELECT u.id, u.password_hash, u.role, u.email, u.email_verified, u.status,
-            COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active
+            COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active,
+            m.status AS membership_status
        FROM users u
        LEFT JOIN memberships m ON m.user_id = u.id
       WHERE u.email = $1`,
@@ -146,6 +149,12 @@ export async function login(
   // expired or missing membership (past the 48h grace window) throws
   // 'payment_required' so the mobile app shows the payment-details screen.
   // ('infinity' paid_until is > now() in Postgres, so backfilled athletes pass.)
+  // Paused (frozen) memberships deny access outright. Checked before the
+  // payment gate: paid_until may lapse during a long pause and the athlete
+  // should see "paused", not "payment required".
+  if (user.role === 'athlete' && user.membership_status === 'paused') {
+    throw new LoginError('membership_paused');
+  }
   if (user.role === 'athlete' && !user.membership_active) {
     throw new LoginError('payment_required');
   }
@@ -225,15 +234,18 @@ export async function refresh(
     // Re-check access on refresh so a lapsed athlete can't keep minting tokens.
     const u = await client.query<{
       role: 'athlete'|'admin'|'superadmin'; status: string; membership_active: boolean;
+      membership_status: string | null;
     }>(
-      `SELECT u.role, u.status, COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active
+      `SELECT u.role, u.status, COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active,
+              m.status AS membership_status
          FROM users u LEFT JOIN memberships m ON m.user_id = u.id
         WHERE u.id = $1`,
       [row.user_id],
     );
     const acct = u.rows[0];
     const athleteBlocked = acct.role === 'athlete'
-      && (acct.status !== 'approved' || !acct.membership_active);
+      && (acct.status !== 'approved' || !acct.membership_active
+          || acct.membership_status === 'paused');
     if (acct.status === 'rejected' || athleteBlocked) {
       // Revoke the family and force re-login (which surfaces the gate message).
       await client.query(

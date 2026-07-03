@@ -81,7 +81,7 @@ export async function registerPayment(
       `INSERT INTO memberships (user_id, status, started_at, paid_until, updated_at)
        VALUES ($1, 'active', now(), $2, now())
        ON CONFLICT (user_id) DO UPDATE
-         SET status = 'active', paid_until = $2, updated_at = now()
+         SET status = 'active', paid_until = $2, paused_at = NULL, updated_at = now()
        RETURNING *`,
       [userId, coversUntil.toISOString()],
     );
@@ -106,6 +106,45 @@ export async function registerPayment(
   } finally {
     client.release();
   }
+}
+
+export class MembershipError extends Error {
+  constructor(public code: 'not_active' | 'not_paused') {
+    super(code);
+  }
+}
+
+/**
+ * Freeze a membership (injury/vacation): access is denied while paused and the
+ * clock stops — resumeMembership() credits the paused days back.
+ */
+export async function pauseMembership(userId: string): Promise<Membership> {
+  const r = await pool.query<Membership>(
+    `UPDATE memberships
+        SET status = 'paused', paused_at = now(), updated_at = now()
+      WHERE user_id = $1 AND status IN ('active', 'expiring')
+      RETURNING *`,
+    [userId],
+  );
+  if (!r.rows[0]) throw new MembershipError('not_active');
+  return r.rows[0];
+}
+
+/** Unfreeze: shift paid_until by the paused duration and restore access. */
+export async function resumeMembership(userId: string): Promise<Membership> {
+  const r = await pool.query<Membership>(
+    `UPDATE memberships
+        SET paid_until = CASE
+              WHEN paid_until = 'infinity' THEN paid_until
+              ELSE paid_until + (now() - COALESCE(paused_at, now()))
+            END,
+            status = 'active', paused_at = NULL, updated_at = now()
+      WHERE user_id = $1 AND status = 'paused'
+      RETURNING *`,
+    [userId],
+  );
+  if (!r.rows[0]) throw new MembershipError('not_paused');
+  return r.rows[0];
 }
 
 export async function cancelMembership(userId: string): Promise<void> {

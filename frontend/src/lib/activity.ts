@@ -13,6 +13,8 @@ const LABELS: Record<AuditType, string> = {
   subscription_cancelled: 'Suscripción cancelada',
   subscription_authorized: 'Suscripción activada',
   subscription_paused: 'Suscripción pausada',
+  membership_paused: 'Membresía pausada',
+  membership_resumed: 'Membresía reanudada',
   force_logout: 'Logout forzado',
 };
 

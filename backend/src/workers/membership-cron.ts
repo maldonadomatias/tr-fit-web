@@ -29,7 +29,7 @@ export async function runMembershipTick(): Promise<void> {
         SET status = 'expired', updated_at = now()
        FROM users u
       WHERE m.user_id = u.id
-        AND m.status NOT IN ('expired', 'cancelled')
+        AND m.status NOT IN ('expired', 'cancelled', 'paused')
         AND m.paid_until IS NOT NULL
         AND m.paid_until <> 'infinity'
         AND m.paid_until < now()

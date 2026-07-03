@@ -3,7 +3,13 @@ import { z } from 'zod';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
-import { registerPayment, cancelMembership } from '../services/membership.service.js';
+import {
+  registerPayment,
+  cancelMembership,
+  pauseMembership,
+  resumeMembership,
+  MembershipError,
+} from '../services/membership.service.js';
 import { forceLogout } from '../services/auth.service.js';
 import {
   listUsers,
@@ -366,6 +372,51 @@ router.post('/users/:id/force-logout', async (req: Request, res: Response) => {
     severity: 'warning',
   });
   res.json({ ok: true });
+});
+
+// Freeze a membership (injury/vacation): blocks access, stops the paid clock.
+router.post('/users/:id/membership/pause', async (req: Request, res: Response) => {
+  const before = await getUser(req.params.id);
+  if (!before) return res.status(404).json({ error: 'not_found' });
+  try {
+    const membership = await pauseMembership(req.params.id);
+    await logAudit({
+      type: 'membership_paused',
+      actor: await actorEmail(req),
+      target: before.email,
+      target_id: req.params.id,
+      severity: 'warning',
+    });
+    return res.json({ membership });
+  } catch (e) {
+    if (e instanceof MembershipError) {
+      return res.status(409).json({ error: 'membership_not_active' });
+    }
+    throw e;
+  }
+});
+
+// Unfreeze: credits the paused days back (paid_until shifts by the pause span).
+router.post('/users/:id/membership/resume', async (req: Request, res: Response) => {
+  const before = await getUser(req.params.id);
+  if (!before) return res.status(404).json({ error: 'not_found' });
+  try {
+    const membership = await resumeMembership(req.params.id);
+    await logAudit({
+      type: 'membership_resumed',
+      actor: await actorEmail(req),
+      target: before.email,
+      target_id: req.params.id,
+      severity: 'brand',
+      meta: { paid_until: membership.paid_until },
+    });
+    return res.json({ membership });
+  } catch (e) {
+    if (e instanceof MembershipError) {
+      return res.status(409).json({ error: 'membership_not_paused' });
+    }
+    throw e;
+  }
 });
 
 router.post('/users/:id/membership/cancel', async (req: Request, res: Response) => {

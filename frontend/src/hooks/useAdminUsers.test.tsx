@@ -6,7 +6,11 @@ import type { ReactNode } from 'react';
 vi.mock('@/lib/api', () => ({ api: { post: vi.fn() } }));
 
 import { api } from '@/lib/api';
-import { useForceLogout } from './useAdminUsers';
+import {
+  useForceLogout,
+  usePauseMembership,
+  useResumeMembership,
+} from './useAdminUsers';
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({
@@ -29,5 +33,27 @@ describe('useForceLogout', () => {
     const { result } = renderHook(() => useForceLogout('u1'), { wrapper });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('usePauseMembership / useResumeMembership', () => {
+  it('POSTs to /admin/users/:id/membership/pause', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      data: { membership: { status: 'paused' } },
+    });
+    const { result } = renderHook(() => usePauseMembership('u1'), { wrapper });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith('/admin/users/u1/membership/pause');
+  });
+
+  it('POSTs to /admin/users/:id/membership/resume', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      data: { membership: { status: 'active' } },
+    });
+    const { result } = renderHook(() => useResumeMembership('u1'), { wrapper });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith('/admin/users/u1/membership/resume');
   });
 });

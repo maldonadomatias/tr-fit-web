@@ -45,6 +45,8 @@ import {
   useCancelSubscription,
   useDeleteUser,
   useForceLogout,
+  usePauseMembership,
+  useResumeMembership,
   useUpdateAdminUser,
   useUpsertSubscription,
 } from '@/hooks/useAdminUsers';
@@ -609,6 +611,88 @@ function Field({
   );
 }
 
+const MEMBERSHIP_LABELS: Record<string, string> = {
+  active: 'Activa',
+  expiring: 'Por vencer',
+  expired: 'Vencida',
+  cancelled: 'Cancelada',
+  paused: 'Pausada',
+};
+
+function MembresiaCard({ user }: { user: AdminUser }) {
+  const pause = usePauseMembership(user.id);
+  const resume = useResumeMembership(user.id);
+  const status = user.membership_status;
+  if (user.role !== 'athlete' || !status) return null;
+
+  const onPause = () =>
+    pause.mutate(undefined, {
+      onSuccess: () =>
+        toast.success('Membresía pausada. El acceso queda bloqueado y los días pagados se congelan.'),
+      onError: (e) =>
+        toast.error(`No se pudo pausar: ${(e as Error).message}`),
+    });
+  const onResume = () =>
+    resume.mutate(undefined, {
+      onSuccess: () =>
+        toast.success('Membresía reanudada. Los días pausados se acreditaron.'),
+      onError: (e) =>
+        toast.error(`No se pudo reanudar: ${(e as Error).message}`),
+    });
+
+  return (
+    <div className="rounded-2xl border bg-card p-[22px]">
+      <Eyebrow variant="muted">Membresía</Eyebrow>
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Estado
+          </div>
+          <div className="mt-1 font-semibold">
+            {MEMBERSHIP_LABELS[status] ?? status}
+          </div>
+        </div>
+        <div className="h-9 w-px bg-border" />
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Pagado hasta
+          </div>
+          <div className="mt-1 font-mono tabular-nums font-semibold">
+            {user.paid_until ? fmtShortDate(user.paid_until) : 'Sin vencimiento'}
+          </div>
+        </div>
+        <div className="ml-auto">
+          {status === 'paused' ? (
+            <Button
+              variant="brand"
+              size="sm"
+              onClick={onResume}
+              disabled={resume.isPending}
+            >
+              Reanudar membresía
+            </Button>
+          ) : status === 'active' || status === 'expiring' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPause}
+              disabled={pause.isPending}
+            >
+              Pausar membresía
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {status === 'paused' && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          El alumno no puede iniciar sesión mientras la membresía esté pausada.
+          Al reanudar, los días pausados se suman a la fecha de vencimiento.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SuscripcionTab({ user }: { user: AdminUser }) {
   const upsert = useUpsertSubscription(user.id);
   const cancel = useCancelSubscription(user.id);
@@ -660,6 +744,7 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <MembresiaCard user={user} />
       <div className="rounded-2xl border bg-card p-[22px]">
         <Eyebrow variant="muted">Estado actual</Eyebrow>
         {hasSub && user.subscription_tier && user.subscription_status ? (

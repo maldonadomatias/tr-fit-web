@@ -104,6 +104,32 @@ export function useForceLogout(id: string) {
   });
 }
 
+export function usePauseMembership(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      await api.post(`/admin/users/${id}/membership/pause`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'user', id] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
+
+export function useResumeMembership(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      await api.post(`/admin/users/${id}/membership/resume`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'user', id] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
+  });
+}
+
 export function useUpsertSubscription(id: string) {
   const qc = useQueryClient();
   return useMutation({

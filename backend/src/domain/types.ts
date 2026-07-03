@@ -280,7 +280,12 @@ export interface NotificationLogRow {
   delivery_status: 'sent' | 'failed' | 'token_invalid';
 }
 
-export type MembershipStatus = 'active' | 'expiring' | 'expired' | 'cancelled';
+export type MembershipStatus =
+  | 'active'
+  | 'expiring'
+  | 'expired'
+  | 'cancelled'
+  | 'paused';
 export type PaymentMethod = 'transfer' | 'cash' | 'mercadopago' | 'other';
 
 export interface Membership {
@@ -290,6 +295,7 @@ export interface Membership {
   started_at: string;
   // node-postgres returns the JS number Infinity for 'infinity'::timestamptz.
   paid_until: string | number | null;
+  paused_at: string | null;
   created_at: string;
   updated_at: string;
 }

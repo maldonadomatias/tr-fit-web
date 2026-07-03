@@ -3,9 +3,6 @@
 ## Freeze de membresía por lesión
 
 - **Prioridad**: media
-- **Estado**: pendiente
-- **Creado**: 2026-07-03
-- **Dónde**: backend `memberships` + dashboard admin (UserDetail, tab Suscripción)
-- **Qué pasa hoy**: estado "Pausada" de suscripción es cosmético; no bloquea acceso ni congela días pagados. Única opción es dejar vencer `paid_until` y ajustar `covers_until` a mano al volver.
-- **Feature**: pausar membresía N días (lesión/vacaciones). Al reanudar, correr `paid_until` la cantidad de días pausados para respetar días ya pagados. Registrar pausa en audit log.
-- **Notas**: campos sugeridos `memberships.paused_at` / `paused_days`; bloquear o no acceso durante la pausa a definir con el coach.
+- **Estado**: hecho (2026-07-03)
+- **Dónde**: `POST /admin/users/:id/membership/pause` y `/resume`; UI en UserDetail → tab Suscripción → card "Membresía"
+- **Cómo quedó**: pausar bloquea login/refresh y congela el reloj (`memberships.paused_at`); reanudar corre `paid_until` los días pausados. Registrar un pago mientras está pausada la reactiva. El cron ignora membresías pausadas. Auditado como `membership_paused` / `membership_resumed`.

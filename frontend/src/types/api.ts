@@ -144,7 +144,17 @@ export interface AdminUser {
   subscription_status: SubscriptionStatus | null;
   current_period_end: string | null;
   monthly_fee_ars: number | null;
+  membership_status: MembershipStatus | null;
+  // 'infinity'::timestamptz serializes as null-ish JSON — treat as sin vencimiento.
+  paid_until: string | null;
 }
+
+export type MembershipStatus =
+  | 'active'
+  | 'expiring'
+  | 'expired'
+  | 'cancelled'
+  | 'paused';
 
 export type AuditType =
   | 'user_created'
@@ -159,6 +169,8 @@ export type AuditType =
   | 'subscription_cancelled'
   | 'subscription_authorized'
   | 'subscription_paused'
+  | 'membership_paused'
+  | 'membership_resumed'
   | 'force_logout';
 
 export type ActivitySeverity = 'brand' | 'warning' | 'destructive' | null;

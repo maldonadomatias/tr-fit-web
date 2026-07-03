@@ -27,7 +27,13 @@ export interface AdminUserRow {
   subscription_tier: SubTier | null;
   subscription_status: SubStatus | null;
   current_period_end: string | null;
-  membership_status: 'active' | 'expiring' | 'expired' | 'cancelled' | null;
+  membership_status:
+    | 'active'
+    | 'expiring'
+    | 'expired'
+    | 'cancelled'
+    | 'paused'
+    | null;
   paid_until: string | number | null;
   monthly_fee_ars: number | null;
 }
@@ -313,6 +319,8 @@ export type AuditType =
   | 'subscription_paused'
   | 'payment_registered'
   | 'membership_cancelled'
+  | 'membership_paused'
+  | 'membership_resumed'
   | 'athlete_fee_changed'
   | 'force_logout';
 
