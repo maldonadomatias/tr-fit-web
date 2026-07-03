@@ -4,7 +4,6 @@ import pool from '../../../src/db/connect.js';
 export async function resetDatabase(): Promise<void> {
   await pool.query(`
     TRUNCATE TABLE
-      mp_webhook_log,
       payments,
       memberships,
       subscriptions,

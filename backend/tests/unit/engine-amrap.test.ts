@@ -5,11 +5,6 @@ process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/trfit_
 process.env.JWT_SECRET ??= 'jwt-test-secret-12345';
 process.env.OPENAI_API_KEY ??= 'sk-test-12345';
 process.env.RESEND_API_KEY ??= 'rk-test-12345';
-process.env.MP_ACCESS_TOKEN ??= 'mp-test';
-process.env.MP_WEBHOOK_SECRET ??= 'mp-webhook-test';
-process.env.MP_PLAN_ID_BASICO ??= 'plan-b';
-process.env.MP_PLAN_ID_FULL ??= 'plan-f';
-process.env.MP_PLAN_ID_PREMIUM ??= 'plan-p';
 
 type Row = Record<string, unknown>;
 const handlers: Array<(sql: string, p?: unknown[]) => { rows: Row[]; rowCount: number } | null> = [];
