@@ -67,6 +67,19 @@ describe('POST /api/push/register', () => {
     expect(r.status).toBe(403);
   });
 
+  it('returns 401 when user no longer exists (stale JWT)', async () => {
+    const u = await makeAthlete();
+    const tok = signToken({ id: u, role: 'athlete' });
+    await pool.query(`DELETE FROM users WHERE id = $1`, [u]);
+    const r = await request(app)
+      .post('/api/push/register')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ token: 'e'.repeat(30), platform: 'android' });
+    expect(r.status).toBe(401);
+    const c = await pool.query(`SELECT COUNT(*)::int AS n FROM push_tokens`);
+    expect(c.rows[0].n).toBe(0);
+  });
+
   it('rejects invalid payload', async () => {
     const u = await makeAthlete();
     const tok = signToken({ id: u, role: 'athlete' });

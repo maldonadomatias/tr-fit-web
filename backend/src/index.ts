@@ -9,6 +9,17 @@ import { startRegenWorker } from './workers/regen-worker.js';
 
 dotenv.config();
 
+// Express 4 does not forward errors thrown in async route handlers to the
+// error middleware; any unwrapped rejection would otherwise kill the process
+// (Node's default) and crash-loop the service. Log and keep serving.
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled promise rejection');
+});
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught exception');
+  process.exit(1);
+});
+
 const PORT = Number(process.env.PORT) || 5001;
 
 // Bind to '::' (IPv6 all-interfaces, dual-stack) so Railway's IPv6-only
