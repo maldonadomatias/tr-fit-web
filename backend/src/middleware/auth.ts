@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import pool from '../db/connect.js';
 
 export interface AuthUser {
   id: string;
@@ -15,23 +16,41 @@ declare global {
   }
 }
 
-export function requireAuth(
+export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   const auth = req.header('authorization') ?? '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) {
     res.status(401).json({ error: 'missing_token' });
     return;
   }
+  let payload: AuthUser;
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as AuthUser;
-    req.user = { id: payload.id, role: payload.role };
-    next();
+    payload = jwt.verify(token, env.JWT_SECRET) as AuthUser;
   } catch {
     res.status(401).json({ error: 'invalid_token' });
+    return;
+  }
+  // A JWT outlives its user: deleted or rejected accounts keep a valid
+  // signature until expiry. Confirm the row still exists (PK lookup) so those
+  // tokens die here with a 401 instead of failing deep in each route.
+  try {
+    const r = await pool.query<{ status: string }>(
+      `SELECT status FROM users WHERE id = $1`,
+      [payload.id],
+    );
+    const user = r.rows[0];
+    if (!user || user.status === 'rejected') {
+      res.status(401).json({ error: 'invalid_token' });
+      return;
+    }
+    req.user = { id: payload.id, role: payload.role };
+    next();
+  } catch (e) {
+    next(e);
   }
 }
 
