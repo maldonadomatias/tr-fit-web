@@ -17,7 +17,7 @@ const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/tes
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
-const { enqueueRegenJob, runRegenJob, PendingReviewExistsError } =
+const { enqueueRegenJob, runRegenJob, sweepOrphanProfiles, PendingReviewExistsError } =
   await import('../../src/services/skeleton-regen.service.js');
 
 beforeAll(async () => { await ensureMigrated(); });
@@ -135,5 +135,43 @@ describe('runRegenJob', () => {
     const { skeletonId } = await runRegenJob(a);
     expect(skeletonId).toBeNull();
     expect(mockAdjust).not.toHaveBeenCalled();
+  });
+});
+
+describe('sweepOrphanProfiles', () => {
+  it('enqueues a job for a profile with no skeleton and no active job', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const { enqueued } = await sweepOrphanProfiles();
+    expect(enqueued).toBe(1);
+    const job = await pool.query<{ status: string }>(
+      `SELECT status FROM skeleton_regen_jobs WHERE athlete_id = $1`, [a],
+    );
+    expect(job.rows.map((r) => r.status)).toEqual(['queued']);
+  });
+
+  it('skips athletes that already have any skeleton', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    await pool.query(
+      `INSERT INTO athlete_skeletons
+         (athlete_id, status, generated_by, generation_prompt, generation_rationale)
+       VALUES ($1,'rejected','ai','{}'::jsonb,'x')`,
+      [a],
+    );
+    const { enqueued } = await sweepOrphanProfiles();
+    expect(enqueued).toBe(0);
+  });
+
+  it('skips athletes with a queued or running job', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    await enqueueRegenJob(a);
+    const { enqueued } = await sweepOrphanProfiles();
+    expect(enqueued).toBe(0);
+    const jobs = await pool.query(
+      `SELECT 1 FROM skeleton_regen_jobs WHERE athlete_id = $1`, [a],
+    );
+    expect(jobs.rowCount).toBe(1);
   });
 });

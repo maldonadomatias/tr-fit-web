@@ -17,7 +17,14 @@ import type { RoutineTemplate } from './template.service.js';
 import { seriesRangeFor } from './series-budget.js';
 import logger from '../utils/logger.js';
 
-const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+// Explicit timeout: the default (10 min per attempt) let a single onboarding
+// request hang across deploys. 120s bounds each attempt; the regen worker
+// retries the whole job with backoff anyway.
+const client = new OpenAI({
+  apiKey: env.OPENAI_API_KEY,
+  timeout: 120_000,
+  maxRetries: 1,
+});
 
 const MAX_ATTEMPTS = 5;
 const PRINCIPAL_MAX = 3;

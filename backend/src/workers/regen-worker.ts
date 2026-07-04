@@ -1,6 +1,6 @@
 import pool from '../db/connect.js';
 import logger from '../utils/logger.js';
-import { runRegenJob } from '../services/skeleton-regen.service.js';
+import { runRegenJob, sweepOrphanProfiles } from '../services/skeleton-regen.service.js';
 
 export const MAX_JOB_ATTEMPTS = 3;
 export const STUCK_RUNNING_MS = 300000;
@@ -73,6 +73,13 @@ export async function regenTick(): Promise<void> {
 
 export function startRegenWorker(): void {
   if (interval) return;
+  void sweepOrphanProfiles()
+    .then(({ enqueued }) => {
+      if (enqueued > 0) {
+        logger.warn({ enqueued }, 'regen sweep: enqueued jobs for orphan profiles');
+      }
+    })
+    .catch((e) => logger.error({ err: e }, 'regen sweep failed'));
   interval = setInterval(() => { void regenTick(); }, WORKER_TICK_MS);
   logger.info('regen worker started');
 }

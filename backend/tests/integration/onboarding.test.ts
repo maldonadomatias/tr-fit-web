@@ -9,16 +9,19 @@ import bcrypt from 'bcrypt';
 // touch it.
 jest.unstable_mockModule('openai', () => {
   const parse = jest.fn();
+  const ctor = jest.fn().mockImplementation(() => ({
+    chat: { completions: { parse } },
+  }));
   return {
-    default: jest.fn().mockImplementation(() => ({
-      chat: { completions: { parse } },
-    })),
+    default: ctor,
     __mockParse: parse,
+    __mockCtor: ctor,
   };
 });
 
 const openaiMod = (await import('openai')) as unknown as {
   __mockParse: jest.Mock<() => Promise<unknown>>;
+  __mockCtor: jest.Mock;
 };
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { createAdmin } = await import('./helpers/fixtures.js');
@@ -31,6 +34,7 @@ const requestMod = await import('supertest');
 const request = requestMod.default;
 const appMod = await import('../../src/app.js');
 const app = appMod.default;
+const { regenTick } = await import('../../src/workers/regen-worker.js');
 
 let ownerCoachId: string;
 
@@ -104,7 +108,13 @@ it('rejects payload validation errors', async () => {
   expect(r.status).toBe(400);
 });
 
-it('clean profile: creates profile + template skeleton verbatim, no OpenAI call', async () => {
+it('configures the OpenAI client with an explicit timeout', async () => {
+  expect(openaiMod.__mockCtor).toHaveBeenCalledWith(
+    expect.objectContaining({ timeout: expect.any(Number) }),
+  );
+});
+
+it('clean profile: 202 + queued job, worker then builds template skeleton verbatim', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
 
@@ -112,8 +122,20 @@ it('clean profile: creates profile + template skeleton verbatim, no OpenAI call'
     .post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)
     .send(validPayload);
-  expect(r.status).toBe(201);
-  expect(r.body.status).toBe('pending_review');
+  expect(r.status).toBe(202);
+  expect(r.body.status).toBe('queued');
+
+  // Generation is async: no skeleton yet, one queued job.
+  const preSk = await pool.query(
+    `SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1`, [u],
+  );
+  expect(preSk.rowCount).toBe(0);
+  const job = await pool.query<{ status: string }>(
+    `SELECT status FROM skeleton_regen_jobs WHERE athlete_id = $1`, [u],
+  );
+  expect(job.rows.map((x) => x.status)).toEqual(['queued']);
+
+  await regenTick();
   expect(openaiMod.__mockParse).not.toHaveBeenCalled();
 
   // Skeleton rows must be the selected coach template, slot by slot.
@@ -147,12 +169,13 @@ it('clean profile: creates profile + template skeleton verbatim, no OpenAI call'
   expect(prof.rows[0].coach_id).toBe(ownerCoachId);
 });
 
-it('onboarded athlete is visible in the owner coach pending inbox', async () => {
+it('onboarded athlete is visible in the owner coach pending inbox after worker runs', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
   const onboardR = await request(app).post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`).send(validPayload);
-  expect(onboardR.status).toBe(201);
+  expect(onboardR.status).toBe(202);
+  await regenTick();
 
   // Onboarding routes every athlete to OWNER_COACH_EMAIL, so the owner
   // admin (not an arbitrary admin) sees the pending skeleton.
@@ -175,7 +198,7 @@ it('returns 409 on duplicate onboarding', async () => {
   expect(r2.status).toBe(409);
 });
 
-it('returns 502 and rolls back when the AI adjustment fails', async () => {
+it('AI failure: onboarding still succeeds, profile persists, job stays queued for retry', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
   // 2 days/week is outside the coach matrix (3-5) → template can't be used
@@ -187,17 +210,34 @@ it('returns 502 and rolls back when the AI adjustment fails', async () => {
       ...validPayload, days_per_week: 2, days_specific: ['lun', 'jue'],
       measurements: { chest_cm: 100 },
     });
-  expect(r.status).toBe(502);
+  // Enqueue-only: the request never touches OpenAI and cannot 502 on it.
+  expect(r.status).toBe(202);
+  expect(openaiMod.__mockParse).not.toHaveBeenCalled();
+
+  await regenTick();
   expect(openaiMod.__mockParse).toHaveBeenCalled();
-  // Verify rollback: profile + measurements rows were removed
+
+  // Profile and measurements survive the failure; the job is requeued
+  // with backoff instead of orphaning the athlete.
   const prof = await pool.query(
     `SELECT 1 FROM athlete_profiles WHERE user_id = $1`, [u],
   );
-  expect(prof.rowCount).toBe(0);
+  expect(prof.rowCount).toBe(1);
   const m = await pool.query(
     `SELECT 1 FROM athlete_measurements WHERE athlete_id = $1`, [u],
   );
-  expect(m.rowCount).toBe(0);
+  expect(m.rowCount).toBe(1);
+  const job = await pool.query<{ status: string; attempts: number; last_error: string }>(
+    `SELECT status, attempts, last_error FROM skeleton_regen_jobs WHERE athlete_id = $1`,
+    [u],
+  );
+  expect(job.rows[0].status).toBe('queued');
+  expect(job.rows[0].attempts).toBe(1);
+  expect(job.rows[0].last_error).toContain('openai down');
+  const sk = await pool.query(
+    `SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1`, [u],
+  );
+  expect(sk.rowCount).toBe(0);
 });
 
 it('persists new fields and measurements', async () => {
@@ -209,7 +249,7 @@ it('persists new fields and measurements', async () => {
     .set('Authorization', `Bearer ${tok}`)
     .send({ ...validPayload, sport_focus: 'futbol',
             measurements: { chest_cm: 100, waist_cm: 80 } });
-  expect(r.status).toBe(201);
+  expect(r.status).toBe(202);
   const prof = await pool.query(
     `SELECT phone, plan_interest, days_specific, sport_focus
        FROM athlete_profiles WHERE user_id=$1`, [u],
@@ -234,7 +274,7 @@ it('skips measurements INSERT when all values null', async () => {
     .post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)
     .send(validPayload);
-  expect(r.status).toBe(201);
+  expect(r.status).toBe(202);
   const m = await pool.query(
     `SELECT 1 FROM athlete_measurements WHERE athlete_id=$1`, [u],
   );

@@ -3,9 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import { onboardingPayload } from '../domain/schemas.js';
 import pool from '../db/connect.js';
-import { listExercisesForAthlete } from '../services/exercise.service.js';
-import { generateRoutine } from '../services/routine-generation.service.js';
-import { createPendingSkeleton } from '../services/skeleton.service.js';
+import { enqueueRegenJob } from '../services/skeleton-regen.service.js';
 import logger from '../utils/logger.js';
 import { env } from '../config/env.js';
 
@@ -74,28 +72,15 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
     }
   }
 
-  const profileR = await pool.query(
-    `SELECT * FROM athlete_profiles WHERE user_id = $1`, [userId],
-  );
-  const profile = profileR.rows[0];
-  const exercises = await listExercisesForAthlete(profile, userId);
-
+  // Generation is asynchronous: enqueue a regen job and let the worker
+  // (with retries + stuck-job reaper) build the skeleton. A synchronous
+  // OpenAI call here left orphaned profiles when the process died
+  // mid-request (deploy/restart) before the skeleton insert.
   try {
-    const gen = await generateRoutine({ profile, exercises });
-    const { skeletonId } = await createPendingSkeleton(
-      {
-        athleteId: userId,
-        generationPrompt: {
-          profile, exercises_count: exercises.length,
-          source: gen.source, template: gen.templateSource, reasons: gen.reasons,
-        },
-        generationRationale: gen.skeleton.rationale,
-      },
-      gen.skeleton,
-    );
-    return res.status(201).json({ skeletonId, status: 'pending_review' });
+    const { jobId } = await enqueueRegenJob(userId);
+    return res.status(202).json({ jobId, status: 'queued' });
   } catch (e) {
-    logger.error({ err: e, athleteId: userId }, 'skeleton generation failed');
+    logger.error({ err: e, athleteId: userId }, 'onboarding enqueue failed');
     // Rollback: delete measurements (FK is on users, not profile) + profile, allow retry
     await pool
       .query(

@@ -51,6 +51,24 @@ export async function enqueueRegenJob(
   }
 }
 
+// Reconciliation: profiles that never got any skeleton (e.g. the process died
+// mid-generation before the async queue existed) and have no active job get
+// one enqueued. Runs once at worker startup.
+export async function sweepOrphanProfiles(): Promise<{ enqueued: number }> {
+  const r = await pool.query(
+    `INSERT INTO skeleton_regen_jobs (athlete_id, status)
+     SELECT p.user_id, 'queued'
+       FROM athlete_profiles p
+      WHERE NOT EXISTS (
+              SELECT 1 FROM athlete_skeletons s WHERE s.athlete_id = p.user_id)
+        AND NOT EXISTS (
+              SELECT 1 FROM skeleton_regen_jobs j
+               WHERE j.athlete_id = p.user_id
+                 AND j.status IN ('queued', 'running'))`,
+  );
+  return { enqueued: r.rowCount ?? 0 };
+}
+
 // Run the actual generation for one athlete. Used by the worker. Idempotent:
 // if a pending_review skeleton already exists, returns { skeletonId: null }.
 export async function runRegenJob(
