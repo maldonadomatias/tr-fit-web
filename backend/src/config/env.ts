@@ -18,7 +18,7 @@ const schema = z.object({
   EMAIL_LOGO_URL: z.string().url().or(z.literal('')).default(''),
   SUPPORT_EMAIL: z.string().email().optional(),
   APP_URL: z.string().url().default('http://localhost:5001'),
-  APP_DEEP_LINK_SCHEME: z.string().default('trfit'),
+  APP_DEEP_LINK_SCHEME: z.string().default('tr-fit'),
   FIREBASE_SERVICE_ACCOUNT_JSON: z
     .string()
     .optional()
