@@ -1,7 +1,7 @@
 # Hombre · 3 días · 1 pierna · 60min
 
 - **Perfil**: hombre, 30 años, nivel medio, objetivo hipertrofia, 3 días/semana, 1 día(s) de pierna, 60 min.
-- **Generado**: 2026-07-02T19:04 · plantilla literal del coach (APP RUTINA 3 DIAS HOMBRE 1 DIA PIERNA (LUN-MAR-MIE Y CUALQUER MEZCLA DE 3 DIAS SEMANALES) 1 HS 30 MIN.xlsx) · sin IA · 0.0s
+- **Generado**: 2026-07-03T12:39 · plantilla literal del coach (APP RUTINA 3 DIAS HOMBRE 1 DIA PIERNA (LUN-MAR-MIE Y CUALQUER MEZCLA DE 3 DIAS SEMANALES) 1 HS 30 MIN.xlsx) · sin IA · 0.0s
 - **Rationale**: Rutina base del entrenador: APP RUTINA 3 DIAS HOMBRE 1 DIA PIERNA (LUN-MAR-MIE Y CUALQUER MEZCLA DE 3 DIAS SEMANALES) 1 HS 30 MIN.xlsx
 
 > En principales (·) las series/reps/descanso las fija la periodización de 30 semanas; acá se muestra sólo la prescripción por accesorio, igual que en la app.

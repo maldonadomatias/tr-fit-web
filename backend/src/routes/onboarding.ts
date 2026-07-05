@@ -40,13 +40,13 @@ router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) =
 
   await pool.query(
     `INSERT INTO athlete_profiles
-       (user_id, name, gender, age, height_cm, weight_kg, level, goal,
+       (user_id, name, gender, age, birth_date, height_cm, weight_kg, level, goal,
         days_per_week, leg_days, equipment, injuries, coach_id,
         phone, plan_interest, training_mode, commitment, exercise_minutes,
         days_specific, referral_source, sport_focus)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
-             $14,$15,$16,$17,$18,$19,$20,$21)`,
-    [userId, p.name, p.gender, p.age, p.height_cm, p.weight_kg,
+             $14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+    [userId, p.name, p.gender, p.age, p.birth_date ?? null, p.height_cm, p.weight_kg,
      p.level, p.goal, p.days_per_week, p.leg_days ?? null, p.equipment,
      p.injuries, coachId,
      p.phone, p.plan_interest, p.training_mode, p.commitment, p.exercise_minutes,

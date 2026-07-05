@@ -66,6 +66,17 @@ router.get('/me', async (req, res) => {
     `SELECT * FROM athlete_program_state WHERE athlete_id = $1`, [userId],
   );
   const profile = profileR.rows[0] ?? null;
+  // node-postgres parses DATE columns into a JS Date at server-local midnight;
+  // res.json would serialize that as a full ISO timestamp (timezone-shifted).
+  // The app expects a plain YYYY-MM-DD, so rebuild it from local date parts.
+  if (profile && profile.birth_date instanceof Date) {
+    const bd: Date = profile.birth_date;
+    profile.birth_date = [
+      bd.getFullYear(),
+      String(bd.getMonth() + 1).padStart(2, '0'),
+      String(bd.getDate()).padStart(2, '0'),
+    ].join('-');
+  }
   const state = stateR.rows[0] ?? null;
   const skeleton = await findActiveByAthlete(userId);
 
