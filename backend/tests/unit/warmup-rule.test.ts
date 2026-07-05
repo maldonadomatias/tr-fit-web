@@ -1,7 +1,7 @@
 import type { Exercise } from '../../src/domain/types.js';
 import type { AiSkeletonOutput } from '../../src/domain/schemas.js';
 
-const { enforceFirstWarmup, classifyDayRegion } =
+const { enforceFirstWarmup, classifyDayRegion, isWarmupName, normalizeWarmupRoles } =
   await import('../../src/services/warmup-rule.js');
 
 const baseEx: Exercise = {
@@ -232,6 +232,13 @@ describe('enforceFirstWarmup', () => {
     expect(res.days[0].slots.map((s) => s.exercise_id)).toEqual([3, 10]);
   });
 
+  it('required warmup already first but mistagged → role fixed in place', () => {
+    const o = out([day([slot(1, 'accesorio', 1), slot(10, 'principal', 2)])]);
+    const res = enforceFirstWarmup(o, catalog);
+    expect(res.days[0].slots.map((s) => s.exercise_id)).toEqual([1, 10]);
+    expect(res.days[0].slots[0].role).toBe('calentamiento');
+  });
+
   it('multi-day: each day gets its own region warmup', () => {
     const o = out([
       {
@@ -248,5 +255,69 @@ describe('enforceFirstWarmup', () => {
     const res = enforceFirstWarmup(o, catalog);
     expect(res.days[0].slots[0].exercise_id).toBe(1);
     expect(res.days[1].slots[0].exercise_id).toBe(2);
+  });
+});
+
+describe('isWarmupName', () => {
+  it.each([
+    'Movimiento Articular con y sin elastico',
+    'Movimientos Articulares completos Piernas',
+    'MOVIMIENTO ARTICULAR CON Y SIN ELÁSTICO',
+    'Movilidad de cadera',
+    'Activación de glúteos',
+    'Entrada en calor general',
+  ])('matches "%s"', (name) => {
+    expect(isWarmupName(name)).toBe(true);
+  });
+
+  it.each(['Press Plano', 'Sentadilla', 'Curl Femoral', 'Plancha'])(
+    'does not match "%s"',
+    (name) => {
+      expect(isWarmupName(name)).toBe(false);
+    }
+  );
+});
+
+describe('normalizeWarmupRoles', () => {
+  it('re-tags a warmup mislabeled as accesorio and clears its set-scheme', () => {
+    const o = out([
+      day([
+        {
+          ...slot(1, 'accesorio', 1),
+          series: 2,
+          reps: '8',
+          descanso: '2 min',
+        },
+        slot(10, 'principal', 2),
+      ]),
+    ]);
+    const res = normalizeWarmupRoles(o, catalog);
+    const fixed = res.days[0].slots[0];
+    expect(fixed.role).toBe('calentamiento');
+    expect(fixed.series).toBeNull();
+    expect(fixed.reps).toBeNull();
+    expect(fixed.descanso).toBeNull();
+    // the working slot is untouched
+    expect(res.days[0].slots[1].role).toBe('principal');
+  });
+
+  it('re-tags a warmup mislabeled as principal', () => {
+    const o = out([day([slot(2, 'principal', 1), slot(20, 'principal', 2)])]);
+    const res = normalizeWarmupRoles(o, catalog);
+    expect(res.days[0].slots[0].role).toBe('calentamiento');
+    expect(res.days[0].slots[1].role).toBe('principal');
+  });
+
+  it('returns the same object when nothing needs fixing', () => {
+    const o = out([
+      day([slot(1, 'calentamiento', 1), slot(10, 'principal', 2)]),
+    ]);
+    expect(normalizeWarmupRoles(o, catalog)).toBe(o);
+  });
+
+  it('ignores exercise ids missing from the catalog', () => {
+    const o = out([day([slot(999, 'accesorio', 1)])]);
+    const res = normalizeWarmupRoles(o, catalog);
+    expect(res.days[0].slots[0].role).toBe('accesorio');
   });
 });

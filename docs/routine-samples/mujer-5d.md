@@ -1,7 +1,7 @@
 # Mujer · 5 días · 60min
 
 - **Perfil**: mujer, 30 años, nivel medio, objetivo hipertrofia, 5 días/semana, 60 min.
-- **Generado**: 2026-07-02T19:04 · plantilla literal del coach (APP RUTINA 5 DIAS MUJER 1 HS 15-30 MIN.xlsx) · sin IA · 0.0s
+- **Generado**: 2026-07-03T12:39 · plantilla literal del coach (APP RUTINA 5 DIAS MUJER 1 HS 15-30 MIN.xlsx) · sin IA · 0.0s
 - **Rationale**: Rutina base del entrenador: APP RUTINA 5 DIAS MUJER 1 HS 15-30 MIN.xlsx
 
 > En principales (·) las series/reps/descanso las fija la periodización de 30 semanas; acá se muestra sólo la prescripción por accesorio, igual que en la app.

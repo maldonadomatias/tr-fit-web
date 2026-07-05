@@ -27,6 +27,48 @@ function normalizeName(name: string): string {
   return name.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
 
+// Name-based warmup detection (safety net for bug 2026-07-04): the AI
+// adjuster occasionally re-tags a warm-up exercise as accesorio/principal,
+// which makes the app ask RPE/reps after a mobility drill. Any exercise whose
+// name reads as mobility/activation work is a warm-up no matter what role it
+// carries. Matched against the accent-stripped lowercase name.
+const WARMUP_NAME_RE =
+  /movilidad|movimientos? articular(es)?|activacion|entrada en calor|calentamiento/;
+
+export function isWarmupName(name: string): boolean {
+  return WARMUP_NAME_RE.test(normalizeName(name));
+}
+
+/**
+ * Forces role 'calentamiento' (and nulls the accessory set-scheme) on every
+ * slot whose exercise name identifies it as a warm-up. Returns the input
+ * object untouched when nothing needs fixing.
+ */
+export function normalizeWarmupRoles(
+  out: AiSkeletonOutput,
+  exercises: Pick<Exercise, 'id' | 'name'>[]
+): AiSkeletonOutput {
+  const byId = new Map(exercises.map((e) => [e.id, e]));
+  let changed = false;
+  const days = out.days.map((day) => ({
+    ...day,
+    slots: day.slots.map((s) => {
+      if (s.role === 'calentamiento') return s;
+      const ex = byId.get(s.exercise_id);
+      if (!ex || !isWarmupName(ex.name)) return s;
+      changed = true;
+      return {
+        ...s,
+        role: 'calentamiento' as const,
+        series: null,
+        reps: null,
+        descanso: null,
+      };
+    }),
+  }));
+  return changed ? { ...out, days } : out;
+}
+
 function broadGroup(muscleGroup: string): string {
   return muscleGroup.split('-')[0].trim().toLowerCase();
 }
@@ -95,7 +137,14 @@ export function enforceFirstWarmup(
     if (!region) return day;
     const required = region === 'upper' ? upperEx : lowerEx;
     if (!required) return day;
-    if (day.slots[0]?.exercise_id === required.id) return day;
+    // Untouched only when the required warm-up already opens the day WITH the
+    // right role; a mistagged opener falls through and gets rebuilt.
+    if (
+      day.slots[0]?.exercise_id === required.id &&
+      day.slots[0].role === 'calentamiento'
+    ) {
+      return day;
+    }
 
     const requiredSlot: AiSlot = {
       slot_index: 1,

@@ -266,6 +266,120 @@ it('persists new fields and measurements', async () => {
   expect(m.rows[0].source).toBe('onboarding');
 });
 
+// --- birth_date (migration 054) -------------------------------------------
+
+/**
+ * ISO YYYY-MM-DD of someone whose derived age is exactly `years` today.
+ * The extra 40-day shift puts the birthday unambiguously in the past this
+ * year (even across a New Year boundary), so the derived age never wobbles
+ * with the date the suite happens to run on.
+ */
+function birthDateYearsAgo(years: number): string {
+  const t = new Date();
+  const d = new Date(t.getFullYear() - years, t.getMonth(), t.getDate() - 40);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+it('accepts birth_date, persists it, and GET /athlete/me returns plain YYYY-MM-DD', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const birthDate = birthDateYearsAgo(30);
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, age: 30, birth_date: birthDate });
+  expect(r.status).toBe(202);
+
+  const prof = await pool.query<{ birth_date: string }>(
+    `SELECT birth_date::text FROM athlete_profiles WHERE user_id = $1`, [u],
+  );
+  expect(prof.rows[0].birth_date).toBe(birthDate);
+
+  // The app reads it back from /athlete/me — must be a date-only string,
+  // not a timezone-shifted ISO timestamp.
+  const me = await request(app)
+    .get('/api/athlete/me')
+    .set('Authorization', `Bearer ${tok}`);
+  expect(me.status).toBe(200);
+  expect(me.body.profile.birth_date).toBe(birthDate);
+});
+
+it('onboarding without birth_date keeps working and leaves the column null', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send(validPayload);
+  expect(r.status).toBe(202);
+  const prof = await pool.query<{ birth_date: string | null }>(
+    `SELECT birth_date FROM athlete_profiles WHERE user_id = $1`, [u],
+  );
+  expect(prof.rows[0].birth_date).toBeNull();
+
+  const me = await request(app)
+    .get('/api/athlete/me')
+    .set('Authorization', `Bearer ${tok}`);
+  expect(me.body.profile.birth_date).toBeNull();
+});
+
+it('rejects malformed birth_date with 400', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, birth_date: '14/05/1990' });
+  expect(r.status).toBe(400);
+});
+
+it('rejects impossible calendar birth_date with 400', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, birth_date: '1990-02-31' });
+  expect(r.status).toBe(400);
+});
+
+it('rejects birth_date whose derived age is outside 12-100', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const tooYoung = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, age: 12, birth_date: birthDateYearsAgo(10) });
+  expect(tooYoung.status).toBe(400);
+
+  const tooOld = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, age: 100, birth_date: birthDateYearsAgo(105) });
+  expect(tooOld.status).toBe(400);
+});
+
+it('rejects age inconsistent with birth_date, but tolerates ±1 year', async () => {
+  const u = await makeAthleteUser();
+  const tok = signToken({ id: u, role: 'athlete' });
+  const birthDate = birthDateYearsAgo(30);
+
+  const inconsistent = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, age: 33, birth_date: birthDate });
+  expect(inconsistent.status).toBe(400);
+
+  // Off-by-one is fine: a birthday can pass between draft and submit.
+  const offByOne = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ ...validPayload, age: 31, birth_date: birthDate });
+  expect(offByOne.status).toBe(202);
+});
+
 it('skips measurements INSERT when all values null', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });

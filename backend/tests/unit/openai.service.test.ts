@@ -71,6 +71,14 @@ const profile = {
 const REASONS = ['motivo de prueba'];
 const baseOutput = buildSkeletonFromTemplate(TEMPLATE);
 
+// Warm-up-named exercises are re-tagged by the normalize backstop, so tests
+// that need a "plain" accessory must not pick one of them.
+const WARMUPISH =
+  /movilidad|movimientos? articular|activaci|entrada en calor|calentamiento/i;
+const plainAccessories = exercises.filter(
+  (e) => !e.is_principal && !WARMUPISH.test(e.name),
+);
+
 const ok = (parsed: ParsedShape | null) => ({
   choices: [{ message: { parsed, refusal: null as string | null } }],
 });
@@ -108,7 +116,7 @@ it('includes the series budget only when the session is shorter than 60', async 
   const warmupSlot = baseOutput.days[0]!.slots.find(
     (s) => s.role === 'calentamiento',
   )!;
-  const accs = exercises.filter((e) => !e.is_principal).slice(0, 3);
+  const accs = plainAccessories.slice(0, 3);
   const trimmedDays = baseOutput.days.map((d, i) => ({
     day_index: i + 1,
     focus: 'f',
@@ -169,7 +177,7 @@ it('rejects exercises outside the athlete-allowed catalog', async () => {
 });
 
 it('rejects a principal on a non-principal exercise', async () => {
-  const accessory = exercises.find((e) => !e.is_principal)!;
+  const accessory = plainAccessories[0]!;
   const tampered = {
     ...baseOutput,
     days: baseOutput.days.map((d, i) =>
@@ -189,6 +197,63 @@ it('rejects a principal on a non-principal exercise', async () => {
   await expect(
     adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }),
   ).rejects.toThrow(/principal/);
+});
+
+it('re-tags a warm-up the model mislabeled as accesorio (bug 2026-07-04)', async () => {
+  // The model copies the template but flips the day-1 warm-up to accesorio
+  // with a set-scheme — exactly what shipped the "¿Cómo salió?" bug.
+  const tampered = {
+    ...baseOutput,
+    days: baseOutput.days.map((d, i) =>
+      i === 0
+        ? {
+            ...d,
+            slots: d.slots.map((s) =>
+              s.role === 'calentamiento'
+                ? { ...s, role: 'accesorio' as const, series: 2, reps: '10', descanso: '1 min' }
+                : s,
+            ),
+          }
+        : d,
+    ),
+  };
+  openaiMod.__mockParse.mockResolvedValue(ok(tampered));
+  const out = await adjustSkeleton({
+    template: TEMPLATE, profile, exercises, reasons: REASONS,
+  });
+  const warmups = out.days[0]!.slots.filter((s) =>
+    /movilidad|movimientos? articular|activaci|entrada en calor/i.test(
+      exercises.find((e) => e.id === s.exercise_id)?.name ?? '',
+    ),
+  );
+  expect(warmups.length).toBeGreaterThan(0);
+  for (const w of warmups) {
+    expect(w.role).toBe('calentamiento');
+    expect(w.series).toBeNull();
+    expect(w.reps).toBeNull();
+    expect(w.descanso).toBeNull();
+  }
+});
+
+it('re-adds the mandatory joint-mobility warm-up when the model drops it', async () => {
+  const tampered = {
+    ...baseOutput,
+    days: baseOutput.days.map((d, i) =>
+      i === 0
+        ? {
+            ...d,
+            slots: d.slots
+              .filter((s) => s.role !== 'calentamiento')
+              .map((s, si) => ({ ...s, slot_index: si + 1 })),
+          }
+        : d,
+    ),
+  };
+  openaiMod.__mockParse.mockResolvedValue(ok(tampered));
+  const out = await adjustSkeleton({
+    template: TEMPLATE, profile, exercises, reasons: REASONS,
+  });
+  expect(out.days[0]!.slots[0]!.role).toBe('calentamiento');
 });
 
 it('throws after MAX_ATTEMPTS invalid responses', async () => {

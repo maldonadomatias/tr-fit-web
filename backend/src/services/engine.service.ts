@@ -4,6 +4,7 @@ import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
 import type { WeeklyOverride } from './weekly-overrides.service.js';
 import { getExclusionMap } from './exclusions.service.js';
+import { isWarmupName } from './warmup-rule.js';
 import type {
   Exercise, PeriodizationConfig, SessionItem, SkeletonSlot, SlotRole,
 } from '../domain/types.js';
@@ -126,13 +127,22 @@ async function buildItem(
     !w?.unit || w.unit === unit ? w?.current_value ?? null : null;
   const notes = slot.notes ?? null;
 
+  // Serve-time safety net (bug 2026-07-04): warm-up exercises occasionally
+  // reached the DB mistagged (AI adjuster output pre-backstop, or manual
+  // admin edits). Name-based detection wins over the stored role so the app
+  // never asks RPE/reps after a mobility drill.
+  const role: SlotRole =
+    slot.role !== 'calentamiento' && isWarmupName(exercise.name)
+      ? 'calentamiento'
+      : slot.role;
+
   let item: SessionItem;
 
-  if (slot.role === 'calentamiento') {
+  if (role === 'calentamiento') {
     item = buildWarmupItem(exercise, unit, slot.slot_index, notes);
-  } else if (slot.role === 'principal') {
+  } else if (role === 'principal') {
     if (cfg.is_rm_test) {
-      item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
+      item = baseItem(exercise, role, slot.slot_index, null, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'rm_test');
     } else if (cfg.is_amrap) {
       const rm = rmByEx.get(slot.exercise_id);
@@ -140,11 +150,11 @@ async function buildItem(
         // AMRAP weeks intentionally stay null (not aewValue): the athlete is
         // meant to find their working weight in-session, not anchor to a stale
         // logged weight. (The pct_rm branch below DOES fall back to aewValue.)
-        item = baseItem(exercise, slot.role, slot.slot_index, null, unit,
+        item = baseItem(exercise, role, slot.slot_index, null, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
       } else {
         const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
-        item = baseItem(exercise, slot.role, slot.slot_index, weight, unit,
+        item = baseItem(exercise, role, slot.slot_index, weight, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'amrap');
       }
     } else if (cfg.principal_pct_rm && cfg.principal_rm_source) {
@@ -153,16 +163,16 @@ async function buildItem(
         // No RM test yet: fall back to the athlete's last logged/corrected
         // weight so the next session isn't blank. Keep the missing_rm flag
         // so the "Anotá tu RM" nudge still shows.
-        item = baseItem(exercise, slot.role, slot.slot_index, aewValue, unit,
+        item = baseItem(exercise, role, slot.slot_index, aewValue, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
       } else {
         const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
-        item = baseItem(exercise, slot.role, slot.slot_index, weight, unit,
+        item = baseItem(exercise, role, slot.slot_index, weight, unit,
           cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
       }
     } else {
       // use_casilleros for principal
-      item = baseItem(exercise, slot.role, slot.slot_index,
+      item = baseItem(exercise, role, slot.slot_index,
         aewValue, unit,
         cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
     }
@@ -173,7 +183,7 @@ async function buildItem(
     // still win once progression has run — slot.reps is only the seed/week-1
     // value. Principals are unaffected: they keep periodization above.
     item = baseItem(
-      exercise, slot.role, slot.slot_index, aewValue, unit,
+      exercise, role, slot.slot_index, aewValue, unit,
       slot.series ?? cfg.accesorio_series,
       w?.current_reps_text ?? slot.reps ?? cfg.accesorio_reps,
       slot.descanso ?? cfg.accesorio_descanso,

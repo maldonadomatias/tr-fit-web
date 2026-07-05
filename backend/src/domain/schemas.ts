@@ -11,10 +11,39 @@ export const measurementPayload = z.object({
   body_weight_kg: z.number().min(30).max(300).optional(),
 });
 
+const BIRTH_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Derives the current age from an ISO YYYY-MM-DD birth date. Returns null for
+ * malformed strings or impossible calendar dates (e.g. 2000-02-31). "today" is
+ * injectable for tests; comparison uses server-local date parts.
+ */
+export function ageFromBirthDate(iso: string, today = new Date()): number | null {
+  if (!BIRTH_DATE_RE.test(iso)) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  const check = new Date(Date.UTC(y, m - 1, d));
+  if (
+    check.getUTCFullYear() !== y ||
+    check.getUTCMonth() !== m - 1 ||
+    check.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  let age = today.getFullYear() - y;
+  const beforeBirthdayThisYear =
+    today.getMonth() + 1 < m ||
+    (today.getMonth() + 1 === m && today.getDate() < d);
+  if (beforeBirthdayThisYear) age -= 1;
+  return age;
+}
+
 export const onboardingPayload = z.object({
   name: z.string().min(1).max(100),
   gender: z.enum(['male', 'female', 'other']),
   age: z.number().int().min(12).max(100),
+  // New apps send the birth date and derive `age` from it (age alone goes
+  // stale). Optional for backward compatibility with older app builds.
+  birth_date: z.string().regex(BIRTH_DATE_RE).optional(),
   height_cm: z.number().int().min(100).max(250),
   weight_kg: z.number().min(30).max(250),
   level: z.enum(['nunca', 'bajo', 'medio', 'avanzado', 'muy_avanzado']),
@@ -51,6 +80,23 @@ export const onboardingPayload = z.object({
 }).refine((d) => d.leg_days == null || d.leg_days <= d.days_per_week, {
   message: 'leg_days must not exceed days_per_week',
   path: ['leg_days'],
+}).refine((d) => {
+  if (d.birth_date == null) return true;
+  const derived = ageFromBirthDate(d.birth_date);
+  return derived != null && derived >= 12 && derived <= 100;
+}, {
+  message: 'birth_date must be a valid date with derived age between 12 and 100',
+  path: ['birth_date'],
+}).refine((d) => {
+  if (d.birth_date == null) return true;
+  const derived = ageFromBirthDate(d.birth_date);
+  // Invalid dates already fail the previous refine; only check consistency.
+  // ±1 year tolerance: the app derives age when the draft is filled, so a
+  // birthday (or a timezone edge) between draft and submit must not reject.
+  return derived == null || Math.abs(derived - d.age) <= 1;
+}, {
+  message: 'age is inconsistent with birth_date',
+  path: ['age'],
 });
 
 export type MeasurementPayload = z.infer<typeof measurementPayload>;

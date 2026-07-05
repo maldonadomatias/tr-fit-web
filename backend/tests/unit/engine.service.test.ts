@@ -423,3 +423,57 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
     expect(item!.series).toBe(2); // series still from the slot
   });
 });
+
+describe('buildTodaySession — warm-up role safety net (bug 2026-07-04)', () => {
+  const warmupEx = {
+    ...exA,
+    id: 201,
+    name: 'Movimiento Articular con y sin elastico',
+    muscle_group: 'Calentamiento',
+    equipment: 'bw',
+    is_principal: false,
+    default_target: '10 c/u',
+  };
+
+  function seedMistagged(
+    role: string,
+    prescription: Record<string, unknown> = {},
+    exerciseRows: unknown[] = [warmupEx],
+  ) {
+    pushHandler(
+      (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
+      [{ current_week: 1, rm_test_blocking: false, active_skeleton_id: 'sk-warm' }],
+    );
+    pushHandler((s) => s.startsWith('SELECT * FROM periodization_config'), [basePeriodizationConfig]);
+    pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [
+      { ...baseSlot, id: 'slot-warm', role, exercise_id: warmupEx.id, ...prescription },
+    ]);
+    pushHandler((s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'), []);
+    pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
+    pushHandler((s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'), exerciseRows);
+    pushHandler((s) => s.startsWith('SELECT exercise_id,'), []);
+    pushHandler((s) => s.startsWith('SELECT unit FROM athlete_equipment_units'), []);
+  }
+
+  it('warm-up stored as accesorio is served as calentamiento', async () => {
+    seedMistagged('accesorio', { series: 2, reps: '8', descanso: '2 min' });
+    const [item] = await buildTodaySession('athlete-warm', 1);
+    expect(item!.role).toBe('calentamiento');
+    expect(item!.series).toBe(1); // warm-up defaults, not the accessory scheme
+    expect(item!.reps).toBe('10 c/u');
+    expect(item!.suggested_value).toBeNull();
+  });
+
+  it('warm-up stored as principal is served as calentamiento', async () => {
+    seedMistagged('principal');
+    const [item] = await buildTodaySession('athlete-warm', 1);
+    expect(item!.role).toBe('calentamiento');
+    expect(item!.series).toBe(1);
+  });
+
+  it('non-warm-up names keep their stored role', async () => {
+    seedMistagged('accesorio', { exercise_id: exA.id }, [exA]);
+    const [item] = await buildTodaySession('athlete-warm', 1);
+    expect(item!.role).toBe('accesorio');
+  });
+});

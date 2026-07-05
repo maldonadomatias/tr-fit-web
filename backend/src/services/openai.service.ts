@@ -15,6 +15,7 @@ import { aiSkeletonOutput, type AiSkeletonOutput } from '../domain/schemas.js';
 import type { AthleteProfile, Exercise } from '../domain/types.js';
 import type { RoutineTemplate } from './template.service.js';
 import { seriesRangeFor } from './series-budget.js';
+import { enforceFirstWarmup, normalizeWarmupRoles } from './warmup-rule.js';
 import logger from '../utils/logger.js';
 
 // Explicit timeout: the default (10 min per attempt) let a single onboarding
@@ -149,14 +150,20 @@ export async function adjustSkeleton(
       continue;
     }
 
-    lastError = validateAdjusted(out, {
+    // Deterministic backstop (was dropped in the template-first rewrite and
+    // let mistagged warm-ups through): re-tag warm-ups the model mislabeled
+    // BEFORE validating (so the series budget counts them as 1), then force
+    // the mandatory joint-mobility warm-up into slot 1 of every day.
+    const normalized = normalizeWarmupRoles(out, exercises);
+
+    lastError = validateAdjusted(normalized, {
       N, minutes, exerciseById, expectedSeries,
     });
     if (lastError) {
       logger.warn({ attempt, error: lastError }, 'openai: adjust constraint');
       continue;
     }
-    return out;
+    return enforceFirstWarmup(normalized, exercises);
   }
 
   throw new Error(

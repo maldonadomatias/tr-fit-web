@@ -187,3 +187,35 @@ it('blocks with rm_test_required when state.rm_test_blocking=true', async () => 
     reason: 'rm_test_required',
   });
 });
+
+it('serves a mistagged warm-up slot as calentamiento (bug 2026-07-04 safety net)', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await pickPrincipalAndAccesorio();
+  const warmupR = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE name ~* 'movimiento articular con y sin' LIMIT 1`,
+  );
+  const warmupId = warmupR.rows[0].id;
+  // Skeleton persisted with the warm-up WRONGLY tagged as accesorio — the
+  // exact shape the AI adjuster produced before the normalize backstop.
+  const ai = {
+    rationale: 'r',
+    days: [1, 2, 3, 4].map((d) => ({
+      day_index: d, focus: `Day${d}`,
+      slots: [
+        { slot_index: 1, exercise_id: warmupId, role: 'accesorio' as const, notes: null, series: 2, reps: '8', descanso: '2 min' },
+        { slot_index: 2, exercise_id: principalId, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
+      ],
+    })),
+  };
+  const { skeletonId } = await createPendingSkeleton(
+    { athleteId: ath, generationPrompt: {}, generationRationale: 'r' }, ai,
+  );
+  await approveSkeleton(skeletonId, coach);
+
+  const session = await buildTodaySession(ath, 1);
+  const warmup = session.find((s) => s.exercise.id === warmupId)!;
+  expect(warmup.role).toBe('calentamiento'); // name-based normalization wins
+  expect(warmup.series).toBe(1); // warm-up defaults, not the stored accessory scheme
+  expect(warmup.suggested_value).toBeNull();
+});
