@@ -3,7 +3,7 @@ import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
 import { uploadAthleteAvatar, ALLOWED_AVATAR_MIME } from '../services/avatar.service.js';
-import { rmPayload, amrapPayload, profileUpdatePayload } from '../domain/schemas.js';
+import { rmPayload, amrapPayload, profileUpdatePayload, ageFromBirthDate } from '../domain/schemas.js';
 import pool from '../db/connect.js';
 import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from '../services/engine.service.js';
 import { findActiveByAthlete, listSlots } from '../services/skeleton.service.js';
@@ -118,6 +118,13 @@ router.patch('/me', async (req, res) => {
   const parsed = profileUpdatePayload.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
   const userId = req.user!.id;
+
+  // birth_date is the source of truth for age: whenever it's set, derive and
+  // write `age` too so legacy consumers of the column stay coherent (the
+  // schema already guarantees the derived age is in range).
+  if (parsed.data.birth_date != null) {
+    parsed.data.age = ageFromBirthDate(parsed.data.birth_date)!;
+  }
 
   // Column names come from the schema's whitelist, never from raw input.
   const cols = Object.keys(parsed.data) as Array<keyof typeof parsed.data>;

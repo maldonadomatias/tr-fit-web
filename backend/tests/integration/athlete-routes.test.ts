@@ -154,6 +154,47 @@ describe('PATCH /api/athlete/me', () => {
     expect(r.status).toBe(400);
   });
 
+  it('sets birth_date and derives age from it', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const birthYear = new Date().getFullYear() - 30;
+    const iso = `${birthYear}-01-15`;
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ birth_date: iso });
+    expect(r.status).toBe(200);
+    const row = await pool.query(
+      `SELECT to_char(birth_date, 'YYYY-MM-DD') AS birth_date, age
+         FROM athlete_profiles WHERE user_id = $1`,
+      [a],
+    );
+    expect(row.rows[0].birth_date).toBe(iso);
+    // Jan 15 already passed this year (or is today) → exactly 30, except the
+    // first two weeks of January where the birthday hasn't happened yet.
+    expect([29, 30]).toContain(row.rows[0].age);
+  });
+
+  it('rejects a malformed birth_date', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ birth_date: '15/01/1990' });
+    expect(r.status).toBe(400);
+  });
+
+  it('rejects a birth_date whose derived age is out of range', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const tok = signToken({ id: a, role: 'athlete' });
+    const r = await request(app).patch('/api/athlete/me')
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ birth_date: `${new Date().getFullYear() - 5}-01-01` });
+    expect(r.status).toBe(400);
+  });
+
   it('rejects unauth', async () => {
     const r = await request(app).patch('/api/athlete/me').send({ weight_kg: 80 });
     expect(r.status).toBe(401);
