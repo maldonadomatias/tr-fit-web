@@ -117,6 +117,10 @@ export const profileUpdatePayload = z
     goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
     days_per_week: z.number().int().min(2).max(6),
     leg_days: z.union([z.literal(1), z.literal(2)]).nullable(),
+    // Editable post-onboarding so athletes who signed up before the field
+    // existed can set it (enables the birthday celebration in the app). The
+    // route derives and writes `age` from it — birth_date is the source of truth.
+    birth_date: z.string().regex(BIRTH_DATE_RE),
   })
   .partial()
   .strict()
@@ -129,6 +133,17 @@ export const profileUpdatePayload = z
       d.days_per_week == null ||
       d.leg_days <= d.days_per_week,
     { message: 'leg_days must not exceed days_per_week', path: ['leg_days'] },
+  )
+  .refine(
+    (d) => {
+      if (d.birth_date == null) return true;
+      const derived = ageFromBirthDate(d.birth_date);
+      return derived != null && derived >= 12 && derived <= 100;
+    },
+    {
+      message: 'birth_date must be a valid date with derived age between 12 and 100',
+      path: ['birth_date'],
+    },
   );
 
 export type ProfileUpdatePayload = z.infer<typeof profileUpdatePayload>;
