@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import pool from '../db/connect.js';
-import { DEFAULT_PERIOD_DAYS } from './membership.service.js';
+import { addCalendarMonth } from './membership.service.js';
+import { resolveUnit } from './equipment-units.service.js';
 
 const BCRYPT_COST = 10;
 
@@ -67,6 +68,7 @@ export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
       u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
       u.created_at,
       COALESCE(ap.name, cp.name) AS name,
+      ap.monthly_fee_ars AS monthly_fee_ars,
       s.tier AS subscription_tier,
       s.status AS subscription_status,
       s.current_period_end,
@@ -88,7 +90,12 @@ export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
     LIMIT 500
   `;
   const r = await pool.query<AdminUserRow>(sql, params);
-  return r.rows;
+  // pg returns NUMERIC as string; normalize so the frontend feeOf math works.
+  return r.rows.map((row) => ({
+    ...row,
+    monthly_fee_ars:
+      row.monthly_fee_ars == null ? null : Number(row.monthly_fee_ars),
+  }));
 }
 
 export async function getUser(id: string): Promise<AdminUserRow | null> {
@@ -271,7 +278,9 @@ export async function upsertManualSubscription(
           new Date(cur).getTime() > Date.now()
             ? new Date(cur)
             : new Date();
-        return new Date(base.getTime() + DEFAULT_PERIOD_DAYS * 86_400_000);
+        // Renewals are calendar-month based (same day next month, clamped),
+        // matching registerPayment — not +30 days, which drifts each cycle.
+        return addCalendarMonth(base);
       })();
       await client.query(
         `INSERT INTO memberships (user_id, status, started_at, paid_until, updated_at)
@@ -322,6 +331,7 @@ export type AuditType =
   | 'membership_paused'
   | 'membership_resumed'
   | 'athlete_fee_changed'
+  | 'athlete_rm_changed'
   | 'force_logout';
 
 export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
@@ -390,6 +400,133 @@ export async function setAthleteMonthlyFee(
     meta: { from, to: feeArs },
   });
   return feeArs;
+}
+
+// ─── Athlete RM (rep-max) editing ────────────────────────────────
+// The weight engine (engine.service) reads rm_tests.value_kg for the config's
+// principal_rm_source week and multiplies by pct_rm. Lowering an RM here (e.g.
+// injury/illness) directly lowers the prescribed weights for that athlete.
+export interface AthleteRmRow {
+  exercise_id: number;
+  exercise_name: string;
+  program_week: 10 | 20 | 30;
+  value_kg: number;
+  unit: string | null;
+  coach_note: string | null;
+  tested_at: string;
+}
+
+export async function listAthleteRms(athleteId: string): Promise<AthleteRmRow[]> {
+  const r = await pool.query<{
+    exercise_id: number;
+    exercise_name: string;
+    program_week: 10 | 20 | 30;
+    value_kg: string;
+    unit: string | null;
+    coach_note: string | null;
+    tested_at: string;
+  }>(
+    `SELECT rt.exercise_id,
+            e.name AS exercise_name,
+            rt.program_week,
+            rt.value_kg::text AS value_kg,
+            rt.unit,
+            rt.coach_note,
+            rt.tested_at
+       FROM rm_tests rt
+       JOIN exercises e ON e.id = rt.exercise_id
+      WHERE rt.athlete_id = $1
+      ORDER BY e.name, rt.program_week`,
+    [athleteId],
+  );
+  return r.rows.map((row) => ({ ...row, value_kg: Number(row.value_kg) }));
+}
+
+export interface SetAthleteRmInput {
+  exerciseId: number;
+  programWeek: 10 | 20 | 30;
+  valueKg: number;
+  coachNote?: string | null;
+}
+
+/**
+ * Manually set (upsert) an athlete's RM for one exercise/week — the coach's
+ * "bajar RM temporal" control. Audit-logged with before/after so the change is
+ * traceable and the coach can restore the prior value by hand. `unit` is
+ * resolved from the exercise's equipment, mirroring rm.service.recordRm.
+ */
+export async function setAthleteRm(
+  athleteId: string,
+  input: SetAthleteRmInput,
+  actor: string,
+): Promise<AthleteRmRow> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const exR = await client.query<{ id: number; name: string; equipment: string }>(
+      `SELECT id, name, equipment FROM exercises WHERE id = $1`,
+      [input.exerciseId],
+    );
+    if (!exR.rows[0]) throw new Error('exercise_not_found');
+    const equipment = exR.rows[0].equipment ?? 'barra';
+    const unit = await resolveUnit(athleteId, equipment);
+
+    const prev = await client.query<{ value_kg: string }>(
+      `SELECT value_kg::text AS value_kg FROM rm_tests
+        WHERE athlete_id = $1 AND exercise_id = $2 AND program_week = $3`,
+      [athleteId, input.exerciseId, input.programWeek],
+    );
+    const from = prev.rows[0] ? Number(prev.rows[0].value_kg) : null;
+
+    const r = await client.query<{ tested_at: string }>(
+      `INSERT INTO rm_tests
+         (athlete_id, exercise_id, program_week, value_kg, value, unit, coach_note)
+       VALUES ($1, $2, $3, $4, $4, $5, $6)
+       ON CONFLICT (athlete_id, exercise_id, program_week)
+         DO UPDATE SET value_kg = EXCLUDED.value_kg,
+                       value = EXCLUDED.value,
+                       unit = EXCLUDED.unit,
+                       coach_note = EXCLUDED.coach_note,
+                       tested_at = NOW()
+       RETURNING tested_at`,
+      [athleteId, input.exerciseId, input.programWeek, input.valueKg, unit,
+       input.coachNote ?? null],
+    );
+
+    await client.query('COMMIT');
+
+    await logAudit({
+      type: 'athlete_rm_changed',
+      actor,
+      target: 'athlete',
+      target_id: athleteId,
+      severity: 'warning',
+      meta: {
+        exercise_id: input.exerciseId,
+        exercise_name: exR.rows[0].name,
+        program_week: input.programWeek,
+        from,
+        to: input.valueKg,
+        note: input.coachNote ?? null,
+      },
+    });
+
+    return {
+      exercise_id: input.exerciseId,
+      exercise_name: exR.rows[0].name,
+      program_week: input.programWeek,
+      value_kg: input.valueKg,
+      unit,
+      coach_note: input.coachNote ?? null,
+      tested_at: r.rows[0].tested_at,
+    };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 export type ActivityCategory = 'user' | 'sub' | 'auth';
@@ -464,13 +601,18 @@ export interface AdminStats {
   verified_pct: number;
 }
 
-function priceCase(alias = 's'): string {
-  return `CASE
+// Per-student MRR contribution. Uses the student's real custom fee
+// (athlete_profiles.monthly_fee_ars) when set, falling back to the hardcoded
+// tier price only when there is no profile / no custom fee. Mirrors the
+// frontend `feeOf = monthly_fee_ars ?? TIER_PRICE[tier]` logic.
+function priceCase(alias = 's', feeAlias = 'ap'): string {
+  return `COALESCE(${feeAlias}.monthly_fee_ars,
+          CASE
             WHEN ${alias}.tier = 'basico'  THEN ${TIER_PRICE_ARS.basico}
             WHEN ${alias}.tier = 'full'    THEN ${TIER_PRICE_ARS.full}
             WHEN ${alias}.tier = 'premium' THEN ${TIER_PRICE_ARS.premium}
             ELSE 0
-          END`;
+          END)`;
 }
 
 export async function getStats(): Promise<AdminStats> {
@@ -557,10 +699,14 @@ export async function getStats(): Promise<AdminStats> {
         ORDER BY athlete_id, created_at DESC
      )
      SELECT
-       COALESCE((SELECT SUM(${priceCase('s')})
-                   FROM latest s WHERE s.status = 'authorized'), 0) AS mrr,
-       COALESCE((SELECT SUM(${priceCase('s')})
-                   FROM latest_prev s WHERE s.status = 'authorized'), 0) AS mrr_prev`,
+       COALESCE((SELECT SUM(${priceCase('s', 'ap')})
+                   FROM latest s
+                   LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
+                  WHERE s.status = 'authorized'), 0) AS mrr,
+       COALESCE((SELECT SUM(${priceCase('s', 'ap')})
+                   FROM latest_prev s
+                   LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
+                  WHERE s.status = 'authorized'), 0) AS mrr_prev`,
   );
   const mrr = Number(mrrRes.rows[0]?.mrr ?? 0);
   const mrrPrev = Number(mrrRes.rows[0]?.mrr_prev ?? 0);
@@ -577,13 +723,14 @@ export async function getStats(): Promise<AdminStats> {
        ) AS m
      )
      SELECT COALESCE((
-       SELECT SUM(${priceCase('s')})
+       SELECT SUM(${priceCase('s', 'ap')})
          FROM (
            SELECT DISTINCT ON (athlete_id) athlete_id, tier, status
              FROM subscriptions
             WHERE created_at < (months.m + INTERVAL '1 month')
             ORDER BY athlete_id, created_at DESC
          ) s
+         LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
         WHERE s.status = 'authorized'
      ), 0)::text AS mrr
      FROM months

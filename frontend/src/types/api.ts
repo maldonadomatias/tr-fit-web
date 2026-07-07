@@ -171,7 +171,18 @@ export type AuditType =
   | 'subscription_paused'
   | 'membership_paused'
   | 'membership_resumed'
+  | 'athlete_rm_changed'
   | 'force_logout';
+
+export interface AthleteRm {
+  exercise_id: number;
+  exercise_name: string;
+  program_week: 10 | 20 | 30;
+  value_kg: number;
+  unit: string | null;
+  coach_note: string | null;
+  tested_at: string;
+}
 
 export type ActivitySeverity = 'brand' | 'warning' | 'destructive' | null;
 

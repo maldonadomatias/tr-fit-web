@@ -123,6 +123,35 @@ it('finishSession computes summary + detects PRs', async () => {
   expect(summary.newPRs.length).toBeGreaterThanOrEqual(2);
 });
 
+it('finishSession clamps compliancePct at 100 when extra sets are logged', async () => {
+  // Regression: dropset sub-sets (one completed row per drop) and extra sets
+  // push setsCompleted above the planned setsTarget, which used to yield
+  // compliance well over 100% (e.g. "39 / 22 → 177%"). Compliance must cap
+  // at 100 while the honest setsCompleted/setsTarget counts stay unclamped.
+  const { ath, principalId } = await setupAthlete();
+  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const target = (
+    await pool.query<{ t: number }>(
+      `SELECT total_sets_target AS t FROM session_logs WHERE id = $1`,
+      [sessionId],
+    )
+  ).rows[0].t;
+  // Log far more completed sets than the plan calls for.
+  const extra = target + 10;
+  for (let i = 1; i <= extra; i++) {
+    await logSet(sessionId, ath, {
+      exercise_id: principalId, set_index: i,
+      unit: 'kg', value: 50, reps: 5, completed: true,
+      client_id: randomUUID(), client_ts: new Date().toISOString(),
+    });
+  }
+  const summary = await finishSession(sessionId, ath, 'normal');
+  expect(summary.setsCompleted).toBe(extra);
+  expect(summary.setsTarget).toBe(target);
+  expect(summary.setsCompleted).toBeGreaterThan(summary.setsTarget);
+  expect(summary.compliancePct).toBe(100);
+});
+
 it('finishSession rejects already_finished', async () => {
   const { ath } = await setupAthlete();
   const { sessionId } = await startSession(ath, 1, randomUUID());

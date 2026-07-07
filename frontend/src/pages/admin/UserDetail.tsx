@@ -53,6 +53,7 @@ import {
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { useLoggedSessions } from '@/hooks/useLoggedSessions';
 import { useSetMonthlyFee } from '@/hooks/useSetMonthlyFee';
+import { useAthleteRms, useSetAthleteRm } from '@/hooks/useAthleteRms';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtARS, fmtShortDate, fmtTimeAgo } from '@/lib/format';
@@ -65,7 +66,7 @@ import type {
   UserStatus,
 } from '@/types/api';
 
-const TAB_KEYS = ['resumen', 'entrenamientos', 'estado', 'suscripcion', 'actividad', 'peligro'] as const;
+const TAB_KEYS = ['resumen', 'entrenamientos', 'rm', 'estado', 'suscripcion', 'actividad', 'peligro'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const TIER_PRICE: Record<SubscriptionTier, number> = {
@@ -134,6 +135,7 @@ export default function UserDetail() {
         tabs={[
           { key: 'resumen', label: 'Resumen' },
           { key: 'entrenamientos', label: 'Entrenamientos' },
+          { key: 'rm', label: 'RM / Planilla' },
           { key: 'estado', label: 'Estado de la cuenta' },
           { key: 'suscripcion', label: 'Suscripción' },
           {
@@ -149,6 +151,7 @@ export default function UserDetail() {
 
       {tab === 'resumen' && <ResumenTab user={user} />}
       {tab === 'entrenamientos' && <EntrenamientosTab user={user} />}
+      {tab === 'rm' && <RmTab user={user} />}
       {tab === 'estado' && <EstadoTab user={user} isSelf={isSelf} />}
       {tab === 'suscripcion' && <SuscripcionTab user={user} />}
       {tab === 'actividad' && <ActividadTab user={user} />}
@@ -708,7 +711,8 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
   useEffect(() => {
     setTier(user.subscription_tier ?? 'full');
     setSubStatus(user.subscription_status ?? 'authorized');
-  }, [user.subscription_tier, user.subscription_status]);
+    setCuota(String(user.monthly_fee_ars ?? 25000));
+  }, [user.subscription_tier, user.subscription_status, user.monthly_fee_ars]);
 
   const hasSub = !!user.subscription_tier;
   const dirty =
@@ -837,10 +841,18 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
 
           {/* Cuota mensual — drives the platform 4% */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Cuota mensual (ARS)</label>
+            <label className="text-xs text-muted-foreground">
+              Cuota mensual (ARS){' '}
+              <span className="text-muted-foreground/70">
+                (entre {fmtARS(5000)} y {fmtARS(500000)})
+              </span>
+            </label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
+                min={5000}
+                max={500000}
+                step={1000}
                 value={cuota}
                 onChange={(e) => setCuota(e.target.value)}
                 className="h-9 w-40 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
@@ -852,6 +864,10 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
                   const v = Number(cuota);
                   if (!v || v <= 0) {
                     toast.error('Cuota inválida');
+                    return;
+                  }
+                  if (v < 5000 || v > 500000) {
+                    toast.error('La cuota debe estar entre $5.000 y $500.000');
                     return;
                   }
                   try {
@@ -1051,6 +1067,171 @@ function EntrenamientosTab({ user }: { user: AdminUser }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+const RM_WEEK_LABEL: Record<number, string> = {
+  10: 'Semana 10',
+  20: 'Semana 20 (AMRAP)',
+  30: 'Semana 30',
+};
+
+// Edit a student's RM (rep-max) — the coach lowers it TEMPORARILY on injury or
+// illness so the app prescribes lighter weights. The engine multiplies value_kg
+// by the block's %RM, so a lower RM cascades to every prescribed weight.
+//
+// "Temporal" ships as option (a): a manual value the coach sets and RESTORES BY
+// HAND once the athlete recovers. The optional note records why (e.g. "lesión
+// hombro"). Auto-revert-on-date / full history are documented follow-ups.
+function RmTab({ user }: { user: AdminUser }) {
+  const q = useAthleteRms(user.id);
+  const setRm = useSetAthleteRm(user.id);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const [value, setValue] = useState('');
+  const [note, setNote] = useState('');
+
+  const rms = q.data ?? [];
+
+  function startEdit(r: { exercise_id: number; program_week: number; value_kg: number; coach_note: string | null }) {
+    setEditKey(`${r.exercise_id}-${r.program_week}`);
+    setValue(String(r.value_kg));
+    setNote(r.coach_note ?? '');
+  }
+
+  async function save(exercise_id: number, program_week: 10 | 20 | 30) {
+    const v = Number(value);
+    if (!v || v <= 0 || v > 1000) {
+      toast.error('RM inválido (entre 0 y 1000 kg)');
+      return;
+    }
+    try {
+      await setRm.mutateAsync({
+        exercise_id,
+        program_week,
+        value_kg: v,
+        coach_note: note.trim() || null,
+      });
+      toast.success('RM actualizado');
+      setEditKey(null);
+    } catch {
+      toast.error('No se pudo actualizar el RM');
+    }
+  }
+
+  if (q.isLoading) {
+    return (
+      <div className="rounded-2xl border bg-card p-[18px]">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <div className="border-b border-border p-[18px]">
+        <Eyebrow variant="muted">Planilla · RM</Eyebrow>
+        <div className="mt-1 text-[17px] font-semibold tracking-tight">
+          Editar RM (rep-max)
+        </div>
+        <div className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          Bajá el RM de forma <b>temporal</b> por lesión o enfermedad: la app
+          prescribe menos peso mientras el atleta se recupera. Restaurá el valor
+          a mano cuando vuelva a estar al 100%.
+        </div>
+      </div>
+
+      {rms.length === 0 ? (
+        <div className="p-[18px] text-sm text-muted-foreground">
+          Este atleta todavía no tiene RM cargados.
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {rms.map((r) => {
+            const key = `${r.exercise_id}-${r.program_week}`;
+            const editing = editKey === key;
+            return (
+              <div key={key} className="p-[18px]">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[13px] font-semibold">
+                      {r.exercise_name}
+                    </div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                      {RM_WEEK_LABEL[r.program_week] ?? `Semana ${r.program_week}`}
+                    </div>
+                  </div>
+                  {!editing && (
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono tabular-nums text-sm font-semibold">
+                        {r.value_kg} {r.unit ?? 'kg'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(r)}
+                        className="h-8 rounded-md border border-border bg-background px-3 text-xs font-semibold hover:bg-muted/40"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {r.coach_note && !editing && (
+                  <div className="mt-1.5 text-xs italic text-muted-foreground">
+                    Nota: {r.coach_note}
+                  </div>
+                )}
+
+                {editing && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={1000}
+                        step={0.5}
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        className="h-9 w-32 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
+                        placeholder="RM en kg"
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        {r.unit ?? 'kg'}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={200}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      className="h-9 w-full max-w-[420px] rounded-md border border-border bg-background px-2 text-sm"
+                      placeholder="Motivo (opcional): p. ej. lesión hombro, gripe…"
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={setRm.isPending}
+                        onClick={() => save(r.exercise_id, r.program_week)}
+                        className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditKey(null)}
+                        className="h-9 rounded-md border border-border bg-background px-3 text-sm font-semibold hover:bg-muted/40"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

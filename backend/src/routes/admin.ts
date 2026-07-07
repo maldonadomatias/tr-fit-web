@@ -23,6 +23,8 @@ import {
   logAudit,
   listActivity,
   setAthleteMonthlyFee,
+  listAthleteRms,
+  setAthleteRm,
   AdminError,
 } from '../services/admin.service.js';
 import { getLoggedSessions } from '../services/logged-sessions.service.js';
@@ -293,12 +295,22 @@ router.delete('/users/:id/subscription', async (req: Request, res: Response) => 
   res.json(fresh);
 });
 
-const monthlyFeeBody = z.object({ monthly_fee_ars: z.number().positive() });
+const MONTHLY_FEE_MIN = 5000;
+const MONTHLY_FEE_MAX = 500000;
+const monthlyFeeBody = z.object({
+  monthly_fee_ars: z
+    .number()
+    .min(MONTHLY_FEE_MIN, { message: 'out_of_range' })
+    .max(MONTHLY_FEE_MAX, { message: 'out_of_range' }),
+});
 
 router.put('/users/:id/monthly-fee', async (req, res) => {
   const parsed = monthlyFeeBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: 'invalid_payload' });
+    const outOfRange = parsed.error.issues.some(
+      (i) => i.message === 'out_of_range'
+    );
+    res.status(400).json({ error: outOfRange ? 'fee_out_of_range' : 'invalid_payload' });
     return;
   }
   const value = await setAthleteMonthlyFee(
@@ -307,6 +319,49 @@ router.put('/users/:id/monthly-fee', async (req, res) => {
     req.user!.id
   );
   res.json({ monthly_fee_ars: value });
+});
+
+// ─── Athlete RM (rep-max) — manual/temporal edit ─────────────────
+// The coach lowers an athlete's RM during injury/illness so prescribed weights
+// drop. Reads engine's value_kg; edit is an upsert into rm_tests. "Temporal" is
+// implemented as option (a): a manual value the coach sets and later restores by
+// hand (see report). value/note give traceability; no auto-revert scheduling.
+router.get('/users/:id/rms', async (req: Request, res: Response) => {
+  const user = await getUser(req.params.id);
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  res.json({ rms: await listAthleteRms(req.params.id) });
+});
+
+const rmBody = z.object({
+  exercise_id: z.number().int().positive(),
+  program_week: z.union([z.literal(10), z.literal(20), z.literal(30)]),
+  value_kg: z.number().positive().max(1000),
+  coach_note: z.string().max(200).optional(),
+});
+
+router.put('/users/:id/rms', async (req: Request, res: Response) => {
+  const parsed = rmBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  const user = await getUser(req.params.id);
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  try {
+    const row = await setAthleteRm(
+      req.params.id,
+      {
+        exerciseId: parsed.data.exercise_id,
+        programWeek: parsed.data.program_week,
+        valueKg: parsed.data.value_kg,
+        coachNote: parsed.data.coach_note ?? null,
+      },
+      await actorEmail(req),
+    );
+    res.json({ rm: row });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'exercise_not_found') {
+      return res.status(404).json({ error: 'exercise_not_found' });
+    }
+    throw e;
+  }
 });
 
 // ─── Membership / manual payments ────────────────────────────────

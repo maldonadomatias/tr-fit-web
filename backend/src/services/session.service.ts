@@ -136,9 +136,12 @@ export async function logSet(
   );
 
   await pool.query(
+    // Count DISTINCT planned series (exercise_id + set_index), not raw rows, so
+    // a dropset's per-drop rows count as the single series they belong to. Keeps
+    // this running counter consistent with finishSession's numerator.
     `UPDATE session_logs
        SET total_sets_completed = (
-         SELECT COUNT(*) FROM set_logs
+         SELECT COUNT(DISTINCT (exercise_id, set_index)) FROM set_logs
           WHERE session_log_id = $1 AND completed = TRUE)
      WHERE id = $1`,
     [sessionId],
@@ -259,8 +262,17 @@ export async function finishSession(
       total_completed: number;
       total_volume: string | null;
     }>(
+      // `total_completed` counts DISTINCT planned series that have at least one
+      // completed row — grouped by (exercise_id, set_index), which together
+      // identify a single planned series. A dropset / superserie logs one
+      // set_log row PER DROP (all sharing the same exercise_id + set_index,
+      // differing only by drop_index), so counting raw rows inflated the
+      // numerator past the target (e.g. 39/22). Counting distinct series makes
+      // a 3-drop dropset count as the ONE series it is → completed can no
+      // longer exceed planned for a normally-executed session.
       `SELECT
-         COUNT(*) FILTER (WHERE completed = TRUE)::int AS total_completed,
+         COUNT(DISTINCT (exercise_id, set_index))
+           FILTER (WHERE completed = TRUE)::int AS total_completed,
          COALESCE(SUM(COALESCE(value, weight_kg) * reps) FILTER (WHERE completed = TRUE), 0)::text AS total_volume
          FROM set_logs WHERE session_log_id = $1`,
       [sessionId],
@@ -269,7 +281,12 @@ export async function finishSession(
     const setsCompleted = agg.total_completed;
     const setsTarget = session.total_sets_target ?? 0;
     const totalVolumeKg = Number(agg.total_volume ?? 0);
-    const compliancePct = setsTarget > 0 ? (setsCompleted / setsTarget) * 100 : 0;
+    // Defensive clamp only. With `setsCompleted` now counting distinct planned
+    // series (not raw rows), a normally-executed session cannot exceed 100%.
+    // The clamp stays as a harmless safety net (e.g. if the athlete logs extra
+    // series beyond the plan) so compliance is never reported above 100%.
+    const compliancePct =
+      setsTarget > 0 ? Math.min(100, (setsCompleted / setsTarget) * 100) : 0;
 
     const now = new Date();
     const durationSeconds = Math.floor(

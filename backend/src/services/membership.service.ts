@@ -5,6 +5,26 @@ export const GRACE_DAYS = 7;
 export const GRACE_HOURS = 48;
 export const DEFAULT_PERIOD_DAYS = 30;
 
+/**
+ * Advance `base` by one calendar month, preserving the day-of-month and
+ * clamping to the target month's last day when it is shorter.
+ *
+ * Renewals are calendar-month based (the coach quotes "6/07 → 6/08"), not
+ * +30 days — 30 days would drift a day earlier every cycle (6/07 → 5/08 …).
+ * Edge cases: Jan 31 → Feb 28 (or Feb 29 in a leap year); Aug 31 → Sep 30.
+ * Time-of-day (h/m/s/ms) is preserved so paid_until keeps its original clock.
+ */
+export function addCalendarMonth(base: Date, months = 1): Date {
+  const y = base.getFullYear();
+  const m = base.getMonth();
+  const d = base.getDate();
+  // Day 0 of (month+months+1) is the last day of the target month → clamp.
+  const lastDayOfTarget = new Date(y, m + months + 1, 0).getDate();
+  const result = new Date(base);
+  result.setFullYear(y, m + months, Math.min(d, lastDayOfTarget));
+  return result;
+}
+
 /** Access gate: paid_until + 48h grace still grants access. */
 export function isActiveWithGrace(
   paidUntil: string | number | null | undefined,
@@ -66,9 +86,16 @@ export async function registerPayment(
       return new Date();
     })();
 
+    // Extension policy (from `base` = later of current expiry or now):
+    //   1. explicit coversUntil  → use as-is
+    //   2. explicit periodDays   → +N days (custom-period callers, unchanged)
+    //   3. default               → +1 calendar month (same day next month,
+    //      clamped) so renewals track the calendar, e.g. 6/07 → 6/08.
     const coversUntil = input.coversUntil
       ? new Date(input.coversUntil)
-      : new Date(base.getTime() + (input.periodDays ?? DEFAULT_PERIOD_DAYS) * 86_400_000);
+      : input.periodDays != null
+        ? new Date(base.getTime() + input.periodDays * 86_400_000)
+        : addCalendarMonth(base);
 
     await client.query(
       `INSERT INTO payments (user_id, paid_at, amount, currency, method, reference, covers_until, recorded_by)

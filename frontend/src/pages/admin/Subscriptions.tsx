@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -16,10 +16,16 @@ import { Segmented } from '@/components/admin/Segmented';
 import { Avatar } from '@/components/admin/Avatar';
 import { TierBadge } from '@/components/admin/TierBadge';
 import { SubStatusBadge } from '@/components/admin/SubStatusBadge';
-import { useAdminUsers } from '@/hooks/useAdminUsers';
+import { useAdminUsers, useRegisterPayment } from '@/hooks/useAdminUsers';
 import { useAdminStats } from '@/hooks/useAdminStats';
 import { fmtARS, fmtShortDate } from '@/lib/format';
-import type { SubscriptionStatus, SubscriptionTier } from '@/types/api';
+import {
+  expiryInfo,
+  isPaidThisMonth,
+  monthLabel,
+  type ExpiryUrgency,
+} from '@/lib/subscription';
+import type { AdminUser, SubscriptionStatus, SubscriptionTier } from '@/types/api';
 
 const TIER_PRICE: Record<SubscriptionTier, number> = {
   basico: 15000,
@@ -37,26 +43,45 @@ export default function Subscriptions() {
 
   const usersQ = useAdminUsers({});
   const statsQ = useAdminStats();
+  const renewM = useRegisterPayment();
+
+  // Each student's real price is their custom monthly_fee_ars; the tier map is
+  // only a fallback when no custom fee has been set.
+  const feeOf = (u: AdminUser) =>
+    u.monthly_fee_ars ?? TIER_PRICE[u.subscription_tier!];
 
   const subs = useMemo(
-    () =>
-      (usersQ.data ?? []).filter((u) => u.subscription_tier !== null),
+    () => (usersQ.data ?? []).filter((u) => u.subscription_tier !== null),
     [usersQ.data],
   );
 
+  // Soon-to-expire float to the top: expired first, then VENCE HOY / MAÑANA,
+  // then by "Vence el" ascending; sin-vencimiento sinks to the bottom.
   const filtered = useMemo(
     () =>
-      subs.filter((u) => {
-        if (tier !== 'all' && u.subscription_tier !== tier) return false;
-        if (status !== 'all' && u.subscription_status !== status) return false;
-        return true;
-      }),
+      subs
+        .filter((u) => {
+          if (tier !== 'all' && u.subscription_tier !== tier) return false;
+          if (status !== 'all' && u.subscription_status !== status) return false;
+          return true;
+        })
+        .sort(
+          (a, b) =>
+            expiryInfo(a.paid_until).sortKey - expiryInfo(b.paid_until).sortKey,
+        ),
     [subs, tier, status],
   );
 
   const activeSubs = subs.filter(
     (u) => u.subscription_status === 'authorized',
   );
+
+  const renew = (u: AdminUser) => {
+    // "Pagado, renovar 30 días": books the payment to today's month (revenue)
+    // and pushes paid_until +30 days. Backend extends from the later of the
+    // current paid_until or now, so an early renewal never loses paid days.
+    renewM.mutate({ id: u.id, amount: feeOf(u), method: 'transfer' });
+  };
 
   const tierStats = (['premium', 'full', 'basico'] as SubscriptionTier[]).map(
     (t) => ({
@@ -67,6 +92,9 @@ export default function Subscriptions() {
           u.subscription_tier === t &&
           u.subscription_status !== 'authorized',
       ).length,
+      contribution: activeSubs
+        .filter((u) => u.subscription_tier === t)
+        .reduce((sum, u) => sum + feeOf(u), 0),
     }),
   );
 
@@ -123,7 +151,7 @@ export default function Subscriptions() {
               <span className="font-mono tabular-nums">{t.otherCount}</span>{' '}
               pausadas o canceladas · contribución{' '}
               <span className="font-mono tabular-nums text-foreground">
-                {fmtARS(t.activeCount * TIER_PRICE[t.tier])}
+                {fmtARS(t.contribution)}
               </span>
             </div>
           </div>
@@ -185,17 +213,27 @@ export default function Subscriptions() {
                   <ColLabel>Estado</ColLabel>
                 </TableHead>
                 <TableHead>
-                  <ColLabel>Próxima renovación</ColLabel>
+                  <ColLabel>Vence el</ColLabel>
+                </TableHead>
+                <TableHead>
+                  <ColLabel>Mes = {monthLabel()}</ColLabel>
                 </TableHead>
                 <TableHead className="text-right">
-                  <ColLabel>Precio</ColLabel>
+                  <ColLabel>Valor</ColLabel>
+                </TableHead>
+                <TableHead className="text-right">
+                  <ColLabel>Renovar</ColLabel>
                 </TableHead>
                 <TableHead className="w-8"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((u) => {
-                const price = TIER_PRICE[u.subscription_tier!];
+                const price = feeOf(u);
+                const info = expiryInfo(u.paid_until);
+                const paid = isPaidThisMonth(u.paid_until);
+                const renewing =
+                  renewM.isPending && renewM.variables?.id === u.id;
                 return (
                   <TableRow
                     key={u.id}
@@ -222,16 +260,33 @@ export default function Subscriptions() {
                       <SubStatusBadge status={u.subscription_status} />
                     </TableCell>
                     <TableCell>
-                      <span className="font-mono tabular-nums text-xs text-muted-foreground">
-                        {u.current_period_end
-                          ? fmtShortDate(u.current_period_end)
-                          : '—'}
-                      </span>
+                      <VenceCell info={info} paidUntil={u.paid_until} />
+                    </TableCell>
+                    <TableCell>
+                      <MonthPaidBadge paid={paid} />
                     </TableCell>
                     <TableCell className="text-right">
                       <span className="font-mono tabular-nums font-semibold">
                         {fmtARS(price)}
                       </span>
+                    </TableCell>
+                    <TableCell
+                      className="text-right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant={paid ? 'outline' : 'default'}
+                        size="sm"
+                        disabled={renewing}
+                        onClick={() => renew(u)}
+                        title="Marca pagado y renueva 30 días"
+                      >
+                        <RefreshCw
+                          data-icon="inline-start"
+                          className={renewing ? 'animate-spin' : undefined}
+                        />
+                        {renewing ? 'Renovando…' : 'Pagado, renovar 30 días'}
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <ChevronRight
@@ -254,6 +309,65 @@ function ColLabel({ children }: { children: React.ReactNode }) {
   return (
     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
       {children}
+    </span>
+  );
+}
+
+const URGENT_TEXT: Partial<Record<ExpiryUrgency, string>> = {
+  expired: 'VENCIÓ',
+  today: 'VENCE HOY',
+  tomorrow: 'VENCE MAÑANA',
+};
+
+function VenceCell({
+  info,
+  paidUntil,
+}: {
+  info: ReturnType<typeof expiryInfo>;
+  paidUntil: string | null;
+}) {
+  if (info.urgency === 'infinity') {
+    return (
+      <span className="font-mono text-xs text-muted-foreground">
+        Sin vencimiento
+      </span>
+    );
+  }
+  const urgent =
+    info.urgency === 'expired' ||
+    info.urgency === 'today' ||
+    info.urgency === 'tomorrow';
+  const label = URGENT_TEXT[info.urgency];
+  return (
+    <div className="flex flex-col">
+      <span
+        className={
+          urgent
+            ? 'font-mono text-xs font-bold uppercase tracking-wide text-destructive'
+            : info.urgency === 'soon'
+              ? 'font-mono tabular-nums text-xs font-semibold text-amber-600'
+              : 'font-mono tabular-nums text-xs text-muted-foreground'
+        }
+      >
+        {label ?? fmtShortDate(paidUntil)}
+      </span>
+      {label && (
+        <span className="font-mono tabular-nums text-[10px] text-muted-foreground">
+          {fmtShortDate(paidUntil)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MonthPaidBadge({ paid }: { paid: boolean }) {
+  return paid ? (
+    <span className="inline-flex items-center rounded-md bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+      Pagado
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-md bg-destructive/15 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-destructive">
+      No pagado — renovar?
     </span>
   );
 }

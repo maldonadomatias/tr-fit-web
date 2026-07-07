@@ -130,6 +130,41 @@ export function useResumeMembership(id: string) {
   });
 }
 
+export interface RegisterPaymentInput {
+  amount: number;
+  method?: 'transfer' | 'cash' | 'mercadopago' | 'other';
+  paid_at?: string; // 'YYYY-MM-DD', defaults to today
+  period_days?: number; // defaults to 30 on the backend
+  reference?: string;
+}
+
+/**
+ * "Pagado, renovar 30 días": logs the payment (booked to paid_at's month for
+ * revenue), extends the membership by period_days (default 30), and re-approves.
+ * Refreshes the users list so the row re-sorts and flips to PAGADO.
+ */
+export function useRegisterPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      ...input
+    }: RegisterPaymentInput & { id: string }): Promise<void> => {
+      const paid_at = input.paid_at ?? new Date().toISOString().slice(0, 10);
+      await api.post(`/admin/users/${id}/payments`, {
+        method: 'transfer',
+        ...input,
+        paid_at,
+      });
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'user', id] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'stats'] });
+    },
+  });
+}
+
 export function useUpsertSubscription(id: string) {
   const qc = useQueryClient();
   return useMutation({
