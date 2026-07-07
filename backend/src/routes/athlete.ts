@@ -253,7 +253,18 @@ router.post('/exclusions', async (req, res) => {
     typeof (req.body ?? {}).session_log_id === 'string'
       ? (req.body as { session_log_id?: string }).session_log_id
       : undefined;
-  const { replacement } = await excludeExercise(req.user!.id, exerciseId, sessionLogId);
+  const rawExclude = (req.body ?? {}).exclude_ids;
+  const routineExcludeIds = Array.isArray(rawExclude)
+    ? rawExclude
+        .map((n) => Number(n))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    : [];
+  const { replacement } = await excludeExercise(
+    req.user!.id,
+    exerciseId,
+    sessionLogId,
+    routineExcludeIds,
+  );
   res.json({
     replacement: replacement
       ? {

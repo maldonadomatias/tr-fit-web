@@ -189,4 +189,49 @@ describe('exclusions.service', () => {
     );
     expect(yellow.rows[0].severity).toBe('yellow');
   });
+
+  // BUG #1 (2nd action): "No tengo esta máquina" must not replace with an
+  // exercise already in today's routine — passing that id in routineExcludeIds
+  // must keep findAlternative from handing it back.
+  it('excludeExercise skips a replacement candidate listed in routineExcludeIds', async () => {
+    const coachId = await insertUser('coach-excl2@test.local', 'admin');
+    await pool.query(
+      `INSERT INTO coach_profiles (user_id, name) VALUES ($1, 'Coach')`,
+      [coachId],
+    );
+    const athleteId = await insertUser('athlete-excl2@test.local', 'athlete');
+    await pool.query(
+      `INSERT INTO athlete_profiles
+         (user_id, name, gender, age, height_cm, weight_kg,
+          level, goal, days_per_week, equipment, injuries, coach_id,
+          phone, plan_interest, training_mode, commitment, exercise_minutes,
+          days_specific, referral_source)
+       VALUES ($1, 'Test Atleta 2', 'male', 25, 175, 75,
+               'medio', 'hipertrofia', 4, 'gym_completo', '{}', $2,
+               '+5491111111112', 'full', 'gym', 'normal', 60,
+               '{lun,mar,jue,sab}', 'google')`,
+      [athleteId, coachId],
+    );
+
+    // Three exercises in the same muscle group. exA is the target; exB and exC
+    // are both valid alternatives, ordered by id → exB would win by default.
+    const exA = await insertExercise({
+      name: `ExA2-${tag}`, muscleGroup: `mg-excl2-${tag}`, equipment: 'mancuerna',
+    });
+    insertedExerciseIds.push(exA.id);
+    const exB = await insertExercise({
+      name: `ExB2-${tag}`, muscleGroup: `mg-excl2-${tag}`, equipment: 'mancuerna',
+    });
+    insertedExerciseIds.push(exB.id);
+    const exC = await insertExercise({
+      name: `ExC2-${tag}`, muscleGroup: `mg-excl2-${tag}`, equipment: 'mancuerna',
+    });
+    insertedExerciseIds.push(exC.id);
+
+    // exB is already in today's routine → must be skipped; exC is picked instead.
+    const { replacement } = await excludeExercise(
+      athleteId, exA.id, undefined, [exB.id],
+    );
+    expect(replacement?.id).toBe(exC.id);
+  });
 });

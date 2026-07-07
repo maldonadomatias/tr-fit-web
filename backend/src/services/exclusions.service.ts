@@ -42,6 +42,7 @@ export async function excludeExercise(
   athleteId: string,
   exerciseId: number,
   sessionLogId?: string,
+  routineExcludeIds: number[] = [],
 ): Promise<{ replacement: Exercise | null }> {
   const existing = await pool.query<{ replacement_exercise_id: number | null }>(
     `SELECT replacement_exercise_id FROM athlete_excluded_exercises
@@ -56,7 +57,13 @@ export async function excludeExercise(
     return { replacement: repl };
   }
 
-  const excludedIds = [...(await getExclusionMap(athleteId)).keys(), exerciseId];
+  // Never pick a replacement already excluded, the target itself, or any other
+  // exercise in today's routine (the athlete would otherwise train it twice).
+  const excludedIds = [
+    ...(await getExclusionMap(athleteId)).keys(),
+    exerciseId,
+    ...routineExcludeIds,
+  ];
   const replacement = await findAlternative(exerciseId, athleteId, excludedIds);
 
   await pool.query(
