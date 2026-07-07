@@ -39,7 +39,7 @@ export function DetailHeader({ data }: { data: RutinaDetail }) {
   const lesion = profile.injuries.length > 0;
 
   return (
-    <header className="sticky top-0 z-10 flex flex-col gap-1 border-b border-border bg-background px-7 pb-4 pt-5">
+    <header className="sticky top-0 z-10 flex flex-col gap-1 border-b border-border bg-background px-4 pb-4 pt-5 lg:px-7">
       <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-brand">
         Rutina · {skeleton.id.slice(0, 8).toUpperCase()}
       </span>
@@ -61,7 +61,7 @@ export function DetailHeader({ data }: { data: RutinaDetail }) {
             <span>{GOAL_LABEL[profile.goal]}</span>
           </div>
         </div>
-        <div className="ml-auto text-right font-mono text-[11px] tabular-nums text-muted-foreground">
+        <div className="ml-auto hidden text-right font-mono text-[11px] tabular-nums text-muted-foreground sm:block">
           <div className="flex items-center justify-end gap-1.5">
             <Dumbbell size={12} />
             <span>{EQUIP_LABEL[profile.equipment]}</span>

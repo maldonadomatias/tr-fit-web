@@ -10,7 +10,7 @@ export function RutinasTabs() {
   const value: TabKey = isActivas ? 'activas' : 'cola';
 
   return (
-    <div className="border-b border-border bg-card px-7 py-3">
+    <div className="border-b border-border bg-card px-4 py-3 lg:px-7">
       <Segmented<TabKey>
         value={value}
         onChange={(k) =>

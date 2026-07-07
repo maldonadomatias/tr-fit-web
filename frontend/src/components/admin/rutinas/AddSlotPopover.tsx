@@ -86,7 +86,10 @@ export function AddSlotPopover({
           Agregar ejercicio
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[340px] space-y-3">
+      <PopoverContent
+        align="end"
+        className="w-[calc(100vw-2rem)] max-w-[340px] space-y-3"
+      >
         <div>
           <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             Ejercicio

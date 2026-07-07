@@ -17,7 +17,7 @@ export function ActionFooter({
   canSkip: boolean;
 }) {
   return (
-    <footer className="sticky bottom-0 z-10 flex items-center gap-2 border-t border-border bg-background px-7 py-3">
+    <footer className="sticky bottom-0 z-10 flex items-center gap-2 border-t border-border bg-background px-4 py-3 lg:px-7">
       <Button
         type="button"
         variant="outline"
@@ -27,7 +27,7 @@ export function ActionFooter({
       >
         <X size={14} className="mr-1.5" />
         Rechazar
-        <kbd className="ml-2 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <kbd className="ml-2 hidden rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
           R
         </kbd>
       </Button>
@@ -39,7 +39,7 @@ export function ActionFooter({
       >
         <SkipForward size={14} className="mr-1.5" />
         Skip
-        <kbd className="ml-2 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <kbd className="ml-2 hidden rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">
           J
         </kbd>
       </Button>
@@ -51,7 +51,7 @@ export function ActionFooter({
       >
         <Check size={14} className="mr-1.5" />
         {approving ? 'Aprobando…' : 'Aprobar'}
-        <kbd className="ml-2 rounded bg-brand-foreground/10 px-1 py-0.5 font-mono text-[10px]">
+        <kbd className="ml-2 hidden rounded bg-brand-foreground/10 px-1 py-0.5 font-mono text-[10px] sm:inline">
           A
         </kbd>
       </Button>

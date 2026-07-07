@@ -189,7 +189,8 @@ function PendingCard({
   }
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl border bg-card p-[18px]">
+    <div className="flex flex-col gap-4 rounded-2xl border bg-card p-[18px] sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 items-center gap-4">
       <Avatar name={user.name ?? user.email} size="lg" brand />
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -227,7 +228,8 @@ function PendingCard({
           id <span className="font-mono">{user.id.slice(0, 8)}…</span>
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={onOpen}>
           <Eye data-icon="inline-start" />
           Ver perfil

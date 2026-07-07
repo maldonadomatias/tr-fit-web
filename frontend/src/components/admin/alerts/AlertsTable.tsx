@@ -51,6 +51,7 @@ export function AlertsTable({ alerts }: Props) {
     );
   }
   return (
+    <div className="overflow-x-auto">
     <Table>
       <TableHeader>
         <TableRow>
@@ -91,5 +92,6 @@ export function AlertsTable({ alerts }: Props) {
         ))}
       </TableBody>
     </Table>
+    </div>
   );
 }

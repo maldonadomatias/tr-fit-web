@@ -116,7 +116,7 @@ export function CreateUserDialog({ open: openProp, onOpenChange, trigger }: Prop
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               Rol
             </Label>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {ROLES.map((r) => (
                 <Button
                   key={r}
@@ -134,7 +134,7 @@ export function CreateUserDialog({ open: openProp, onOpenChange, trigger }: Prop
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               Estado
             </Label>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {STATUSES.map((s) => (
                 <Button
                   key={s}

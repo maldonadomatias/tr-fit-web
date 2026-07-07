@@ -1,5 +1,5 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Bell, Moon, Search, Sun } from 'lucide-react';
+import { Bell, Menu, Moon, Search, Sun } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTheme } from '@/hooks/useTheme';
 import { useAdminUser } from '@/hooks/useAdminUsers';
@@ -36,12 +36,20 @@ function useCrumbs(): Crumb[] {
   return [{ label }];
 }
 
-export function Topbar() {
+export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const { theme, toggle } = useTheme();
   const crumbs = useCrumbs();
 
   return (
-    <header className="col-start-2 flex h-14 items-center gap-4 border-b border-border bg-card px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-card px-4 sm:gap-4 sm:px-6 lg:static lg:col-start-2">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+        aria-label="Abrir menú"
+      >
+        <Menu size={18} />
+      </button>
       <nav className="flex min-w-0 items-center gap-2 text-[13px]">
         {crumbs.map((c, i) => (
           <span key={i} className="flex items-center gap-2">

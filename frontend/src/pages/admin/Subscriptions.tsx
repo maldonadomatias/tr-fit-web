@@ -135,7 +135,7 @@ export default function Subscriptions() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-3 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tierStats.map((t) => (
           <div key={t.tier} className="rounded-2xl border bg-card p-[18px]">
             <div className="mb-3 flex items-start justify-between">
@@ -200,6 +200,7 @@ export default function Subscriptions() {
             Sin suscripciones para esos filtros.
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-b">
@@ -299,6 +300,7 @@ export default function Subscriptions() {
               })}
             </TableBody>
           </Table>
+          </div>
         )}
       </div>
     </div>

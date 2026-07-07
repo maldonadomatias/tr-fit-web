@@ -166,7 +166,7 @@ function FilterBar({
   return (
     <div className="mb-4 rounded-2xl border bg-card p-3">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex h-8 w-72 items-center gap-2 rounded-md border bg-background px-2.5 text-sm">
+        <div className="flex h-8 w-full items-center gap-2 rounded-md border bg-background px-2.5 text-sm sm:w-72">
           <Search size={14} className="text-muted-foreground" />
           <input
             value={search}
@@ -175,7 +175,7 @@ function FilterBar({
             className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
           />
         </div>
-        <div className="h-[22px] w-px bg-border" />
+        <div className="hidden h-[22px] w-px bg-border sm:block" />
         <Segmented<StatusKey>
           value={status}
           onChange={onStatus}
@@ -186,7 +186,7 @@ function FilterBar({
             { key: 'rejected', label: 'Rechazados', count: counts.rejected },
           ]}
         />
-        <div className="h-[22px] w-px bg-border" />
+        <div className="hidden h-[22px] w-px bg-border sm:block" />
         <Segmented<RoleKey>
           value={role}
           onChange={onRole}
@@ -218,7 +218,7 @@ function UsersTable({
   onOpen: (u: AdminUser) => void;
 }) {
   return (
-    <Table>
+    <Table className="min-w-[820px]">
       <TableHeader>
         <TableRow className="border-b">
           <TableHead className="w-7"></TableHead>

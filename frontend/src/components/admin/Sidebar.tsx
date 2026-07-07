@@ -30,7 +30,13 @@ type Item = {
   matchPrefixes?: string[];
 };
 
-export function Sidebar() {
+export function Sidebar({
+  mobileOpen = false,
+  onClose,
+}: {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}) {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { data: pending } = useAdminUsers({ status: 'pending' });
@@ -127,7 +133,21 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="row-span-2 flex flex-col gap-4 border-r border-border bg-card p-4">
+    <>
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={onClose}
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        />
+      )}
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 w-[232px] flex flex-col gap-4 overflow-y-auto border-r border-border bg-card p-4 transition-transform duration-200 lg:static lg:z-auto lg:row-span-2 lg:translate-x-0 lg:transition-none',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
       <div className="flex items-center gap-2.5 px-1 py-1">
         <span className="grid size-7 place-items-center rounded-md bg-primary text-primary-foreground">
           <Dumbbell size={16} strokeWidth={2.5} />
@@ -198,7 +218,7 @@ export function Sidebar() {
                 );
               }
               return (
-                <Link key={it.key} to={it.to}>
+                <Link key={it.key} to={it.to} onClick={onClose}>
                   {inner}
                 </Link>
               );
@@ -238,6 +258,7 @@ export function Sidebar() {
           <TooltipContent side="right">Salir</TooltipContent>
         </Tooltip>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

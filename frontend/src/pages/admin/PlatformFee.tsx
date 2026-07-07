@@ -167,7 +167,8 @@ export default function PlatformFee() {
           <div className="mb-3 text-sm font-semibold">
             Cambios de cuota recientes
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-muted-foreground">
                 <th className="py-1">Alumno</th>
@@ -189,6 +190,7 @@ export default function PlatformFee() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -208,7 +210,8 @@ export default function PlatformFee() {
             Todavía no hay meses cerrados.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-muted-foreground">
                 <th className="py-1">Mes</th>
@@ -238,6 +241,7 @@ export default function PlatformFee() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

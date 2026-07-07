@@ -1,13 +1,19 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from '@/components/admin/Sidebar';
 import { Topbar } from '@/components/admin/Topbar';
 
 export function AdminShell() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
   return (
-    <div className="grid min-h-screen grid-cols-[232px_1fr] grid-rows-[56px_1fr] bg-background">
-      <Sidebar />
-      <Topbar />
-      <main className="col-start-2 overflow-auto p-7">
+    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[232px_1fr] lg:grid-rows-[56px_1fr]">
+      <Sidebar
+        mobileOpen={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+      />
+      <Topbar onMenuClick={() => setMobileNavOpen(true)} />
+      <main className="overflow-auto p-4 sm:p-6 lg:col-start-2 lg:p-7">
         <div className="mx-auto max-w-[1240px]">
           <Outlet />
         </div>

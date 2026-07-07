@@ -87,7 +87,7 @@ export default function Dashboard() {
 
       <SecondaryRow stats={stats.data} users={usersQ.data} />
 
-      <div className="grid grid-cols-[1fr_320px] gap-[22px]">
+      <div className="grid grid-cols-1 gap-[22px] lg:grid-cols-[1fr_320px]">
         <PendingPanel
           users={pendingQ.data}
           loading={pendingQ.isLoading}
@@ -139,7 +139,7 @@ function KpiRow({
 }) {
   if (loading || !stats) {
     return (
-      <div className="mb-6 grid grid-cols-4 gap-4">
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-[140px] rounded-2xl" />
         ))}
@@ -147,7 +147,7 @@ function KpiRow({
     );
   }
   return (
-    <div className="mb-6 grid grid-cols-4 gap-4">
+    <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
       <KpiCard
         eyebrow={
           <span className="inline-flex items-center gap-1.5">
@@ -227,7 +227,7 @@ function SecondaryRow({
 }) {
   if (!stats) {
     return (
-      <div className="mb-6 grid grid-cols-3 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <Skeleton key={i} className="h-[148px] rounded-2xl" />
         ))}
@@ -239,7 +239,7 @@ function SecondaryRow({
   const verifiedOf = Math.round((stats.verified_pct / 100) * total);
 
   return (
-    <div className="mb-6 grid grid-cols-3 gap-4">
+    <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div className="rounded-2xl border bg-card p-[18px]">
         <div className="flex items-center gap-4">
           <Donut
@@ -469,7 +469,7 @@ function PendingRow({
     );
 
   return (
-    <div className="flex items-center gap-3 border-t border-border px-[18px] py-3">
+    <div className="flex flex-wrap items-center gap-3 border-t border-border px-[18px] py-3">
       <Avatar name={user.name ?? user.email} brand />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

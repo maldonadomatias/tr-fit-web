@@ -87,42 +87,43 @@ export default function Exercises() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => { setQ(e.target.value); setPage(0); }}
             placeholder="Buscar por nombre…"
-            className="w-64 pl-8"
+            className="w-full pl-8"
           />
         </div>
         <Select value={muscle} onValueChange={(v) => { setMuscle(v); setPage(0); }}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Grupo muscular" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Grupo muscular" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los grupos</SelectItem>
             {muscleGroups.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={eq} onValueChange={(v) => { setEq(v as Equipment | 'all'); setPage(0); }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Equipo" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Equipo" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             {EQUIPMENT.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={pattern} onValueChange={(v) => { setPattern(v as MovementPattern | 'all'); setPage(0); }}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Patrón" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Patrón" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             {PATTERNS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
           </SelectContent>
         </Select>
-        <label className="ml-2 flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm sm:ml-2">
           <Switch checked={showArchived} onCheckedChange={(c) => { setShowArchived(c); setPage(0); }} />
           Mostrar archivados
         </label>
       </div>
 
+      <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
@@ -202,6 +203,7 @@ export default function Exercises() {
           })}
         </TableBody>
       </Table>
+      </div>
 
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-end gap-2">

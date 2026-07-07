@@ -171,8 +171,8 @@ function SlotRow({
       style={style}
       className={
         isModified
-          ? 'relative flex items-center gap-3 border-l-2 border-amber-500 bg-amber-500/5 px-4 py-2.5 text-[13px]'
-          : 'flex items-center gap-3 px-4 py-2.5 text-[13px]'
+          ? 'relative flex flex-wrap items-center gap-x-3 gap-y-1.5 border-l-2 border-amber-500 bg-amber-500/5 px-4 py-2.5 text-[13px] sm:flex-nowrap'
+          : 'flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5 text-[13px] sm:flex-nowrap'
       }
     >
       <button
@@ -184,7 +184,7 @@ function SlotRow({
       >
         <GripVertical size={14} />
       </button>
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-0 flex-1 basis-[60%] flex-col sm:basis-auto">
         <span className="truncate font-medium">{name}</span>
         {ov?.notes && (
           <span className="truncate text-[11px] italic text-muted-foreground">

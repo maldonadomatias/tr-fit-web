@@ -345,7 +345,7 @@ export function DetailPane({
     <div className="flex h-full flex-col">
       <DetailHeader data={data} />
 
-      <div className="flex-1 overflow-y-auto px-7 py-5">
+      <div className="flex-1 overflow-y-auto px-4 py-5 lg:px-7">
         {(modCount > 0 ||
           order !== null ||
           deleted.size > 0 ||

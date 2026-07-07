@@ -89,7 +89,7 @@ export default function Activity() {
               { key: 'auth', label: 'Auth' },
             ]}
           />
-          <div className="ml-auto flex h-8 w-72 items-center gap-2 rounded-md border bg-background px-2.5 text-sm">
+          <div className="flex h-8 w-full items-center gap-2 rounded-md border bg-background px-2.5 text-sm sm:ml-auto sm:w-72">
             <Search size={14} className="text-muted-foreground" />
             <input
               value={search}

@@ -35,7 +35,7 @@ export function DayCard({
 
   return (
     <section className="rounded-2xl border border-border bg-card">
-      <header className="border-b border-border px-5 py-3">
+      <header className="border-b border-border px-4 py-3 sm:px-5">
         <h3 className="text-sm font-semibold">
           {DAY_LABEL[dayOfWeek] ?? `Día ${dayOfWeek}`}
         </h3>
@@ -43,7 +43,7 @@ export function DayCard({
       </header>
       <div className="divide-y divide-border">
         {slots.length === 0 && (
-          <div className="px-5 py-4 text-xs text-muted-foreground">
+          <div className="px-4 py-4 text-xs text-muted-foreground sm:px-5">
             Día sin ejercicios.
           </div>
         )}
@@ -96,7 +96,7 @@ function DayFooter({
   }
 
   return (
-    <div className="flex items-center px-5 py-3">
+    <div className="flex flex-wrap items-center gap-y-1 px-4 py-3 sm:px-5">
       <Button
         variant="ghost"
         size="sm"

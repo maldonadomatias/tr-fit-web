@@ -74,7 +74,7 @@ export function ListPane({
   const todayCount = items.filter((it) => isToday(it.created_at)).length;
 
   return (
-    <aside className="flex h-full flex-col border-r border-border bg-card">
+    <aside className="flex max-h-[60vh] flex-col border-b border-border bg-card lg:max-h-none lg:h-full lg:border-b-0 lg:border-r">
       <ListFilters
         query={query}
         onQuery={setQuery}

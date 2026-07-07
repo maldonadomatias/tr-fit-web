@@ -74,7 +74,7 @@ export function SlotRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 px-5 py-3 text-sm"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3 text-sm sm:flex-nowrap sm:px-5"
     >
       <button
         {...attributes}
@@ -85,9 +85,11 @@ export function SlotRow({
         <GripVertical size={14} />
       </button>
       <span className="rounded bg-muted px-2 py-0.5 text-xs">{slot.role}</span>
-      <div className="flex flex-1 flex-col gap-0.5">
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{slot.exercise_name}</span>
+      <div className="flex min-w-0 flex-1 basis-[55%] flex-col gap-0.5 sm:basis-auto">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 truncate font-medium">
+            {slot.exercise_name}
+          </span>
           {flagged ? (
             <Tooltip>
               <TooltipTrigger asChild>

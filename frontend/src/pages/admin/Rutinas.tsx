@@ -77,9 +77,9 @@ function ColaPane() {
   const empty = !id && queue.length === 0;
 
   return (
-    <div className="grid h-full grid-cols-[340px_1fr] overflow-hidden">
+    <div className="grid h-full grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
       <ListPane activeId={id} onSelect={goToId} />
-      <div className="flex flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-col lg:overflow-hidden">
         {id ? (
           <DetailPane
             id={id}

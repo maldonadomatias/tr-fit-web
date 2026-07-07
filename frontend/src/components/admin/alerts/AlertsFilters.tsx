@@ -26,6 +26,7 @@ export function AlertsFilters({ value, onChange }: Props) {
       <Tabs
         value={value.status ?? 'open'}
         onValueChange={(s) => onChange({ ...value, status: s as 'open' | 'resolved' | 'all' })}
+        className="w-full sm:w-auto"
       >
         <TabsList>
           <TabsTrigger value="open">Abiertas</TabsTrigger>
@@ -36,18 +37,21 @@ export function AlertsFilters({ value, onChange }: Props) {
       <Tabs
         value={value.type ?? ''}
         onValueChange={(t) => onChange({ ...value, type: t || undefined })}
+        className="w-full max-w-full min-w-0 sm:w-auto"
       >
-        <TabsList>
-          {TYPES.map((t) => (
-            <TabsTrigger key={t} value={t}>{TYPE_LABEL[t]}</TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList>
+            {TYPES.map((t) => (
+              <TabsTrigger key={t} value={t}>{TYPE_LABEL[t]}</TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
       </Tabs>
       <Input
         placeholder="ID atleta (UUID)"
         value={value.athleteId ?? ''}
         onChange={(e) => onChange({ ...value, athleteId: e.target.value || undefined })}
-        className="max-w-[260px]"
+        className="w-full max-w-[260px] sm:w-auto"
       />
     </div>
   );

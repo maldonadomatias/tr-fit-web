@@ -101,7 +101,7 @@ export default function UserDetail() {
           Volver a usuarios
         </Link>
         <Skeleton className="h-[148px] rounded-2xl" />
-        <div className="mt-4 grid grid-cols-[1fr_320px] gap-4">
+        <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           <Skeleton className="h-[320px] rounded-2xl" />
           <Skeleton className="h-[320px] rounded-2xl" />
         </div>
@@ -214,7 +214,8 @@ function IdentityCard({
 
   return (
     <div className="mb-4 rounded-2xl border bg-card p-[22px]">
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="flex min-w-0 flex-1 items-start gap-5">
         <Avatar
           name={user.name ?? user.email}
           size="xl"
@@ -226,7 +227,7 @@ function IdentityCard({
             {user.name ?? user.email.split('@')[0]}
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-mono text-foreground">{user.email}</span>
+            <span className="break-all font-mono text-foreground">{user.email}</span>
             {user.email_verified ? (
               <span className="inline-flex items-center gap-1 text-brand">
                 <MailCheck size={12} />
@@ -282,10 +283,11 @@ function IdentityCard({
             )}
           </div>
         </div>
+        </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="flex shrink-0 flex-col items-stretch gap-2 lg:items-end">
           {user.status === 'pending' ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -306,7 +308,7 @@ function IdentityCard({
               </Button>
             </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm">
                 <Mail data-icon="inline-start" />
                 Reenviar verificación
@@ -337,7 +339,7 @@ function IdentityCard({
 
 function ResumenTab({ user }: { user: AdminUser }) {
   return (
-    <div className="grid grid-cols-[1fr_320px] gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       <div className="flex flex-col gap-4">
         <div className="rounded-2xl border bg-card">
           <div className="border-b border-border p-[18px]">
@@ -346,7 +348,7 @@ function ResumenTab({ user }: { user: AdminUser }) {
               Identidad
             </div>
           </div>
-          <dl className="grid grid-cols-[160px_1fr] gap-y-3 p-[18px] text-sm">
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-[18px] text-sm sm:grid-cols-[160px_1fr]">
             <Kv label="Nombre" value={user.name ?? '—'} />
             <Kv label="Email" value={user.email} mono />
             <Kv label="Rol" value={<RoleBadge role={user.role} />} />
@@ -462,7 +464,9 @@ function Kv({
       <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </dt>
-      <dd className={cn(mono && 'font-mono tabular-nums')}>{value}</dd>
+      <dd className={cn('min-w-0 break-words', mono && 'font-mono tabular-nums')}>
+        {value}
+      </dd>
     </>
   );
 }
@@ -577,7 +581,7 @@ function EstadoTab({
           </div>
         </Field>
 
-        <div className="flex justify-end gap-2 border-t border-border pt-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
           <Button variant="outline" size="sm" onClick={discard} disabled={!dirty}>
             Descartar cambios
           </Button>
@@ -811,7 +815,7 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
             label="Plan"
             hint="El cambio se aplica al próximo período de cobro."
           >
-            <div className="grid max-w-[540px] grid-cols-2 gap-2">
+            <div className="grid max-w-[540px] grid-cols-1 gap-2 sm:grid-cols-2">
               {(['full', 'premium'] as SubscriptionTier[]).map(
                 (t) => (
                   <button
@@ -897,7 +901,7 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
             />
           </Field>
 
-          <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
             {hasSub && user.subscription_status !== 'cancelled' && (
               <Button
                 variant="destructive"

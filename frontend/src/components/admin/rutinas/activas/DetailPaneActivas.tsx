@@ -116,8 +116,8 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <header className="border-b border-border px-7 py-5">
-        <div className="flex items-center justify-between">
+      <header className="border-b border-border px-4 py-5 lg:px-7">
+        <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-lg font-semibold">{rutina.profile.name}</h1>
             <div className="mt-1 text-xs text-muted-foreground">
@@ -129,7 +129,9 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
               </Link>
             </div>
           </div>
-          <Badge variant="outline">{rutina.profile.days_per_week} días/sem</Badge>
+          <Badge variant="outline" className="shrink-0">
+            {rutina.profile.days_per_week} días/sem
+          </Badge>
         </div>
         {rutina.has_active_session && (
           <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -138,7 +140,7 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
           </div>
         )}
       </header>
-      <div className="flex-1 space-y-4 overflow-y-auto px-7 py-6">
+      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-6 lg:px-7">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

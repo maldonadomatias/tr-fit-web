@@ -11,9 +11,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       }}
     >
       <BrandPanel />
-      <div className="relative flex min-h-screen flex-col items-center justify-center p-10 md:min-h-0">
+      <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-10 sm:p-10 md:min-h-0">
         <div className="w-full max-w-[400px]">{children}</div>
-        <footer className="absolute bottom-6 left-0 right-0 flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
+        <footer className="absolute bottom-6 left-0 right-0 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 text-[11px] text-muted-foreground">
           <span>TR-Fit · 2026</span>
           <Link to="/terms" className="hover:text-foreground">
             Términos

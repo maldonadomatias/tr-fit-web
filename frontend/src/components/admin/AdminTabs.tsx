@@ -21,7 +21,7 @@ export function AdminTabs<K extends string>({
     <div
       role="tablist"
       className={cn(
-        'mb-5 flex items-center gap-6 border-b border-border',
+        'mb-5 flex items-center gap-3 overflow-x-auto border-b border-border sm:gap-6',
         className,
       )}
     >

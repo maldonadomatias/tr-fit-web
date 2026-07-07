@@ -205,7 +205,7 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[95vw] max-w-6xl! max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-6xl! max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEdit ? 'Editar ejercicio' : 'Nuevo ejercicio'}</DialogTitle>
           </DialogHeader>
@@ -436,7 +436,7 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
       />
 
       <Dialog open={archiveConfirm} onOpenChange={setArchiveConfirm}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
           <DialogHeader>
             <DialogTitle>Archivar ejercicio</DialogTitle>
           </DialogHeader>
