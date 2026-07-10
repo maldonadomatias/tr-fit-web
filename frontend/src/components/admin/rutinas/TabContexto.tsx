@@ -88,7 +88,7 @@ export function TabContexto({ profile }: { profile: RutinaDetail['profile'] }) {
           <Field
             label="Días"
             value={
-              profile.days_specific.length > 0
+              profile.days_specific && profile.days_specific.length > 0
                 ? profile.days_specific
                     .map((d) => DAY_LABEL[d] ?? d)
                     .join(' · ')

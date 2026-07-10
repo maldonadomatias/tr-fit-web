@@ -94,7 +94,9 @@ export interface RutinaDetail {
     level: 'nunca' | 'bajo' | 'medio' | 'avanzado' | 'muy_avanzado';
     goal: 'hipertrofia' | 'fuerza' | 'recomp' | 'perdida_grasa';
     days_per_week: number;
-    days_specific: ('lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom')[];
+    days_specific:
+      | ('lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom')[]
+      | null;
     equipment: 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
     injuries: string[];
   };
