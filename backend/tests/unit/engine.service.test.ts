@@ -1,17 +1,23 @@
 import { jest } from '@jest/globals';
 
 process.env.OWNER_COACH_EMAIL ??= 'owner-test@example.local';
-process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/trfit_test';
+process.env.DATABASE_URL ??=
+  'postgres://postgres:postgres@localhost:5432/trfit_test';
 process.env.JWT_SECRET ??= 'jwt-test-secret-12345';
 process.env.OPENAI_API_KEY ??= 'sk-test-12345';
 process.env.RESEND_API_KEY ??= 'rk-test-12345';
 
-interface FakeQueryResult { rows: unknown[]; rowCount: number }
+interface FakeQueryResult {
+  rows: unknown[];
+  rowCount: number;
+}
 type Handler = (sql: string, params?: unknown[]) => FakeQueryResult | null;
 const handlers: Handler[] = [];
 
 function pushHandler(matcher: (sql: string) => boolean, rows: unknown[]) {
-  handlers.push((sql) => (matcher(sql) ? { rows, rowCount: rows.length } : null));
+  handlers.push((sql) =>
+    matcher(sql) ? { rows, rowCount: rows.length } : null
+  );
 }
 
 const fakePool = {
@@ -29,7 +35,8 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { computeNextPendingDay, buildTodaySession } = await import('../../src/services/engine.service.js');
+const { computeNextPendingDay, buildTodaySession } =
+  await import('../../src/services/engine.service.js');
 
 beforeEach(() => {
   handlers.length = 0;
@@ -42,19 +49,25 @@ function seed(opts: {
   lastDay?: number;
 }) {
   pushHandler(
-    (s) => s.startsWith('SELECT current_week, active_skeleton_id FROM athlete_program_state'),
-    [{
-      current_week: opts.currentWeek ?? 1,
-      active_skeleton_id: opts.activeSkeletonId === undefined ? 'sk-1' : opts.activeSkeletonId,
-    }],
+    (s) =>
+      s.startsWith(
+        'SELECT current_week, active_skeleton_id FROM athlete_program_state'
+      ),
+    [
+      {
+        current_week: opts.currentWeek ?? 1,
+        active_skeleton_id:
+          opts.activeSkeletonId === undefined ? 'sk-1' : opts.activeSkeletonId,
+      },
+    ]
   );
   pushHandler(
     (s) => s.startsWith('SELECT days_per_week FROM athlete_profiles'),
-    [{ days_per_week: 'daysPerWeek' in opts ? (opts.daysPerWeek ?? null) : 4 }],
+    [{ days_per_week: 'daysPerWeek' in opts ? (opts.daysPerWeek ?? null) : 4 }]
   );
   pushHandler(
     (s) => s.startsWith('SELECT COALESCE(MAX(day_of_week), 0)'),
-    [{ last_day: opts.lastDay ?? 0 }],
+    [{ last_day: opts.lastDay ?? 0 }]
   );
 }
 
@@ -131,48 +144,54 @@ const basePeriodizationConfig = {
  * exerciseRows:  rows returned from exercises WHERE id = ANY(…).
  */
 function seedBuildSession(
-  exclusionRows: { exercise_id: number; replacement_exercise_id: number | null }[],
-  exerciseRows: unknown[],
+  exclusionRows: {
+    exercise_id: number;
+    replacement_exercise_id: number | null;
+  }[],
+  exerciseRows: unknown[]
 ) {
   // 1. program_state — week 1, active skeleton sk-excl
   pushHandler(
-    (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
-    [{ current_week: 1, rm_test_blocking: false, active_skeleton_id: 'sk-excl' }],
+    (s) =>
+      s.startsWith(
+        'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+      ),
+    [
+      {
+        current_week: 1,
+        rm_test_blocking: false,
+        active_skeleton_id: 'sk-excl',
+      },
+    ]
   );
   // 2. periodization_config
   pushHandler(
     (s) => s.startsWith('SELECT * FROM periodization_config'),
-    [basePeriodizationConfig],
+    [basePeriodizationConfig]
   );
   // 3. skeleton_slots — one slot with exA on day 1
-  pushHandler(
-    (s) => s.startsWith('SELECT * FROM skeleton_slots'),
-    [baseSlot],
-  );
+  pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [baseSlot]);
   // 4. athlete_excluded_exercises (getExclusionMap)
   pushHandler(
-    (s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'),
-    exclusionRows,
+    (s) =>
+      s.startsWith(
+        'SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'
+      ),
+    exclusionRows
   );
   // 5. weekly_overrides (applyOverridesToSlots)
-  pushHandler(
-    (s) => s.startsWith('SELECT * FROM weekly_overrides'),
-    [],
-  );
+  pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
   // 6. exercises lookup
   pushHandler(
     (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
-    exerciseRows,
+    exerciseRows
   );
   // 7. athlete_exercise_weights
-  pushHandler(
-    (s) => s.startsWith('SELECT exercise_id,'),
-    [],
-  );
+  pushHandler((s) => s.startsWith('SELECT exercise_id,'), []);
   // 8. athlete_equipment_units (resolveUnit) — returns empty so default ('kg') is used
   pushHandler(
     (s) => s.startsWith('SELECT unit FROM athlete_equipment_units'),
-    [],
+    []
   );
 }
 
@@ -195,7 +214,7 @@ describe('computeNextPendingDay', () => {
   it('returns 1 when athlete has no program_state row', async () => {
     pushHandler(
       (s) => s.startsWith('SELECT days_per_week FROM athlete_profiles'),
-      [{ days_per_week: 4 }],
+      [{ days_per_week: 4 }]
     );
     expect(await computeNextPendingDay('ghost')).toBe(1);
   });
@@ -264,48 +283,45 @@ const pctRmConfig = {
 function seedMissingRmSession(aewRow: object | null) {
   // 1. program_state
   pushHandler(
-    (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
-    [{ current_week: 2, rm_test_blocking: false, active_skeleton_id: 'sk-rm' }],
+    (s) =>
+      s.startsWith(
+        'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+      ),
+    [{ current_week: 2, rm_test_blocking: false, active_skeleton_id: 'sk-rm' }]
   );
   // 2. periodization_config — pct_rm branch, no amrap, no rm_test
   pushHandler(
     (s) => s.startsWith('SELECT * FROM periodization_config'),
-    [pctRmConfig],
+    [pctRmConfig]
   );
   // 3. skeleton_slots
-  pushHandler(
-    (s) => s.startsWith('SELECT * FROM skeleton_slots'),
-    [rmSlot],
-  );
+  pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [rmSlot]);
   // 4. athlete_excluded_exercises (getExclusionMap)
   pushHandler(
-    (s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'),
-    [],
+    (s) =>
+      s.startsWith(
+        'SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'
+      ),
+    []
   );
   // 5. weekly_overrides (applyOverridesToSlots)
-  pushHandler(
-    (s) => s.startsWith('SELECT * FROM weekly_overrides'),
-    [],
-  );
+  pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
   // 6. exercises lookup
   pushHandler(
     (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
-    [exRM],
+    [exRM]
   );
   // 7. athlete_exercise_weights
   pushHandler(
     (s) => s.startsWith('SELECT exercise_id,'),
-    aewRow ? [aewRow] : [],
+    aewRow ? [aewRow] : []
   );
   // 8. rm_tests — no RM test row for this exercise
-  pushHandler(
-    (s) => s.startsWith('SELECT exercise_id, value_kg'),
-    [],
-  );
+  pushHandler((s) => s.startsWith('SELECT exercise_id, value_kg'), []);
   // 9. athlete_equipment_units (resolveUnit)
   pushHandler(
     (s) => s.startsWith('SELECT unit FROM athlete_equipment_units'),
-    [],
+    []
   );
 }
 
@@ -342,7 +358,7 @@ describe('buildTodaySession — exclusions', () => {
     // exA excluded, replaced by exB
     seedBuildSession(
       [{ exercise_id: exA.id, replacement_exercise_id: exB.id }],
-      [exB],
+      [exB]
     );
 
     const items = await buildTodaySession('athlete-excl', 1);
@@ -355,7 +371,7 @@ describe('buildTodaySession — exclusions', () => {
     // exA excluded, no replacement (null)
     seedBuildSession(
       [{ exercise_id: exA.id, replacement_exercise_id: null }],
-      [],
+      []
     );
 
     const items = await buildTodaySession('athlete-excl', 1);
@@ -379,22 +395,59 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
   // Seeds a single accessory slot with the given prescription + optional logged
   // reps, mirroring seedBuildSession's query order.
   function seedAccessory(
-    prescription: { series: number | null; reps: string | null; descanso: string | null },
-    weightRows: unknown[] = [],
+    prescription: {
+      series: number | null;
+      reps: string | null;
+      descanso: string | null;
+    },
+    weightRows: unknown[] = []
   ) {
     pushHandler(
-      (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
-      [{ current_week: 1, rm_test_blocking: false, active_skeleton_id: 'sk-acc' }],
+      (s) =>
+        s.startsWith(
+          'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+        ),
+      [
+        {
+          current_week: 1,
+          rm_test_blocking: false,
+          active_skeleton_id: 'sk-acc',
+        },
+      ]
     );
-    pushHandler((s) => s.startsWith('SELECT * FROM periodization_config'), [basePeriodizationConfig]);
-    pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [
-      { ...baseSlot, id: 'slot-acc', role: 'accesorio', exercise_id: exA.id, ...prescription },
-    ]);
-    pushHandler((s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'), []);
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM periodization_config'),
+      [basePeriodizationConfig]
+    );
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM skeleton_slots'),
+      [
+        {
+          ...baseSlot,
+          id: 'slot-acc',
+          role: 'accesorio',
+          exercise_id: exA.id,
+          ...prescription,
+        },
+      ]
+    );
+    pushHandler(
+      (s) =>
+        s.startsWith(
+          'SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'
+        ),
+      []
+    );
     pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
-    pushHandler((s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'), [exA]);
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
+      [exA]
+    );
     pushHandler((s) => s.startsWith('SELECT exercise_id,'), weightRows);
-    pushHandler((s) => s.startsWith('SELECT unit FROM athlete_equipment_units'), []);
+    pushHandler(
+      (s) => s.startsWith('SELECT unit FROM athlete_equipment_units'),
+      []
+    );
   }
 
   it('uses the slot prescription over periodization defaults', async () => {
@@ -414,10 +467,15 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
   });
 
   it('progressed current_reps_text still wins over the slot reps', async () => {
-    seedAccessory(
-      { series: 2, reps: '10x10x10', descanso: '2 min' },
-      [{ exercise_id: exA.id, current_value: null, unit: null, current_weight_kg: null, current_reps_text: '12x12x12' }],
-    );
+    seedAccessory({ series: 2, reps: '10x10x10', descanso: '2 min' }, [
+      {
+        exercise_id: exA.id,
+        current_value: null,
+        unit: null,
+        current_weight_kg: null,
+        current_reps_text: '12x12x12',
+      },
+    ]);
     const [item] = await buildTodaySession('athlete-acc', 1);
     expect(item!.reps).toBe('12x12x12'); // progression overrides the seed
     expect(item!.series).toBe(2); // series still from the slot
@@ -438,21 +496,54 @@ describe('buildTodaySession — warm-up role safety net (bug 2026-07-04)', () =>
   function seedMistagged(
     role: string,
     prescription: Record<string, unknown> = {},
-    exerciseRows: unknown[] = [warmupEx],
+    exerciseRows: unknown[] = [warmupEx]
   ) {
     pushHandler(
-      (s) => s.startsWith('SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'),
-      [{ current_week: 1, rm_test_blocking: false, active_skeleton_id: 'sk-warm' }],
+      (s) =>
+        s.startsWith(
+          'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+        ),
+      [
+        {
+          current_week: 1,
+          rm_test_blocking: false,
+          active_skeleton_id: 'sk-warm',
+        },
+      ]
     );
-    pushHandler((s) => s.startsWith('SELECT * FROM periodization_config'), [basePeriodizationConfig]);
-    pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [
-      { ...baseSlot, id: 'slot-warm', role, exercise_id: warmupEx.id, ...prescription },
-    ]);
-    pushHandler((s) => s.startsWith('SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'), []);
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM periodization_config'),
+      [basePeriodizationConfig]
+    );
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM skeleton_slots'),
+      [
+        {
+          ...baseSlot,
+          id: 'slot-warm',
+          role,
+          exercise_id: warmupEx.id,
+          ...prescription,
+        },
+      ]
+    );
+    pushHandler(
+      (s) =>
+        s.startsWith(
+          'SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'
+        ),
+      []
+    );
     pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
-    pushHandler((s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'), exerciseRows);
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
+      exerciseRows
+    );
     pushHandler((s) => s.startsWith('SELECT exercise_id,'), []);
-    pushHandler((s) => s.startsWith('SELECT unit FROM athlete_equipment_units'), []);
+    pushHandler(
+      (s) => s.startsWith('SELECT unit FROM athlete_equipment_units'),
+      []
+    );
   }
 
   it('warm-up stored as accesorio is served as calentamiento', async () => {
@@ -469,6 +560,12 @@ describe('buildTodaySession — warm-up role safety net (bug 2026-07-04)', () =>
     const [item] = await buildTodaySession('athlete-warm', 1);
     expect(item!.role).toBe('calentamiento');
     expect(item!.series).toBe(1);
+  });
+
+  it('uses the warm-up series selected by the coach', async () => {
+    seedMistagged('calentamiento', { series: 3 });
+    const [item] = await buildTodaySession('athlete-warm', 1);
+    expect(item!.series).toBe(3);
   });
 
   it('non-warm-up names keep their stored role', async () => {

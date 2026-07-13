@@ -1,11 +1,12 @@
 import { GripVertical } from 'lucide-react';
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { RutinaSlot, RutinaPeriodization } from '@/types/api';
-import {
-  EditSlotPopover,
-  type SlotOverride,
-} from './EditSlotPopover';
+import { EditSlotPopover, type SlotOverride } from './EditSlotPopover';
 import { AddSlotPopover, type AddedSlotData } from './AddSlotPopover';
 
 const DAY_LABEL: Record<string, string> = {
@@ -25,12 +26,18 @@ type DayCode = keyof typeof DAY_LABEL;
  * (or the admin's local edit) and fall back to the week config; principals and
  * warmups always follow the week config.
  */
-function prescription(
+export function resolvePrescription(
   s: RutinaSlot,
   ov: SlotOverride | undefined,
-  cfg: RutinaPeriodization | null,
+  cfg: RutinaPeriodization | null
 ): { sets: string; descanso: string | null } | null {
-  if (s.role === 'calentamiento') return { sets: '2 series', descanso: null };
+  if (s.role === 'calentamiento') {
+    const series = (ov && 'series' in ov ? ov.series : s.series) ?? 1;
+    return {
+      sets: `${series} ${series === 1 ? 'serie' : 'series'}`,
+      descanso: null,
+    };
+  }
   if (!cfg) return null;
   if (s.role === 'principal') {
     return {
@@ -42,7 +49,8 @@ function prescription(
   const edited = ov && 'series' in ov;
   const series = (edited ? ov!.series : s.series) ?? cfg.accesorio_series;
   const reps = (edited ? ov!.reps : s.reps) ?? cfg.accesorio_reps;
-  const descanso = (edited ? ov!.descanso : s.descanso) ?? cfg.accesorio_descanso;
+  const descanso =
+    (edited ? ov!.descanso : s.descanso) ?? cfg.accesorio_descanso;
   return { sets: `${series} × ${reps}`, descanso: descanso ?? null };
 }
 
@@ -163,7 +171,7 @@ function SlotRow({
   const name = ov?.exercise_name ?? s.exercise_name ?? 'Ejercicio sin nombre';
   const muscle = ov?.muscle_group ?? s.muscle_group;
   const isModified = !!ov;
-  const presc = prescription(s, ov, periodization);
+  const presc = resolvePrescription(s, ov, periodization);
 
   return (
     <li
@@ -226,7 +234,9 @@ function SlotRow({
         currentNotes={ov?.notes}
         currentSeries={(ov && 'series' in ov ? ov.series : s.series) ?? null}
         currentReps={(ov && 'reps' in ov ? ov.reps : s.reps) ?? null}
-        currentDescanso={(ov && 'descanso' in ov ? ov.descanso : s.descanso) ?? null}
+        currentDescanso={
+          (ov && 'descanso' in ov ? ov.descanso : s.descanso) ?? null
+        }
         onSave={(payload) => onOverride(s.id, payload)}
         onDelete={() => onDelete(s.id)}
       />

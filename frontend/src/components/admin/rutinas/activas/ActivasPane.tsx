@@ -7,13 +7,17 @@ export function ActivasPane() {
   const navigate = useNavigate();
 
   return (
-    <div className="grid h-full grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
+    <div className="grid h-full min-h-0 grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
       <ListPaneActivas
         activeId={athleteId}
         onSelect={(id) => navigate(`/admin/rutinas/atleta/${id}`)}
       />
       <div className="flex min-h-0 flex-col lg:overflow-hidden">
-        {athleteId ? <DetailPaneActivas athleteId={athleteId} /> : <EmptyHint />}
+        {athleteId ? (
+          <DetailPaneActivas athleteId={athleteId} />
+        ) : (
+          <EmptyHint />
+        )}
       </div>
     </div>
   );

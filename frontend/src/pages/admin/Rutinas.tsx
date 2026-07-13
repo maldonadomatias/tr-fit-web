@@ -12,7 +12,7 @@ export default function Rutinas() {
   const isActivas = loc.pathname.startsWith('/admin/rutinas/atleta');
 
   return (
-    <div className="-mx-7 -my-7 flex h-[calc(100vh-56px)] flex-col overflow-hidden">
+    <div className="-m-4 flex h-[calc(100dvh-56px)] min-h-0 flex-col overflow-hidden sm:-m-6 lg:-m-7">
       <RutinasTabs />
       <div className="flex-1 overflow-hidden">
         {isActivas ? <ActivasPane /> : <ColaPane />}
@@ -29,7 +29,7 @@ function ColaPane() {
 
   const activeIndex = useMemo(
     () => queue.findIndex((r) => r.id === id),
-    [queue, id],
+    [queue, id]
   );
 
   useEffect(() => {
@@ -65,9 +65,7 @@ function ColaPane() {
       return;
     }
     const nextIdx =
-      activeIndex >= 0 && activeIndex < queue.length - 1
-        ? activeIndex + 1
-        : 0;
+      activeIndex >= 0 && activeIndex < queue.length - 1 ? activeIndex + 1 : 0;
     const next = queue[nextIdx]?.id;
     if (next && next !== id) goToId(next);
     else goToId(remaining[0].id);

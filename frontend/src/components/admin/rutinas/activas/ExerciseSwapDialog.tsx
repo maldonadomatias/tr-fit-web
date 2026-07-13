@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import {
   Dialog,
@@ -23,13 +23,22 @@ export function ExerciseSwapDialog({
   muscleGroup?: string;
 }) {
   const [q, setQ] = useState('');
-  const [onlyGroup, setOnlyGroup] = useState(true);
-  // Widen to the whole parent group: 'Pecho - Mayor' shows all 'Pecho - *'.
-  const parentGroup = muscleGroup?.split(' - ')[0];
-  const filterGroup = muscleGroup && onlyGroup ? muscleGroup : undefined;
+  const [selectedGroup, setSelectedGroup] = useState(muscleGroup ?? '');
+  useEffect(() => {
+    if (open) {
+      setQ('');
+      setSelectedGroup(muscleGroup ?? '');
+    }
+  }, [open, muscleGroup]);
+  const catalog = useAdminExercises({ archived: 'false', limit: 200 });
+  const groups = [
+    ...new Set(
+      (catalog.data?.items ?? []).map((exercise) => exercise.muscle_group)
+    ),
+  ].sort();
   const { data } = useAdminExercises({
     q: q.trim() || undefined,
-    muscle_group_parent: filterGroup,
+    muscle_group: selectedGroup || undefined,
     archived: 'false',
     // List the full group / catalog instead of the default page of 50.
     limit: 200,
@@ -37,7 +46,7 @@ export function ExerciseSwapDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-hidden">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -54,19 +63,19 @@ export function ExerciseSwapDialog({
             autoFocus
           />
         </div>
-        {muscleGroup ? (
-          <button
-            type="button"
-            onClick={() => setOnlyGroup((v) => !v)}
-            className={`self-start rounded-full border px-3 py-1 text-xs ${
-              onlyGroup
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            {onlyGroup ? `Solo ${parentGroup}` : 'Todos los grupos'}
-          </button>
-        ) : null}
+        <select
+          aria-label="Grupo muscular"
+          value={selectedGroup}
+          onChange={(event) => setSelectedGroup(event.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todos los grupos musculares</option>
+          {groups.map((group) => (
+            <option key={group} value={group}>
+              {group}
+            </option>
+          ))}
+        </select>
         <div className="max-h-96 divide-y divide-border overflow-y-auto rounded-md border">
           {(data?.items ?? []).map((ex) => (
             <button

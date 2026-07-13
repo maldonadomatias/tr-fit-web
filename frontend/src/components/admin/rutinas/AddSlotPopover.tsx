@@ -15,6 +15,7 @@ export type AddedSlotData = {
   exercise_id: number;
   exercise_name: string;
   muscle_group: string;
+  role: 'calentamiento' | 'principal' | 'accesorio';
   notes?: string;
   series?: number | null;
   reps?: string | null;
@@ -40,6 +41,7 @@ export function AddSlotPopover({
   const [series, setSeries] = useState('');
   const [reps, setReps] = useState('');
   const [descanso, setDescanso] = useState('');
+  const [role, setRole] = useState<AddedSlotData['role']>('accesorio');
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export function AddSlotPopover({
       setSeries('');
       setReps('');
       setDescanso('');
+      setRole('accesorio');
       setTimeout(() => searchRef.current?.focus(), 30);
     }
   }, [open]);
@@ -66,6 +69,7 @@ export function AddSlotPopover({
       exercise_id: ex.id,
       exercise_name: ex.name,
       muscle_group: ex.muscle_group,
+      role,
       notes: notes.trim() || undefined,
       series: series.trim() ? Number(series) : null,
       reps: reps.trim() || null,
@@ -88,7 +92,7 @@ export function AddSlotPopover({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-[calc(100vw-2rem)] max-w-[340px] space-y-3"
+        className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[340px] space-y-3 overflow-y-auto overscroll-contain"
       >
         <div>
           <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -129,7 +133,7 @@ export function AddSlotPopover({
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-2 py-1.5 text-left text-[12px] transition hover:bg-muted',
-                      active && 'bg-muted',
+                      active && 'bg-muted'
                     )}
                   >
                     <span className="flex items-center gap-1.5">
@@ -148,50 +152,73 @@ export function AddSlotPopover({
           </ul>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Series
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={6}
-              value={series}
-              onChange={(e) => setSeries(e.target.value)}
-              placeholder="3"
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Reps
-            </label>
-            <input
-              type="text"
-              value={reps}
-              onChange={(e) => setReps(e.target.value)}
-              placeholder="8 a 10 · 10x10x10 · 10 - 8 - 6"
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-            />
-          </div>
-          <div className="col-span-3">
-            <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              Descanso
-            </label>
-            <input
-              type="text"
-              value={descanso}
-              onChange={(e) => setDescanso(e.target.value)}
-              placeholder="Ej: 1:30 a 2 min"
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
-            />
-          </div>
-          <p className="col-span-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
-            Entra como accesorio. Vacío = usa la periodización de la semana.
-            Superserie: 10x10x10 · Pirámide: 10 - 8 - 6.
-          </p>
+        <div>
+          <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Rol en la rutina
+          </label>
+          <select
+            aria-label="Rol en la rutina"
+            value={role}
+            onChange={(e) => setRole(e.target.value as AddedSlotData['role'])}
+            className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px]"
+          >
+            <option value="accesorio">Accesorio</option>
+            <option
+              value="principal"
+              disabled={selected ? !selected.is_principal : false}
+            >
+              Principal (periodización semanal)
+            </option>
+            <option value="calentamiento">Calentamiento</option>
+          </select>
         </div>
+
+        {role === 'accesorio' && (
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Series
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={6}
+                value={series}
+                onChange={(e) => setSeries(e.target.value)}
+                placeholder="3"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Reps
+              </label>
+              <input
+                type="text"
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
+                placeholder="8 a 10 · 10x10x10 · 10 - 8 - 6"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className="col-span-3">
+              <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Descanso
+              </label>
+              <input
+                type="text"
+                value={descanso}
+                onChange={(e) => setDescanso(e.target.value)}
+                placeholder="Ej: 1:30 a 2 min"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <p className="col-span-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
+              Entra como accesorio. Vacío = usa la periodización de la semana.
+              Superserie: 10x10x10 · Pirámide: 10 - 8 - 6.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -218,7 +245,9 @@ export function AddSlotPopover({
             type="button"
             size="sm"
             onClick={commit}
-            disabled={!selected && !results.some((r) => r.name === query.trim())}
+            disabled={
+              !selected && !results.some((r) => r.name === query.trim())
+            }
           >
             Agregar
           </Button>

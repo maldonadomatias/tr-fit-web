@@ -18,7 +18,10 @@ const BIRTH_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * malformed strings or impossible calendar dates (e.g. 2000-02-31). "today" is
  * injectable for tests; comparison uses server-local date parts.
  */
-export function ageFromBirthDate(iso: string, today = new Date()): number | null {
+export function ageFromBirthDate(
+  iso: string,
+  today = new Date()
+): number | null {
   if (!BIRTH_DATE_RE.test(iso)) return null;
   const [y, m, d] = iso.split('-').map(Number);
   const check = new Date(Date.UTC(y, m - 1, d));
@@ -37,76 +40,100 @@ export function ageFromBirthDate(iso: string, today = new Date()): number | null
   return age;
 }
 
-export const onboardingPayload = z.object({
-  name: z.string().min(1).max(100),
-  gender: z.enum(['male', 'female', 'other']),
-  age: z.number().int().min(12).max(100),
-  // New apps send the birth date and derive `age` from it (age alone goes
-  // stale). Optional for backward compatibility with older app builds.
-  birth_date: z.string().regex(BIRTH_DATE_RE).optional(),
-  height_cm: z.number().int().min(100).max(250),
-  weight_kg: z.number().min(30).max(250),
-  level: z.enum(['nunca', 'bajo', 'medio', 'avanzado', 'muy_avanzado']),
-  goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
-  days_per_week: z.number().int().min(2).max(6),
-  // Men choose 1 or 2 leg days; this drives the split shape. Women omit it
-  // (their split is lower-biased by default). Optional + nullable for legacy.
-  leg_days: z.union([z.literal(1), z.literal(2)]).nullish(),
-  equipment: z.enum(['gym_completo', 'gym_basico', 'casa_basica', 'solo_bw']),
-  injuries: z.array(z.string()).default([]),
-  phone: z.string().regex(/^\+\d{10,15}$/),
-  // Legacy field — subscriptions are now handled outside the app and the backend
-  // no longer gates on tier. The app always sends 'full'; accept it for backward
-  // compatibility but tolerate omission (defaults to 'full') so a future app
-  // build can drop it without a backend change. Column stays nullable in the DB.
-  plan_interest: z.enum(['basico', 'full', 'premium']).optional().default('full'),
-  training_mode: z.enum(['gym', 'casa', 'mixto']),
-  commitment: z.enum(['suave', 'normal', 'exigente']),
-  // Session-time options shown in onboarding: 1 h, 1 h 15, 1 h 45, 2 h.
-  // (Legacy 30/45/90 remain valid in the DB CHECK for existing profiles.)
-  exercise_minutes: z.union([
-    z.literal(60), z.literal(75), z.literal(105), z.literal(120),
-  ]),
-  days_specific: z.array(z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'])),
-  referral_source: z.enum(['instagram', 'facebook', 'google', 'amigo', 'otro']),
-  sport_focus: z.string().max(200).optional(),
-  measurements: measurementPayload.optional(),
-}).refine((d) => d.days_specific.length === d.days_per_week, {
-  message: 'days_specific length must equal days_per_week',
-  path: ['days_specific'],
-}).refine((d) => new Set(d.days_specific).size === d.days_specific.length, {
-  message: 'days_specific must not contain duplicates',
-  path: ['days_specific'],
-}).refine((d) => d.leg_days == null || d.leg_days <= d.days_per_week, {
-  message: 'leg_days must not exceed days_per_week',
-  path: ['leg_days'],
-}).refine((d) => {
-  if (d.birth_date == null) return true;
-  const derived = ageFromBirthDate(d.birth_date);
-  return derived != null && derived >= 12 && derived <= 100;
-}, {
-  message: 'birth_date must be a valid date with derived age between 12 and 100',
-  path: ['birth_date'],
-}).refine((d) => {
-  if (d.birth_date == null) return true;
-  const derived = ageFromBirthDate(d.birth_date);
-  // Invalid dates already fail the previous refine; only check consistency.
-  // ±1 year tolerance: the app derives age when the draft is filled, so a
-  // birthday (or a timezone edge) between draft and submit must not reject.
-  return derived == null || Math.abs(derived - d.age) <= 1;
-}, {
-  message: 'age is inconsistent with birth_date',
-  path: ['age'],
-});
+export const onboardingPayload = z
+  .object({
+    name: z.string().min(1).max(100),
+    gender: z.enum(['male', 'female', 'other']),
+    age: z.number().int().min(12).max(100),
+    // New apps send the birth date and derive `age` from it (age alone goes
+    // stale). Optional for backward compatibility with older app builds.
+    birth_date: z.string().regex(BIRTH_DATE_RE).optional(),
+    height_cm: z.number().int().min(100).max(250),
+    weight_kg: z.number().min(30).max(250),
+    level: z.enum(['nunca', 'bajo', 'medio', 'avanzado', 'muy_avanzado']),
+    goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
+    days_per_week: z.number().int().min(2).max(6),
+    // Men choose 1 or 2 leg days; this drives the split shape. Women omit it
+    // (their split is lower-biased by default). Optional + nullable for legacy.
+    leg_days: z.union([z.literal(1), z.literal(2)]).nullish(),
+    equipment: z.enum(['gym_completo', 'gym_basico', 'casa_basica', 'solo_bw']),
+    injuries: z.array(z.string()).default([]),
+    phone: z.string().regex(/^\+\d{10,15}$/),
+    // Legacy field — subscriptions are now handled outside the app and the backend
+    // no longer gates on tier. The app always sends 'full'; accept it for backward
+    // compatibility but tolerate omission (defaults to 'full') so a future app
+    // build can drop it without a backend change. Column stays nullable in the DB.
+    plan_interest: z
+      .enum(['basico', 'full', 'premium'])
+      .optional()
+      .default('full'),
+    training_mode: z.enum(['gym', 'casa', 'mixto']),
+    commitment: z.enum(['suave', 'normal', 'exigente']),
+    // Session-time options shown in onboarding: 1 h, 1 h 15, 1 h 45, 2 h.
+    // (Legacy 30/45/90 remain valid in the DB CHECK for existing profiles.)
+    exercise_minutes: z.union([
+      z.literal(60),
+      z.literal(75),
+      z.literal(105),
+      z.literal(120),
+    ]),
+    days_specific: z.array(
+      z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'])
+    ),
+    referral_source: z.enum([
+      'instagram',
+      'facebook',
+      'google',
+      'amigo',
+      'otro',
+    ]),
+    sport_focus: z.string().max(200).optional(),
+    measurements: measurementPayload.optional(),
+  })
+  .refine((d) => d.days_specific.length === d.days_per_week, {
+    message: 'days_specific length must equal days_per_week',
+    path: ['days_specific'],
+  })
+  .refine((d) => new Set(d.days_specific).size === d.days_specific.length, {
+    message: 'days_specific must not contain duplicates',
+    path: ['days_specific'],
+  })
+  .refine((d) => d.leg_days == null || d.leg_days <= d.days_per_week, {
+    message: 'leg_days must not exceed days_per_week',
+    path: ['leg_days'],
+  })
+  .refine(
+    (d) => {
+      if (d.birth_date == null) return true;
+      const derived = ageFromBirthDate(d.birth_date);
+      return derived != null && derived >= 12 && derived <= 100;
+    },
+    {
+      message:
+        'birth_date must be a valid date with derived age between 12 and 100',
+      path: ['birth_date'],
+    }
+  )
+  .refine(
+    (d) => {
+      if (d.birth_date == null) return true;
+      const derived = ageFromBirthDate(d.birth_date);
+      // Invalid dates already fail the previous refine; only check consistency.
+      // ±1 year tolerance: the app derives age when the draft is filled, so a
+      // birthday (or a timezone edge) between draft and submit must not reject.
+      return derived == null || Math.abs(derived - d.age) <= 1;
+    },
+    {
+      message: 'age is inconsistent with birth_date',
+      path: ['age'],
+    }
+  );
 
 export type MeasurementPayload = z.infer<typeof measurementPayload>;
 
 // Post-onboarding profile edit (PATCH /athlete/me). All fields optional — the
 // mobile app sends a diff of only the changed fields. Ranges mirror
 // onboardingPayload so an edited value is never less valid than the original.
-// `days_specific` is intentionally NOT editable here: the app doesn't collect
-// it, and the DB CHECK (cardinality(days_specific) = days_per_week) means a bare
-// days_per_week change would break the row — the route nulls days_specific instead.
 export const profileUpdatePayload = z
   .object({
     name: z.string().min(1).max(100),
@@ -116,6 +143,10 @@ export const profileUpdatePayload = z
     weight_kg: z.number().min(30).max(250),
     goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
     days_per_week: z.number().int().min(2).max(6),
+    days_specific: z
+      .array(z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']))
+      .min(2)
+      .max(6),
     leg_days: z.union([z.literal(1), z.literal(2)]).nullable(),
     // Editable post-onboarding so athletes who signed up before the field
     // existed can set it (enables the birthday celebration in the app). The
@@ -132,7 +163,28 @@ export const profileUpdatePayload = z
       d.leg_days == null ||
       d.days_per_week == null ||
       d.leg_days <= d.days_per_week,
-    { message: 'leg_days must not exceed days_per_week', path: ['leg_days'] },
+    { message: 'leg_days must not exceed days_per_week', path: ['leg_days'] }
+  )
+  .refine((d) => d.days_specific == null || d.days_per_week != null, {
+    message: 'days_per_week is required with days_specific',
+    path: ['days_per_week'],
+  })
+  .refine(
+    (d) =>
+      d.days_specific == null ||
+      new Set(d.days_specific).size === d.days_specific.length,
+    {
+      message: 'days_specific must not contain duplicates',
+      path: ['days_specific'],
+    }
+  )
+  .refine(
+    (d) =>
+      d.days_specific == null || d.days_specific.length === d.days_per_week,
+    {
+      message: 'days_specific length must equal days_per_week',
+      path: ['days_specific'],
+    }
   )
   .refine(
     (d) => {
@@ -141,9 +193,10 @@ export const profileUpdatePayload = z
       return derived != null && derived >= 12 && derived <= 100;
     },
     {
-      message: 'birth_date must be a valid date with derived age between 12 and 100',
+      message:
+        'birth_date must be a valid date with derived age between 12 and 100',
       path: ['birth_date'],
-    },
+    }
   );
 
 export type ProfileUpdatePayload = z.infer<typeof profileUpdatePayload>;
@@ -178,7 +231,7 @@ export const skeletonApprovePayload = z.object({
         series: z.number().int().min(1).max(6).nullable().optional(),
         reps: z.string().min(1).max(40).nullable().optional(),
         descanso: z.string().min(1).max(40).nullable().optional(),
-      }),
+      })
     )
     .max(200)
     .optional(),
@@ -188,7 +241,7 @@ export const skeletonApprovePayload = z.object({
         slot_id: z.string().uuid(),
         day_of_week: z.number().int().min(1).max(7),
         slot_index: z.number().int().min(1).max(12),
-      }),
+      })
     )
     .max(200)
     .optional(),
@@ -208,7 +261,7 @@ export const skeletonApprovePayload = z.object({
         series: z.number().int().min(1).max(6).nullable().optional(),
         reps: z.string().min(1).max(40).nullable().optional(),
         descanso: z.string().min(1).max(40).nullable().optional(),
-      }),
+      })
     )
     .max(200)
     .optional(),
@@ -219,27 +272,33 @@ export type SkeletonApprovePayload = z.infer<typeof skeletonApprovePayload>;
 // IA structured output schema (also used for runtime validation)
 export const aiSkeletonOutput = z.object({
   rationale: z.string(),
-  days: z.array(
-    z.object({
-      day_index: z.number().int().min(1).max(7),
-      focus: z.string(),
-      slots: z.array(
-        z.object({
-          slot_index: z.number().int().min(1).max(12),
-          exercise_id: z.number().int().positive(),
-          role: z.enum(['calentamiento', 'principal', 'accesorio']),
-          notes: z.string().nullable(),
-          // Per-slot prescription. Filled for role="accesorio" (the set-scheme:
-          // series, reps string like "8" / "10x10x10", and descanso). Left null
-          // for principals/warmups — they keep the 30-week periodization /
-          // warmup defaults. The engine only consumes these for accessories.
-          series: z.number().int().min(1).max(6).nullable(),
-          reps: z.string().min(1).max(40).nullable(),
-          descanso: z.string().min(1).max(40).nullable(),
-        }),
-      ).min(1).max(12),
-    }),
-  ).min(1).max(7),
+  days: z
+    .array(
+      z.object({
+        day_index: z.number().int().min(1).max(7),
+        focus: z.string(),
+        slots: z
+          .array(
+            z.object({
+              slot_index: z.number().int().min(1).max(12),
+              exercise_id: z.number().int().positive(),
+              role: z.enum(['calentamiento', 'principal', 'accesorio']),
+              notes: z.string().nullable(),
+              // Per-slot prescription. Filled for role="accesorio" (the set-scheme:
+              // series, reps string like "8" / "10x10x10", and descanso). Left null
+              // for principals/warmups — they keep the 30-week periodization /
+              // warmup defaults. The engine only consumes these for accessories.
+              series: z.number().int().min(1).max(6).nullable(),
+              reps: z.string().min(1).max(40).nullable(),
+              descanso: z.string().min(1).max(40).nullable(),
+            })
+          )
+          .min(1)
+          .max(12),
+      })
+    )
+    .min(1)
+    .max(7),
 });
 
 export type AiSkeletonOutput = z.infer<typeof aiSkeletonOutput>;
@@ -325,7 +384,14 @@ export const alertPayload = z.object({
   session_log_id: z.string().uuid().optional(),
   payload: z.union([
     z.object({
-      zone: z.enum(['lumbar','rodilla','hombro','cervical','cadera','otro']),
+      zone: z.enum([
+        'lumbar',
+        'rodilla',
+        'hombro',
+        'cervical',
+        'cadera',
+        'otro',
+      ]),
       intensity: z.number().int().min(1).max(10),
     }),
     z.object({
@@ -345,14 +411,16 @@ export const pushRegisterPayload = z.object({
   platform: z.enum(['ios', 'android', 'web']),
 });
 
-export const notificationPrefsPayload = z.object({
-  session_reminder: z.boolean().optional(),
-  session_missed: z.boolean().optional(),
-  week_start: z.boolean().optional(),
-  skeleton_approved: z.boolean().optional(),
-  sos_resolved: z.boolean().optional(),
-  rm_test_week: z.boolean().optional(),
-}).strict();
+export const notificationPrefsPayload = z
+  .object({
+    session_reminder: z.boolean().optional(),
+    session_missed: z.boolean().optional(),
+    week_start: z.boolean().optional(),
+    skeleton_approved: z.boolean().optional(),
+    sos_resolved: z.boolean().optional(),
+    rm_test_week: z.boolean().optional(),
+  })
+  .strict();
 
 export type PushRegisterPayload = z.infer<typeof pushRegisterPayload>;
 export type NotificationPrefsPayload = z.infer<typeof notificationPrefsPayload>;
@@ -389,7 +457,7 @@ export const adminReorderPayload = z.object({
         slot_id: z.string().uuid(),
         day_of_week: z.number().int().min(1).max(7),
         slot_index: z.number().int().min(1).max(12),
-      }),
+      })
     )
     .min(1)
     .max(200),
@@ -401,9 +469,23 @@ export const adminListAthletesQuery = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
+const weekdayEnum = z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']);
+export const adminTrainingDaysPayload = z
+  .object({
+    days_specific: z.array(weekdayEnum).min(2).max(6),
+  })
+  .refine(
+    (value) => new Set(value.days_specific).size === value.days_specific.length,
+    {
+      message: 'days_specific must not contain duplicates',
+      path: ['days_specific'],
+    }
+  );
+
 export type AdminSlotCreate = z.infer<typeof adminSlotCreatePayload>;
 export type AdminSlotPatch = z.infer<typeof adminSlotPatchPayload>;
 export type AdminReorderInput = z.infer<typeof adminReorderPayload>;
+export type AdminTrainingDaysInput = z.infer<typeof adminTrainingDaysPayload>;
 
 export const alertResolvePayload = z.object({
   action: z.enum(ALERT_RESOLUTION_ACTIONS),

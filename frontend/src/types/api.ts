@@ -99,6 +99,7 @@ export interface RutinaDetail {
       | null;
     equipment: 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
     injuries: string[];
+    exercise_minutes: number | null;
   };
 }
 
@@ -142,6 +143,7 @@ export interface AdminUser {
   email_verified_at: string | null;
   created_at: string;
   name: string | null;
+  phone: string | null;
   subscription_tier: SubscriptionTier | null;
   subscription_status: SubscriptionStatus | null;
   current_period_end: string | null;
@@ -215,13 +217,29 @@ export interface AdminStats {
 }
 
 export type AlertResolutionAction =
-  | 'swap_exercise' | 'skip_week' | 'regen_skeleton'
-  | 'approve_switch' | 'revert_switch' | 'reduce_intensity'
-  | 'reschedule_rm' | 'skip_rm_block' | 'acknowledge' | 'note_only';
+  | 'swap_exercise'
+  | 'skip_week'
+  | 'regen_skeleton'
+  | 'approve_switch'
+  | 'revert_switch'
+  | 'reduce_intensity'
+  | 'reschedule_rm'
+  | 'skip_rm_block'
+  | 'acknowledge'
+  | 'note_only';
 
 export interface CoachAlert {
   id: string;
-  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting' | 'membership_expiring' | 'membership_overdue' | 'sos_no_machine' | 'program_reset';
+  type:
+    | 'sos_pain'
+    | 'sos_machine'
+    | 'rpe_flag'
+    | 'rm_skipped'
+    | 'rm_week_starting'
+    | 'membership_expiring'
+    | 'membership_overdue'
+    | 'sos_no_machine'
+    | 'program_reset';
   severity: 'red' | 'yellow' | 'info';
   athlete_id: string;
   athlete_name: string;
@@ -260,12 +278,26 @@ export interface AlertsListFilters {
 }
 
 export type Equipment =
-  | 'barra' | 'mancuerna' | 'maquina' | 'polea' | 'smith'
-  | 'bw' | 'pesa_rusa' | 'elastico' | 'disco';
+  | 'barra'
+  | 'mancuerna'
+  | 'maquina'
+  | 'polea'
+  | 'smith'
+  | 'bw'
+  | 'pesa_rusa'
+  | 'elastico'
+  | 'disco';
 
 export type MovementPattern =
-  | 'squat' | 'hinge' | 'push_h' | 'push_v' | 'pull_h' | 'pull_v'
-  | 'isolation' | 'core' | 'cardio';
+  | 'squat'
+  | 'hinge'
+  | 'push_h'
+  | 'push_v'
+  | 'pull_h'
+  | 'pull_v'
+  | 'isolation'
+  | 'core'
+  | 'cardio';
 
 export type ExerciseLevel = 'principiante' | 'intermedio' | 'avanzado';
 
@@ -314,7 +346,12 @@ export interface ActiveRutinaDetail {
   };
   slots: RutinaSlot[];
   days: RutinaDay[];
-  profile: { user_id: string; name: string; days_per_week: number };
+  profile: {
+    user_id: string;
+    name: string;
+    days_per_week: number;
+    days_specific: string[] | null;
+  };
   has_active_session: boolean;
 }
 

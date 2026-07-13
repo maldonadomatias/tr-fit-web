@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AxiosError } from 'axios';
-import { Pencil } from 'lucide-react';
+import { Pencil, RotateCcw } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -10,12 +10,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useApproveRutina,
   useRejectRutina,
@@ -34,6 +29,11 @@ import { RejectDialog, type RejectPayload } from './RejectDialog';
 import { ShortcutsModal } from './ShortcutsModal';
 import type { SlotOverride } from './EditSlotPopover';
 import type { RutinaSlot } from '@/types/api';
+import {
+  clearRoutineDraft,
+  loadRoutineDraft,
+  saveRoutineDraft,
+} from './routine-draft';
 
 type TabKey = 'rutina' | 'contexto' | 'historial' | 'diff';
 
@@ -64,25 +64,60 @@ export function DetailPane({
   // Ids of brand-new slots the admin added locally (their data lives in `order`).
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   useEffect(() => {
     setTab('rutina');
     setRejectOpen(false);
+    const draft = loadRoutineDraft(id);
+    setOverrides(draft?.overrides ?? {});
+    setOrder(draft?.order ?? null);
+    setDeleted(new Set(draft?.deletedIds ?? []));
+    setAddedIds(new Set(draft?.addedIds ?? []));
+  }, [id]);
+
+  const hasDraftChanges =
+    Object.keys(overrides).length > 0 ||
+    order !== null ||
+    deleted.size > 0 ||
+    addedIds.size > 0;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!hasDraftChanges) {
+        clearRoutineDraft(id);
+        return;
+      }
+      saveRoutineDraft(id, {
+        version: 1,
+        overrides,
+        order,
+        deletedIds: [...deleted],
+        addedIds: [...addedIds],
+      });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [id, hasDraftChanges, overrides, order, deleted, addedIds]);
+
+  function resetDraft() {
+    clearRoutineDraft(id);
     setOverrides({});
     setOrder(null);
     setDeleted(new Set());
     setAddedIds(new Set());
-  }, [id]);
+    toast.success('Borrador reiniciado');
+  }
 
   const orderedSlots = useMemo(
     () =>
-      (order ??
+      (
+        order ??
         [...(data?.slots ?? [])].sort(
-          (a, b) => a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
-        )).filter((s) => !deleted.has(s.id)),
-    [order, data, deleted],
+          (a, b) => a.day_of_week - b.day_of_week || a.slot_index - b.slot_index
+        )
+      ).filter((s) => !deleted.has(s.id)),
+    [order, data, deleted]
   );
 
   function handleDragEnd(e: DragEndEvent) {
@@ -97,7 +132,10 @@ export function DetailPane({
     if (movingIndex < 0 || targetIndex < 0) return;
     const targetDay = sorted[targetIndex].day_of_week;
 
-    const moved = { ...sorted.splice(movingIndex, 1)[0], day_of_week: targetDay };
+    const moved = {
+      ...sorted.splice(movingIndex, 1)[0],
+      day_of_week: targetDay,
+    };
     const insertAt = sorted.findIndex((s) => s.id === overId);
     sorted.splice(insertAt, 0, moved);
 
@@ -152,7 +190,7 @@ export function DetailPane({
         else if (shortcutsOpen) setShortcutsOpen(false);
       },
     },
-    { enabled: !!data },
+    { enabled: !!data }
   );
 
   async function onApprove() {
@@ -204,6 +242,7 @@ export function DetailPane({
         deleted_slot_ids,
         added_slots,
       });
+      clearRoutineDraft(id);
       toast.success('Rutina aprobada · pasando a la siguiente');
       onAdvance();
     } catch (e) {
@@ -224,7 +263,7 @@ export function DetailPane({
       toast.info(
         payload.critical
           ? 'Regenerando rutina (prioritaria) · ~30s'
-          : 'Regenerando rutina · ~30s',
+          : 'Regenerando rutina · ~30s'
       );
       onAdvance();
     } catch {
@@ -254,8 +293,8 @@ export function DetailPane({
                     }
                   : {}),
               }
-            : s,
-        ),
+            : s
+        )
       );
       toast.success('Slot actualizado · cambios locales');
       return;
@@ -296,7 +335,7 @@ export function DetailPane({
       day_of_week: day,
       slot_index: 0, // reindexed server-side on approve
       exercise_id: data.exercise_id,
-      role: 'accesorio',
+      role: data.role,
       notes: data.notes ?? null,
       series: data.series ?? null,
       reps: data.reps ?? null,
@@ -346,11 +385,8 @@ export function DetailPane({
       <DetailHeader data={data} />
 
       <div className="flex-1 overflow-y-auto px-4 py-5 lg:px-7">
-        {(modCount > 0 ||
-          order !== null ||
-          deleted.size > 0 ||
-          addedIds.size > 0) && (
-          <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
+        {hasDraftChanges && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
             <Pencil size={12} />
             Modificada por admin
             {modCount > 0 &&
@@ -360,6 +396,13 @@ export function DetailPane({
             {deleted.size > 0 &&
               ` · ${deleted.size} eliminado${deleted.size === 1 ? '' : 's'}`}
             {order !== null && ' · orden reordenado'}
+            <button
+              type="button"
+              onClick={resetDraft}
+              className="ml-auto inline-flex items-center gap-1 rounded px-2 py-1 hover:bg-amber-500/15"
+            >
+              <RotateCcw size={12} /> Reiniciar
+            </button>
           </div>
         )}
 

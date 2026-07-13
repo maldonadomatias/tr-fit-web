@@ -6,26 +6,33 @@ import type { WeeklyOverride } from './weekly-overrides.service.js';
 import { getExclusionMap } from './exclusions.service.js';
 import { isWarmupName } from './warmup-rule.js';
 import type {
-  Exercise, PeriodizationConfig, SessionItem, SkeletonSlot, SlotRole,
+  Exercise,
+  PeriodizationConfig,
+  SessionItem,
+  SkeletonSlot,
+  SlotRole,
 } from '../domain/types.js';
 
 export class TodayBlockedError extends Error {
-  constructor(public reason: 'awaiting_review' | 'rm_test_required' | 'no_program') {
+  constructor(
+    public reason: 'awaiting_review' | 'rm_test_required' | 'no_program'
+  ) {
     super(reason);
   }
 }
 
 export async function buildTodaySession(
   athleteId: string,
-  dayOfWeek: number,
+  dayOfWeek: number
 ): Promise<SessionItem[]> {
   const stateR = await pool.query<{
-    current_week: number; rm_test_blocking: boolean;
+    current_week: number;
+    rm_test_blocking: boolean;
     active_skeleton_id: string | null;
   }>(
     `SELECT current_week, rm_test_blocking, active_skeleton_id
        FROM athlete_program_state WHERE athlete_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   if (!stateR.rows[0] || !stateR.rows[0].active_skeleton_id) {
     throw new TodayBlockedError('awaiting_review');
@@ -35,16 +42,17 @@ export async function buildTodaySession(
 
   const cfgR = await pool.query<PeriodizationConfig>(
     `SELECT * FROM periodization_config WHERE week_number = $1`,
-    [state.current_week],
+    [state.current_week]
   );
   const cfg = cfgR.rows[0];
-  if (!cfg) throw new Error(`no periodization_config for week ${state.current_week}`);
+  if (!cfg)
+    throw new Error(`no periodization_config for week ${state.current_week}`);
 
   const slotsR = await pool.query<SkeletonSlot>(
     `SELECT * FROM skeleton_slots
        WHERE skeleton_id = $1 AND day_of_week = $2
        ORDER BY slot_index ASC`,
-    [state.active_skeleton_id, dayOfWeek],
+    [state.active_skeleton_id, dayOfWeek]
   );
   if (slotsR.rows.length === 0) return [];
 
@@ -61,19 +69,25 @@ export async function buildTodaySession(
   if (slotsAfterExclusion.length === 0) return [];
 
   const effectiveSlots = await applyOverridesToSlots(
-    athleteId, state.current_week, dayOfWeek, slotsAfterExclusion,
+    athleteId,
+    state.current_week,
+    dayOfWeek,
+    slotsAfterExclusion
   );
   if (effectiveSlots.length === 0) return [];
 
   const exerciseIds = effectiveSlots.map((s) => s.exercise_id);
   const exR = await pool.query<Exercise>(
-    `SELECT * FROM exercises WHERE id = ANY($1::int[])`, [exerciseIds],
+    `SELECT * FROM exercises WHERE id = ANY($1::int[])`,
+    [exerciseIds]
   );
   const exById = new Map(exR.rows.map((e) => [e.id, e]));
 
   const wR = await pool.query<{
-    exercise_id: number; current_weight_kg: number | null;
-    current_value: number | null; unit: 'kg' | 'ladrillos' | null;
+    exercise_id: number;
+    current_weight_kg: number | null;
+    current_value: number | null;
+    unit: 'kg' | 'ladrillos' | null;
     current_reps_text: string | null;
   }>(
     `SELECT exercise_id,
@@ -83,7 +97,7 @@ export async function buildTodaySession(
             current_reps_text
        FROM athlete_exercise_weights
       WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])`,
-    [athleteId, exerciseIds],
+    [athleteId, exerciseIds]
   );
   const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));
 
@@ -96,24 +110,32 @@ export async function buildTodaySession(
          FROM rm_tests
         WHERE athlete_id = $1 AND program_week = $2
           AND exercise_id = ANY($3::int[])`,
-      [athleteId, cfg.principal_rm_source, exerciseIds],
+      [athleteId, cfg.principal_rm_source, exerciseIds]
     );
     rmByEx = new Map(rmR.rows.map((r) => [r.exercise_id, Number(r.value_kg)]));
   }
 
-  return Promise.all(effectiveSlots.map((slot) => buildItem(athleteId, slot, exById, wByEx, rmByEx, cfg)));
+  return Promise.all(
+    effectiveSlots.map((slot) =>
+      buildItem(athleteId, slot, exById, wByEx, rmByEx, cfg)
+    )
+  );
 }
 
 async function buildItem(
   athleteId: string,
   slot: SkeletonSlot & { _override?: WeeklyOverride },
   exById: Map<number, Exercise>,
-  wByEx: Map<number, {
-    current_value: number | null; unit: 'kg' | 'ladrillos' | null;
-    current_reps_text: string | null;
-  }>,
+  wByEx: Map<
+    number,
+    {
+      current_value: number | null;
+      unit: 'kg' | 'ladrillos' | null;
+      current_reps_text: string | null;
+    }
+  >,
   rmByEx: Map<number, number>,
-  cfg: PeriodizationConfig,
+  cfg: PeriodizationConfig
 ): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
   const w = wByEx.get(slot.exercise_id);
@@ -124,7 +146,7 @@ async function buildItem(
   const unit = await resolveUnit(athleteId, exercise.equipment);
   // Drop stale suggested value if the recorded unit no longer matches.
   const aewValue =
-    !w?.unit || w.unit === unit ? w?.current_value ?? null : null;
+    !w?.unit || w.unit === unit ? (w?.current_value ?? null) : null;
   const notes = slot.notes ?? null;
 
   // Serve-time safety net (bug 2026-07-04): warm-up exercises occasionally
@@ -139,23 +161,66 @@ async function buildItem(
   let item: SessionItem;
 
   if (role === 'calentamiento') {
-    item = buildWarmupItem(exercise, unit, slot.slot_index, notes);
+    // Only honor an explicit series count on a correctly-tagged warm-up. A
+    // legacy accessory detected by name may carry an unrelated accessory
+    // prescription and must keep the safe one-series default.
+    const warmupSeries = slot.role === 'calentamiento' ? (slot.series ?? 1) : 1;
+    item = buildWarmupItem(
+      exercise,
+      unit,
+      slot.slot_index,
+      notes,
+      warmupSeries
+    );
   } else if (role === 'principal') {
     if (cfg.is_rm_test) {
-      item = baseItem(exercise, role, slot.slot_index, null, unit,
-        cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'rm_test');
+      item = baseItem(
+        exercise,
+        role,
+        slot.slot_index,
+        null,
+        unit,
+        cfg.principal_series,
+        cfg.principal_reps,
+        cfg.principal_descanso,
+        notes,
+        'rm_test'
+      );
     } else if (cfg.is_amrap) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
         // AMRAP weeks intentionally stay null (not aewValue): the athlete is
         // meant to find their working weight in-session, not anchor to a stale
         // logged weight. (The pct_rm branch below DOES fall back to aewValue.)
-        item = baseItem(exercise, role, slot.slot_index, null, unit,
-          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
+        item = baseItem(
+          exercise,
+          role,
+          slot.slot_index,
+          null,
+          unit,
+          cfg.principal_series,
+          cfg.principal_reps,
+          cfg.principal_descanso,
+          notes,
+          'missing_rm'
+        );
       } else {
-        const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
-        item = baseItem(exercise, role, slot.slot_index, weight, unit,
-          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'amrap');
+        const weight = roundWeightForEquipment(
+          rm * Number(cfg.principal_pct_rm),
+          exercise.equipment
+        );
+        item = baseItem(
+          exercise,
+          role,
+          slot.slot_index,
+          weight,
+          unit,
+          cfg.principal_series,
+          cfg.principal_reps,
+          cfg.principal_descanso,
+          notes,
+          'amrap'
+        );
       }
     } else if (cfg.principal_pct_rm && cfg.principal_rm_source) {
       const rm = rmByEx.get(slot.exercise_id);
@@ -163,18 +228,48 @@ async function buildItem(
         // No RM test yet: fall back to the athlete's last logged/corrected
         // weight so the next session isn't blank. Keep the missing_rm flag
         // so the "Anotá tu RM" nudge still shows.
-        item = baseItem(exercise, role, slot.slot_index, aewValue, unit,
-          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes, 'missing_rm');
+        item = baseItem(
+          exercise,
+          role,
+          slot.slot_index,
+          aewValue,
+          unit,
+          cfg.principal_series,
+          cfg.principal_reps,
+          cfg.principal_descanso,
+          notes,
+          'missing_rm'
+        );
       } else {
-        const weight = roundWeightForEquipment(rm * Number(cfg.principal_pct_rm), exercise.equipment);
-        item = baseItem(exercise, role, slot.slot_index, weight, unit,
-          cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
+        const weight = roundWeightForEquipment(
+          rm * Number(cfg.principal_pct_rm),
+          exercise.equipment
+        );
+        item = baseItem(
+          exercise,
+          role,
+          slot.slot_index,
+          weight,
+          unit,
+          cfg.principal_series,
+          cfg.principal_reps,
+          cfg.principal_descanso,
+          notes
+        );
       }
     } else {
       // use_casilleros for principal
-      item = baseItem(exercise, role, slot.slot_index,
-        aewValue, unit,
-        cfg.principal_series, cfg.principal_reps, cfg.principal_descanso, notes);
+      item = baseItem(
+        exercise,
+        role,
+        slot.slot_index,
+        aewValue,
+        unit,
+        cfg.principal_series,
+        cfg.principal_reps,
+        cfg.principal_descanso,
+        notes
+      );
     }
   } else {
     // accesorio. Per-slot prescription (migration 038) is the coach-designed
@@ -183,11 +278,15 @@ async function buildItem(
     // still win once progression has run — slot.reps is only the seed/week-1
     // value. Principals are unaffected: they keep periodization above.
     item = baseItem(
-      exercise, role, slot.slot_index, aewValue, unit,
+      exercise,
+      role,
+      slot.slot_index,
+      aewValue,
+      unit,
       slot.series ?? cfg.accesorio_series,
       w?.current_reps_text ?? slot.reps ?? cfg.accesorio_reps,
       slot.descanso ?? cfg.accesorio_descanso,
-      notes,
+      notes
     );
   }
 
@@ -202,7 +301,7 @@ async function buildItem(
 function applyOverride(
   item: SessionItem,
   override: WeeklyOverride | undefined,
-  exercise: Exercise,
+  exercise: Exercise
 ): SessionItem {
   if (!override || override.override_type !== 'reduce_intensity') return item;
 
@@ -234,29 +333,48 @@ export function buildWarmupItem(
   unit: 'kg' | 'ladrillos',
   slotIndex: number,
   notes: string | null,
+  series = 1
 ): SessionItem {
   const warmupTarget =
     exercise.default_target ?? (exercise.modality === 'reps' ? '10' : '');
   // 1 serie SIEMPRE (coach-corrections-001 C1; was 2 before the coach's
   // video update).
   return baseItem(
-    exercise, 'calentamiento', slotIndex, null, unit,
-    1, warmupTarget, '1 min', notes,
+    exercise,
+    'calentamiento',
+    slotIndex,
+    null,
+    unit,
+    series,
+    warmupTarget,
+    '1 min',
+    notes
   );
 }
 
 function baseItem(
-  ex: Exercise, role: SlotRole, slotIndex: number,
-  weight: number | null, unit: 'kg' | 'ladrillos',
-  series: number, reps: string, descanso: string,
+  ex: Exercise,
+  role: SlotRole,
+  slotIndex: number,
+  weight: number | null,
+  unit: 'kg' | 'ladrillos',
+  series: number,
+  reps: string,
+  descanso: string,
   notes: string | null,
-  flag?: 'rm_test' | 'missing_rm' | 'amrap',
+  flag?: 'rm_test' | 'missing_rm' | 'amrap'
 ): SessionItem {
   return {
-    exercise: ex, role, slot_index: slotIndex,
+    exercise: ex,
+    role,
+    slot_index: slotIndex,
     suggested_value: weight === null ? null : Number(weight),
     unit,
-    series, reps, modality: ex.modality, descanso, notes,
+    series,
+    reps,
+    modality: ex.modality,
+    descanso,
+    notes,
     ...(flag ? { flag } : {}),
   };
 }
@@ -266,20 +384,22 @@ function baseItem(
  * computed sequentially from `session_logs` for the current
  * program_week. Always cycles within `1..days_per_week`.
  */
-export async function computeNextPendingDay(athleteId: string): Promise<number> {
+export async function computeNextPendingDay(
+  athleteId: string
+): Promise<number> {
   const stateR = await pool.query<{
     current_week: number | null;
     active_skeleton_id: string | null;
   }>(
     `SELECT current_week, active_skeleton_id
        FROM athlete_program_state WHERE athlete_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   const state = stateR.rows[0];
 
   const profileR = await pool.query<{ days_per_week: number | null }>(
     `SELECT days_per_week FROM athlete_profiles WHERE user_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   const daysPerWeek = profileR.rows[0]?.days_per_week ?? 7;
 
@@ -293,7 +413,7 @@ export async function computeNextPendingDay(athleteId: string): Promise<number> 
       WHERE athlete_id = $1
         AND program_week = $2
         AND finished_at IS NOT NULL`,
-    [athleteId, state.current_week ?? 0],
+    [athleteId, state.current_week ?? 0]
   );
   const lastDay = lastR.rows[0]?.last_day ?? 0;
 

@@ -24,8 +24,14 @@ export function SlotRow({
   slot: RutinaSlot;
   flagged?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: slot.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: slot.id });
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -41,12 +47,13 @@ export function SlotRow({
     if (payload.exercise_id !== slot.exercise_id) {
       patch.exercise_id = payload.exercise_id;
     }
-    // EditSlotPopover only emits the set scheme for accessories; principals and
-    // warmups follow the week's periodization.
+    // Accessories expose the full scheme; warm-ups expose their series count.
     if (slot.role === 'accesorio') {
       patch.series = payload.series ?? null;
       patch.reps = payload.reps ?? null;
       patch.descanso = payload.descanso ?? null;
+    } else if (slot.role === 'calentamiento') {
+      patch.series = payload.series ?? 1;
     }
     update.mutate(
       { slotId: slot.id, patch },
@@ -57,7 +64,7 @@ export function SlotRow({
           if (status === 409) toast.error('Rutina ya no activa');
           else toast.error('No se pudo guardar el cambio');
         },
-      },
+      }
     );
   }
 
@@ -67,8 +74,7 @@ export function SlotRow({
     });
   }
 
-  const hasScheme =
-    slot.series != null || slot.reps || slot.descanso;
+  const hasScheme = slot.series != null || slot.reps || slot.descanso;
 
   return (
     <div

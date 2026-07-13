@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Check,
-  CheckCircle2,
-  Eye,
-  Info,
-  RefreshCw,
-  X,
-} from 'lucide-react';
+import { Check, CheckCircle2, Eye, Info, RefreshCw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -41,7 +34,7 @@ export default function Pending() {
   const sorted = useMemo(() => {
     return [...(q.data ?? [])].sort(
       (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
   }, [q.data]);
 
@@ -130,9 +123,7 @@ export default function Pending() {
             <DialogTitle>Aprobar todos los athletes</DialogTitle>
             <DialogDescription>
               Vas a aprobar{' '}
-              <span className="font-mono tabular-nums">
-                {athletes.length}
-              </span>{' '}
+              <span className="font-mono tabular-nums">{athletes.length}</span>{' '}
               athletes pendientes. Los coaches y admins quedan sin tocar.
             </DialogDescription>
           </DialogHeader>
@@ -178,11 +169,11 @@ function PendingCard({
       qc.invalidateQueries({ queryKey: ['admin', 'users'] });
       qc.invalidateQueries({ queryKey: ['admin', 'stats'] });
       toast.success(
-        next === 'approved' ? 'Usuario aprobado' : 'Usuario rechazado',
+        next === 'approved' ? 'Usuario aprobado' : 'Usuario rechazado'
       );
     } catch (e) {
       toast.error(
-        `No se pudo ${next === 'approved' ? 'aprobar' : 'rechazar'}: ${(e as Error).message}`,
+        `No se pudo ${next === 'approved' ? 'aprobar' : 'rechazar'}: ${(e as Error).message}`
       );
       setRunning(false);
     }
@@ -191,45 +182,56 @@ function PendingCard({
   return (
     <div className="flex flex-col gap-4 rounded-2xl border bg-card p-[18px] sm:flex-row sm:items-center">
       <div className="flex min-w-0 flex-1 items-center gap-4">
-      <Avatar name={user.name ?? user.email} size="lg" brand />
-      <div className="min-w-0 flex-1">
-        <div className="mb-1 flex flex-wrap items-center gap-2">
-          <span className="text-[17px] font-semibold tracking-tight">
-            {user.name ?? user.email.split('@')[0]}
-          </span>
-          <RoleBadge role={user.role} />
-          {!user.email_verified && (
-            <Badge variant="warning" className="gap-1.5">
-              <span
-                aria-hidden
-                className="inline-block size-1.5 rounded-full bg-current"
-              />
-              Email sin verificar
-            </Badge>
-          )}
-          {urgent && (
-            <Badge variant="destructive" className="gap-1.5">
-              <span
-                aria-hidden
-                className="inline-block size-1.5 rounded-full bg-current"
-              />
-              {'> 24 h'}
-            </Badge>
+        <Avatar name={user.name ?? user.email} size="lg" brand />
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="text-[17px] font-semibold tracking-tight">
+              {user.name ?? user.email.split('@')[0]}
+            </span>
+            <RoleBadge role={user.role} />
+            {!user.email_verified && (
+              <Badge variant="warning" className="gap-1.5">
+                <span
+                  aria-hidden
+                  className="inline-block size-1.5 rounded-full bg-current"
+                />
+                Email sin verificar
+              </Badge>
+            )}
+            {urgent && (
+              <Badge variant="destructive" className="gap-1.5">
+                <span
+                  aria-hidden
+                  className="inline-block size-1.5 rounded-full bg-current"
+                />
+                {'> 24 h'}
+              </Badge>
+            )}
+          </div>
+          <div className="truncate text-sm text-muted-foreground">
+            <span className="font-mono">{user.email}</span>
+            <span className="mx-2">·</span>
+            registrado{' '}
+            <span className="font-mono tabular-nums">
+              hace {fmtTimeAgo(user.created_at)}
+            </span>
+            <span className="mx-2">·</span>
+            id <span className="font-mono">{user.id.slice(0, 8)}…</span>
+          </div>
+          {user.phone && (
+            <a
+              className="mt-1 block w-fit font-mono text-sm text-primary hover:underline"
+              href={`tel:${user.phone}`}
+            >
+              {user.phone}
+            </a>
           )}
         </div>
-        <div className="truncate text-sm text-muted-foreground">
-          <span className="font-mono">{user.email}</span>
-          <span className="mx-2">·</span>
-          registrado{' '}
-          <span className="font-mono tabular-nums">
-            hace {fmtTimeAgo(user.created_at)}
-          </span>
-          <span className="mx-2">·</span>
-          id <span className="font-mono">{user.id.slice(0, 8)}…</span>
-        </div>
-      </div>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
+        <Button variant="outline" size="sm" asChild>
+          <a href={`mailto:${user.email}`}>Contactar</a>
+        </Button>
         <Button variant="outline" size="sm" onClick={onOpen}>
           <Eye data-icon="inline-start" />
           Ver perfil
@@ -279,9 +281,9 @@ function InfoBanner() {
         <div className="text-sm">
           <div className="mb-1 font-semibold">Cómo funciona la aprobación</div>
           <div className="text-muted-foreground">
-            Los athletes se aprueban en cuanto confirman email. Coaches y
-            admins requieren aprobación manual. Al rechazar, el usuario
-            recibe un email genérico — no se exponen motivos.
+            Los athletes se aprueban en cuanto confirman email. Coaches y admins
+            requieren aprobación manual. Al rechazar, el usuario recibe un email
+            genérico — no se exponen motivos.
           </div>
         </div>
       </div>

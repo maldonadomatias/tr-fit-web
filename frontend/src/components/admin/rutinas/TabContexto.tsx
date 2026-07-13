@@ -45,6 +45,13 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 }
 
 export function TabContexto({ profile }: { profile: RutinaDetail['profile'] }) {
+  const hours = profile.exercise_minutes
+    ? Math.floor(profile.exercise_minutes / 60)
+    : 0;
+  const minutes = profile.exercise_minutes ? profile.exercise_minutes % 60 : 0;
+  const duration = profile.exercise_minutes
+    ? `${hours > 0 ? `${hours} h` : ''}${minutes > 0 ? ` ${minutes} min` : ''}`.trim()
+    : '—';
   return (
     <div className="space-y-4">
       <section className="rounded-md border border-border bg-card p-5">
@@ -96,6 +103,7 @@ export function TabContexto({ profile }: { profile: RutinaDetail['profile'] }) {
             }
           />
           <Field label="Género" value={profile.gender} />
+          <Field label="Tiempo por sesión" value={duration} />
         </div>
       </section>
 

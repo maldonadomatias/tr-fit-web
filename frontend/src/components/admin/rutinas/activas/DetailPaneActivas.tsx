@@ -13,8 +13,12 @@ import { Badge } from '@/components/ui/badge';
 import { useActiveRutina, useReorderSlots } from '@/hooks/useAdminRutina';
 import { useAlerts } from '@/hooks/useAlerts';
 import { DayCard } from './DayCard';
+import { Button } from '@/components/ui/button';
+import { ChangeTrainingDaysDialog } from './ChangeTrainingDaysDialog';
+import { useState } from 'react';
 
 export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
+  const [daysOpen, setDaysOpen] = useState(false);
   const { data, isLoading, error } = useActiveRutina(athleteId);
   const rutina = data?.rutina ?? null;
   const pendingSkeletonId = data?.pending_skeleton_id ?? null;
@@ -25,10 +29,10 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
   const flaggedExerciseIds = new Set<number>(
     (alertsData?.items ?? [])
       .filter((a) => a.type === 'sos_pain' && a.exercise_id != null)
-      .map((a) => a.exercise_id as number),
+      .map((a) => a.exercise_id as number)
   );
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   function handleDragEnd(e: DragEndEvent) {
@@ -39,8 +43,7 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
 
     // Build flat list sorted by (day, slot_index)
     const sorted = [...rutina.slots].sort(
-      (a, b) =>
-        a.day_of_week - b.day_of_week || a.slot_index - b.slot_index,
+      (a, b) => a.day_of_week - b.day_of_week || a.slot_index - b.slot_index
     );
     const movingIndex = sorted.findIndex((s) => s.id === activeId);
     const targetIndex = sorted.findIndex((s) => s.id === overId);
@@ -72,7 +75,7 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
           slot_id: id,
           day_of_week: day,
           slot_index: idx + 1, // 1-based per DB CHECK BETWEEN 1 AND 12
-        })),
+        }))
       ),
     };
     reorder.mutate(payload, {
@@ -82,7 +85,9 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
 
   if (isLoading) {
     return (
-      <div className="p-7 text-sm text-muted-foreground">Cargando rutina...</div>
+      <div className="p-7 text-sm text-muted-foreground">
+        Cargando rutina...
+      </div>
     );
   }
   if (error || !rutina) {
@@ -111,11 +116,11 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
     new Set<number>([
       ...rutina.days.map((d) => d.day_of_week),
       ...rutina.slots.map((s) => s.day_of_week),
-    ]),
+    ])
   ).sort((a, b) => a - b);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <header className="border-b border-border px-4 py-5 lg:px-7">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -132,15 +137,19 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
           <Badge variant="outline" className="shrink-0">
             {rutina.profile.days_per_week} días/sem
           </Badge>
+          <Button variant="outline" size="sm" onClick={() => setDaysOpen(true)}>
+            Cambiar días
+          </Button>
         </div>
         {rutina.has_active_session && (
           <div className="mt-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <AlertTriangle size={14} />
-            Atleta tiene sesión en curso. Los cambios aplicarán en la próxima sesión.
+            Atleta tiene sesión en curso. Los cambios aplicarán en la próxima
+            sesión.
           </div>
         )}
       </header>
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-6 lg:px-7">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-6 pb-10 lg:px-7">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -158,6 +167,12 @@ export function DetailPaneActivas({ athleteId }: { athleteId: string }) {
           ))}
         </DndContext>
       </div>
+      <ChangeTrainingDaysDialog
+        athleteId={athleteId}
+        current={rutina.profile.days_specific}
+        open={daysOpen}
+        onOpenChange={setDaysOpen}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import {
   adminSlotCreatePayload,
   adminSlotPatchPayload,
   adminReorderPayload,
+  adminTrainingDaysPayload,
 } from '../domain/schemas.js';
 import {
   listActiveAthletes,
@@ -16,6 +17,7 @@ import {
   deleteSlot,
   reorderSlots,
   AdminRutinaError,
+  changeTrainingDays,
 } from '../services/admin-rutina.service.js';
 
 const UUID_RE =
@@ -36,6 +38,9 @@ function mapError(err: unknown, res: Response): Response | void {
   if (err instanceof AdminRutinaError) {
     if (err.code === 'rutina_not_active') {
       return res.status(409).json({ error: 'rutina_not_active' });
+    }
+    if (err.code === 'regen_pending') {
+      return res.status(409).json({ error: 'regen_pending' });
     }
     if (err.code === 'invalid_exercise') {
       return res.status(400).json({ error: 'invalid_exercise' });
@@ -88,22 +93,44 @@ router.post('/atleta/:athleteId/slots', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/atleta/:athleteId/reorder', async (req: Request, res: Response) => {
-  const athleteId = requireUuid(req.params.athleteId, res);
-  if (!athleteId) return;
-  const parsed = adminReorderPayload.safeParse(req.body);
-  if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: 'invalid_payload', issues: parsed.error.issues });
+router.post(
+  '/atleta/:athleteId/training-days',
+  async (req: Request, res: Response) => {
+    const athleteId = requireUuid(req.params.athleteId, res);
+    if (!athleteId) return;
+    const parsed = adminTrainingDaysPayload.safeParse(req.body);
+    if (!parsed.success)
+      return res
+        .status(400)
+        .json({ error: 'invalid_payload', issues: parsed.error.issues });
+    try {
+      await changeTrainingDays(athleteId, parsed.data);
+      res.status(202).json({ status: 'queued' });
+    } catch (error) {
+      mapError(error, res);
+    }
   }
-  try {
-    await reorderSlots(athleteId, parsed.data);
-    res.status(204).end();
-  } catch (e) {
-    mapError(e, res);
+);
+
+router.post(
+  '/atleta/:athleteId/reorder',
+  async (req: Request, res: Response) => {
+    const athleteId = requireUuid(req.params.athleteId, res);
+    if (!athleteId) return;
+    const parsed = adminReorderPayload.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: 'invalid_payload', issues: parsed.error.issues });
+    }
+    try {
+      await reorderSlots(athleteId, parsed.data);
+      res.status(204).end();
+    } catch (e) {
+      mapError(e, res);
+    }
   }
-});
+);
 
 router.patch('/slots/:slotId', async (req: Request, res: Response) => {
   const slotId = requireUuid(req.params.slotId, res);

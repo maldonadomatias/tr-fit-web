@@ -1,18 +1,24 @@
 import pool from '../db/connect.js';
 import type { AthleteSkeleton, SkeletonSlot } from '../domain/types.js';
-import type { AdminSlotCreate, AdminSlotPatch, AdminReorderInput } from '../domain/schemas.js';
+import type {
+  AdminSlotCreate,
+  AdminSlotPatch,
+  AdminReorderInput,
+  AdminTrainingDaysInput,
+} from '../domain/schemas.js';
 import type { PoolClient } from 'pg';
 
 export type AdminRutinaErrorCode =
   | 'not_found'
   | 'rutina_not_active'
   | 'invalid_exercise'
-  | 'empty_patch';
+  | 'empty_patch'
+  | 'regen_pending';
 
 export class AdminRutinaError extends Error {
   constructor(
     public code: AdminRutinaErrorCode,
-    message?: string,
+    message?: string
   ) {
     super(message ?? code);
   }
@@ -74,36 +80,37 @@ export interface RutinaDetail {
     user_id: string;
     name: string;
     days_per_week: number;
+    days_specific: string[] | null;
   };
   has_active_session: boolean;
 }
 
 export async function getPendingSkeletonId(
-  athleteId: string,
+  athleteId: string
 ): Promise<string | null> {
   const r = await pool.query<{ id: string }>(
     `SELECT id FROM athlete_skeletons
       WHERE athlete_id = $1 AND status = 'pending_review'
       ORDER BY created_at DESC
       LIMIT 1`,
-    [athleteId],
+    [athleteId]
   );
   return r.rows[0]?.id ?? null;
 }
 
 export async function getActiveRutina(
-  athleteId: string,
+  athleteId: string
 ): Promise<RutinaDetail | null> {
   const state = await pool.query<{ active_skeleton_id: string | null }>(
     `SELECT active_skeleton_id FROM athlete_program_state WHERE athlete_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   const skId = state.rows[0]?.active_skeleton_id;
   if (!skId) return null;
 
   const skR = await pool.query<AthleteSkeleton>(
     `SELECT * FROM athlete_skeletons WHERE id = $1 AND status = 'approved'`,
-    [skId],
+    [skId]
   );
   if (!skR.rows[0]) return null;
 
@@ -111,10 +118,11 @@ export async function getActiveRutina(
     user_id: string;
     name: string;
     days_per_week: number;
+    days_specific: string[] | null;
   }>(
-    `SELECT user_id, name, days_per_week FROM athlete_profiles
+    `SELECT user_id, name, days_per_week, days_specific FROM athlete_profiles
       WHERE user_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   if (!profR.rows[0]) return null;
 
@@ -125,19 +133,19 @@ export async function getActiveRutina(
        JOIN exercises e ON e.id = s.exercise_id
       WHERE s.skeleton_id = $1
       ORDER BY s.day_of_week, s.slot_index`,
-    [skId],
+    [skId]
   );
   const daysR = await pool.query<{ day_of_week: number; focus: string | null }>(
     `SELECT day_of_week, focus FROM skeleton_days WHERE skeleton_id = $1
       ORDER BY day_of_week`,
-    [skId],
+    [skId]
   );
   const sessR = await pool.query<{ exists: boolean }>(
     `SELECT EXISTS(
        SELECT 1 FROM session_logs
         WHERE athlete_id = $1 AND finished_at IS NULL
      ) AS exists`,
-    [athleteId],
+    [athleteId]
   );
 
   return {
@@ -149,9 +157,49 @@ export async function getActiveRutina(
   };
 }
 
+export async function changeTrainingDays(
+  athleteId: string,
+  input: AdminTrainingDaysInput
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      athleteId,
+    ]);
+    const blocked = await client.query<{ exists: boolean }>(
+      `SELECT (
+         EXISTS(SELECT 1 FROM skeleton_regen_jobs WHERE athlete_id = $1 AND status IN ('queued','running'))
+         OR EXISTS(SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1 AND status = 'pending_review')
+       ) AS exists`,
+      [athleteId]
+    );
+    if (blocked.rows[0].exists) {
+      throw new AdminRutinaError('regen_pending');
+    }
+    const updated = await client.query(
+      `UPDATE athlete_profiles
+          SET days_per_week = $2, days_specific = $3
+        WHERE user_id = $1`,
+      [athleteId, input.days_specific.length, input.days_specific]
+    );
+    if (!updated.rowCount) throw new AdminRutinaError('not_found');
+    await client.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status) VALUES ($1, 'queued')`,
+      [athleteId]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function assertAthleteActiveSkeleton(
   client: PoolClient,
-  athleteId: string,
+  athleteId: string
 ): Promise<string> {
   const r = await client.query<{ skeleton_id: string }>(
     `SELECT s.id AS skeleton_id
@@ -159,7 +207,7 @@ async function assertAthleteActiveSkeleton(
        JOIN athlete_skeletons s
          ON s.id = ps.active_skeleton_id AND s.status = 'approved'
       WHERE ps.athlete_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   if (!r.rows[0]) throw new AdminRutinaError('rutina_not_active');
   return r.rows[0].skeleton_id;
@@ -167,11 +215,11 @@ async function assertAthleteActiveSkeleton(
 
 async function assertExerciseAvailable(
   client: PoolClient,
-  exerciseId: number,
+  exerciseId: number
 ): Promise<void> {
   const r = await client.query<{ id: number }>(
     `SELECT id FROM exercises WHERE id = $1 AND archived_at IS NULL`,
-    [exerciseId],
+    [exerciseId]
   );
   if (!r.rows[0]) throw new AdminRutinaError('invalid_exercise');
 }
@@ -179,20 +227,20 @@ async function assertExerciseAvailable(
 async function seedAthleteExerciseWeight(
   client: PoolClient,
   athleteId: string,
-  exerciseId: number,
+  exerciseId: number
 ): Promise<void> {
   await client.query(
     `INSERT INTO athlete_exercise_weights
        (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by)
      VALUES ($1, $2, NULL, NULL, 'athlete_initial')
      ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
-    [athleteId, exerciseId],
+    [athleteId, exerciseId]
   );
 }
 
 export async function createSlot(
   athleteId: string,
-  input: AdminSlotCreate,
+  input: AdminSlotCreate
 ): Promise<SkeletonSlot> {
   const client = await pool.connect();
   try {
@@ -211,7 +259,7 @@ export async function createSlot(
         input.exercise_id,
         input.role,
         input.notes ?? null,
-      ],
+      ]
     );
     await seedAthleteExerciseWeight(client, athleteId, input.exercise_id);
     await client.query('COMMIT');
@@ -230,7 +278,7 @@ export async function createSlot(
 
 async function assertSlotInActiveSkeleton(
   client: PoolClient,
-  slotId: string,
+  slotId: string
 ): Promise<{ athleteId: string; skeletonId: string }> {
   const r = await client.query<{ athlete_id: string; skeleton_id: string }>(
     `SELECT s.athlete_id, s.id AS skeleton_id
@@ -240,7 +288,7 @@ async function assertSlotInActiveSkeleton(
          ON ps.athlete_id = s.athlete_id
         AND ps.active_skeleton_id = s.id
       WHERE sl.id = $1 AND s.status = 'approved'`,
-    [slotId],
+    [slotId]
   );
   if (!r.rows[0]) throw new AdminRutinaError('rutina_not_active');
   return {
@@ -270,7 +318,7 @@ export async function deleteSlot(slotId: string): Promise<void> {
 
 export async function updateSlot(
   slotId: string,
-  patch: AdminSlotPatch,
+  patch: AdminSlotPatch
 ): Promise<SkeletonSlot> {
   const client = await pool.connect();
   try {
@@ -290,7 +338,7 @@ export async function updateSlot(
     const r = await client.query<SkeletonSlot>(
       `UPDATE skeleton_slots SET ${sets.join(', ')}
         WHERE id = $${values.length} RETURNING *`,
-      values,
+      values
     );
     if (patch.exercise_id !== undefined) {
       await seedAthleteExerciseWeight(client, athleteId, patch.exercise_id);
@@ -311,7 +359,7 @@ export async function updateSlot(
 
 export async function reorderSlots(
   athleteId: string,
-  input: AdminReorderInput,
+  input: AdminReorderInput
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -320,12 +368,12 @@ export async function reorderSlots(
 
     const totalR = await client.query<{ c: number }>(
       `SELECT COUNT(*)::int AS c FROM skeleton_slots WHERE skeleton_id = $1`,
-      [skId],
+      [skId]
     );
     if (totalR.rows[0].c !== input.slots.length) {
       throw new AdminRutinaError(
         'not_found',
-        'reorder payload must include every slot of the skeleton',
+        'reorder payload must include every slot of the skeleton'
       );
     }
 
@@ -333,7 +381,7 @@ export async function reorderSlots(
     const check = await client.query<{ id: string }>(
       `SELECT id FROM skeleton_slots
         WHERE id = ANY($1::uuid[]) AND skeleton_id = $2`,
-      [slotIds, skId],
+      [slotIds, skId]
     );
     if (check.rowCount !== slotIds.length) {
       throw new AdminRutinaError('not_found', 'slot not in active skeleton');
@@ -358,7 +406,7 @@ export async function reorderSlots(
       `DELETE FROM skeleton_slots
         WHERE id = ANY($1::uuid[])
         RETURNING id, exercise_id, role, notes`,
-      [targetedSlotIds],
+      [targetedSlotIds]
     );
 
     const existingById = new Map(existing.rows.map((r) => [r.id, r]));
@@ -378,7 +426,7 @@ export async function reorderSlots(
           orig.exercise_id,
           orig.role,
           orig.notes,
-        ],
+        ]
       );
     }
     await client.query('COMMIT');

@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { useCreateSlot } from '@/hooks/useAdminRutina';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
@@ -31,7 +34,7 @@ export function DayCard({
   slots: RutinaSlot[];
   flaggedExerciseIds: Set<number>;
 }) {
-  const nextIndex = slots.length + 1;
+  const nextIndex = nextAvailableSlotIndex(slots);
 
   return (
     <section className="rounded-2xl border border-border bg-card">
@@ -77,12 +80,13 @@ function DayFooter({
 }: {
   athleteId: string;
   dayOfWeek: number;
-  nextIndex: number;
+  nextIndex: number | null;
 }) {
   const create = useCreateSlot(athleteId);
   const [open, setOpen] = useState(false);
 
   function onPick(exerciseId: number) {
+    if (nextIndex === null) return;
     create.mutate(
       {
         day_of_week: dayOfWeek,
@@ -91,7 +95,7 @@ function DayFooter({
         role: 'accesorio',
         notes: null,
       },
-      { onError: () => toast.error('No se pudo agregar el ejercicio') },
+      { onError: () => toast.error('No se pudo agregar el ejercicio') }
     );
   }
 
@@ -101,11 +105,11 @@ function DayFooter({
         variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
-        disabled={create.isPending || nextIndex > 12}
+        disabled={create.isPending || nextIndex === null}
       >
         <Plus size={14} className="mr-1" /> Agregar ejercicio
       </Button>
-      {nextIndex > 12 && (
+      {nextIndex === null && (
         <span className="ml-2 text-xs text-muted-foreground">
           Máximo 12 por día.
         </span>
@@ -118,4 +122,14 @@ function DayFooter({
       />
     </div>
   );
+}
+
+export function nextAvailableSlotIndex(
+  slots: Pick<RutinaSlot, 'slot_index'>[]
+) {
+  const occupied = new Set(slots.map((slot) => slot.slot_index));
+  for (let index = 1; index <= 12; index += 1) {
+    if (!occupied.has(index)) return index;
+  }
+  return null;
 }

@@ -45,38 +45,24 @@ export function EditSlotPopover({
   onSave: (payload: SlotOverride) => void;
   onDelete: () => void;
 }) {
-  // Set scheme is only meaningful for accessories at runtime; principals and
-  // warmups follow the week's periodization, so we don't expose those fields.
   const editableScheme = role === 'accesorio';
+  const editableSeries = role !== 'principal';
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState(currentExerciseName);
-  const [onlyGroup, setOnlyGroup] = useState(true);
+  const [selectedGroup, setSelectedGroup] = useState(currentMuscleGroup ?? '');
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [notes, setNotes] = useState(currentNotes ?? '');
-  const [series, setSeries] = useState(currentSeries != null ? String(currentSeries) : '');
+  const [series, setSeries] = useState(
+    currentSeries != null ? String(currentSeries) : ''
+  );
   const [reps, setReps] = useState(currentReps ?? '');
   const [descanso, setDescanso] = useState(currentDescanso ?? '');
   const searchRef = useRef<HTMLInputElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Radix repositions the popover to follow the trigger while the page scrolls,
-  // which makes it jump/flip near the viewport edges. Close it instead when the
-  // user scrolls anything other than the popover's own results list.
-  useEffect(() => {
-    if (!open) return;
-    function onScroll(e: Event) {
-      const target = e.target as Node | null;
-      if (target && contentRef.current?.contains(target)) return;
-      setOpen(false);
-    }
-    document.addEventListener('scroll', onScroll, true);
-    return () => document.removeEventListener('scroll', onScroll, true);
-  }, [open]);
 
   useEffect(() => {
     if (open) {
       setQuery(currentExerciseName);
-      setOnlyGroup(true);
+      setSelectedGroup(currentMuscleGroup ?? '');
       setSelected(null);
       setNotes(currentNotes ?? '');
       setSeries(currentSeries != null ? String(currentSeries) : '');
@@ -84,31 +70,44 @@ export function EditSlotPopover({
       setDescanso(currentDescanso ?? '');
       setTimeout(() => searchRef.current?.focus(), 30);
     }
-  }, [open, currentExerciseName, currentNotes, currentSeries, currentReps, currentDescanso]);
+  }, [
+    open,
+    currentExerciseName,
+    currentMuscleGroup,
+    currentNotes,
+    currentSeries,
+    currentReps,
+    currentDescanso,
+  ]);
 
   // Slots store a subgroup like 'Pecho - Mayor'; show only the parent ('Pecho')
   // in the toggle since the filter widens to the whole parent group.
-  const parentGroup = currentMuscleGroup?.split(' - ')[0];
-  const filterGroup =
-    currentMuscleGroup && onlyGroup ? currentMuscleGroup : undefined;
+  const { data: catalog = [] } = useExercisesSearch('', {
+    enabled: open,
+    limit: 300,
+  });
+  const groups = [
+    ...new Set(catalog.map((exercise) => exercise.muscle_group)),
+  ].sort();
   const { data: results = [] } = useExercisesSearch(query, {
     enabled: open,
     // High enough to list a whole muscle group (and the full catalog when the
     // group filter is off) instead of truncating to a short autocomplete.
     limit: 250,
-    muscle_group: filterGroup,
+    muscle_group: selectedGroup || undefined,
   });
 
   function commit() {
-    const ex =
-      selected ?? results.find((r) => r.name === query.trim()) ?? null;
+    const ex = selected ?? results.find((r) => r.name === query.trim()) ?? null;
     const scheme = editableScheme
       ? {
           series: series.trim() ? Number(series) : null,
           reps: reps.trim() || null,
           descanso: descanso.trim() || null,
         }
-      : {};
+      : editableSeries
+        ? { series: series.trim() ? Number(series) : 1 }
+        : {};
     if (!ex) {
       // user kept current name; save only notes / scheme change
       onSave({
@@ -148,10 +147,9 @@ export function EditSlotPopover({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        ref={contentRef}
         align="end"
         collisionPadding={12}
-        className="w-[calc(100vw-2rem)] max-w-[340px] space-y-3"
+        className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[340px] space-y-3 overflow-y-auto overscroll-contain"
       >
         <div>
           <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -173,20 +171,19 @@ export function EditSlotPopover({
               className="h-9 w-full rounded-md border border-input bg-background pl-7 pr-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
             />
           </div>
-          {currentMuscleGroup ? (
-            <button
-              type="button"
-              onClick={() => setOnlyGroup((v) => !v)}
-              className={cn(
-                'mt-1.5 rounded-full border px-3 py-1 text-[11px] capitalize transition',
-                onlyGroup
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:bg-muted',
-              )}
-            >
-              {onlyGroup ? `Solo ${parentGroup}` : 'Todos los grupos'}
-            </button>
-          ) : null}
+          <select
+            aria-label="Grupo muscular"
+            value={selectedGroup}
+            onChange={(event) => setSelectedGroup(event.target.value)}
+            className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+          >
+            <option value="">Todos los grupos musculares</option>
+            {groups.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+          </select>
           <ul className="mt-1 max-h-60 overflow-y-auto rounded-md border border-border">
             {results.length === 0 && (
               <li className="px-2 py-1.5 text-[12px] text-muted-foreground">
@@ -205,13 +202,11 @@ export function EditSlotPopover({
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-2 py-1.5 text-left text-[12px] transition hover:bg-muted',
-                      active && 'bg-muted',
+                      active && 'bg-muted'
                     )}
                   >
                     <span className="flex items-center gap-1.5">
-                      {active && (
-                        <Check size={11} className="text-brand" />
-                      )}
+                      {active && <Check size={11} className="text-brand" />}
                       <span className={cn(!active && 'pl-[16px]')}>
                         {r.name}
                       </span>
@@ -267,12 +262,31 @@ export function EditSlotPopover({
               />
             </div>
             <p className="col-span-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
-              Vacío = usa la periodización de la semana. Superserie: 10x10x10 · Pirámide: 10 - 8 - 6.
+              Vacío = usa la periodización de la semana. Superserie: 10x10x10 ·
+              Pirámide: 10 - 8 - 6.
+            </p>
+          </div>
+        ) : editableSeries ? (
+          <div>
+            <label className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              Series
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={6}
+              value={series || '1'}
+              onChange={(e) => setSeries(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px]"
+            />
+            <p className="mt-1 font-mono text-[10px] text-muted-foreground">
+              Los calentamientos usan 1 serie por defecto.
             </p>
           </div>
         ) : (
           <p className="rounded-md border border-border bg-muted/30 px-2.5 py-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-            Series, reps y descanso de los ejercicios principales los define la periodización de la semana.
+            Series, reps y descanso de los ejercicios principales los define la
+            periodización de la semana.
           </p>
         )}
 

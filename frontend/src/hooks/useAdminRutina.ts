@@ -21,7 +21,7 @@ export function useActiveAthletes(q?: string) {
     queryFn: async () => {
       const r = await api.get<{ items: ActiveAthleteRow[]; total: number }>(
         '/admin/rutinas/atleta',
-        { params: q ? { q } : undefined },
+        { params: q ? { q } : undefined }
       );
       return r.data;
     },
@@ -36,7 +36,7 @@ export function useActiveRutina(athleteId: string | undefined) {
     enabled: !!athleteId,
     queryFn: async () => {
       const r = await api.get<ActiveRutinaResponse>(
-        `/admin/rutinas/atleta/${athleteId}`,
+        `/admin/rutinas/atleta/${athleteId}`
       );
       return r.data;
     },
@@ -49,7 +49,7 @@ export function useCreateSlot(athleteId: string) {
     mutationFn: async (input: SlotCreateInput) => {
       const r = await api.post<{ slot: RutinaSlot }>(
         `/admin/rutinas/atleta/${athleteId}/slots`,
-        input,
+        input
       );
       return r.data.slot;
     },
@@ -63,7 +63,7 @@ export function useUpdateSlot(athleteId: string) {
     mutationFn: async (vars: { slotId: string; patch: SlotPatchInput }) => {
       const r = await api.patch<{ slot: RutinaSlot }>(
         `/admin/rutinas/slots/${vars.slotId}`,
-        vars.patch,
+        vars.patch
       );
       return r.data.slot;
     },
@@ -86,6 +86,18 @@ export function useReorderSlots(athleteId: string) {
   return useMutation({
     mutationFn: async (input: ReorderInput) => {
       await api.post(`/admin/rutinas/atleta/${athleteId}/reorder`, input);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.detail(athleteId) }),
+  });
+}
+
+export function useChangeTrainingDays(athleteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (days_specific: string[]) => {
+      await api.post(`/admin/rutinas/atleta/${athleteId}/training-days`, {
+        days_specific,
+      });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.detail(athleteId) }),
   });

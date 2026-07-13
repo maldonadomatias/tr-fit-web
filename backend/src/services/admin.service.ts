@@ -25,6 +25,7 @@ export interface AdminUserRow {
   email_verified_at: string | null;
   created_at: string;
   name: string | null;
+  phone: string | null;
   subscription_tier: SubTier | null;
   subscription_status: SubStatus | null;
   current_period_end: string | null;
@@ -45,29 +46,13 @@ export interface ListFilters {
   search?: string;
 }
 
-export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
-  const where: string[] = [];
-  const params: unknown[] = [];
-
-  if (filters.status) {
-    params.push(filters.status);
-    where.push(`u.status = $${params.length}`);
-  }
-  if (filters.role) {
-    params.push(filters.role);
-    where.push(`u.role = $${params.length}`);
-  }
-  if (filters.search) {
-    params.push(`%${filters.search.toLowerCase()}%`);
-    where.push(`LOWER(u.email) LIKE $${params.length}`);
-  }
-
-  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const sql = `
+export function buildListUsersSql(whereSql: string): string {
+  return `
     SELECT
       u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
       u.created_at,
       COALESCE(ap.name, cp.name) AS name,
+      ap.phone,
       ap.monthly_fee_ars AS monthly_fee_ars,
       s.tier AS subscription_tier,
       s.status AS subscription_status,
@@ -89,6 +74,27 @@ export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
     ORDER BY u.created_at DESC
     LIMIT 500
   `;
+}
+
+export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters.status) {
+    params.push(filters.status);
+    where.push(`u.status = $${params.length}`);
+  }
+  if (filters.role) {
+    params.push(filters.role);
+    where.push(`u.role = $${params.length}`);
+  }
+  if (filters.search) {
+    params.push(`%${filters.search.toLowerCase()}%`);
+    where.push(`LOWER(u.email) LIKE $${params.length}`);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const sql = buildListUsersSql(whereSql);
   const r = await pool.query<AdminUserRow>(sql, params);
   // pg returns NUMERIC as string; normalize so the frontend feeOf math works.
   return r.rows.map((row) => ({
@@ -104,6 +110,7 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
        u.created_at,
        COALESCE(ap.name, cp.name) AS name,
+       ap.phone,
        ap.monthly_fee_ars AS monthly_fee_ars,
        s.tier AS subscription_tier,
        s.status AS subscription_status,
@@ -122,7 +129,7 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
         LIMIT 1
      ) s ON TRUE
      WHERE u.id = $1`,
-    [id],
+    [id]
   );
   const row = r.rows[0];
   if (!row) return null;
@@ -141,9 +148,13 @@ export interface CreateUserInput {
   email_verified?: boolean;
 }
 
-export async function createUser(input: CreateUserInput): Promise<AdminUserRow> {
+export async function createUser(
+  input: CreateUserInput
+): Promise<AdminUserRow> {
   const email = input.email.trim().toLowerCase();
-  const exists = await pool.query(`SELECT 1 FROM users WHERE email = $1`, [email]);
+  const exists = await pool.query(`SELECT 1 FROM users WHERE email = $1`, [
+    email,
+  ]);
   if (exists.rowCount && exists.rowCount > 0) {
     throw new AdminError('email_taken');
   }
@@ -155,7 +166,7 @@ export async function createUser(input: CreateUserInput): Promise<AdminUserRow> 
   const r = await pool.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, role, status, email_verified, email_verified_at)
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [email, hash, role, status, verified, verified ? new Date() : null],
+    [email, hash, role, status, verified, verified ? new Date() : null]
   );
   const fresh = await getUser(r.rows[0].id);
   if (!fresh) throw new AdminError('not_found');
@@ -173,7 +184,10 @@ export interface UpdateUserPatch {
   email_verified?: boolean;
 }
 
-export async function updateUser(id: string, patch: UpdateUserPatch): Promise<void> {
+export async function updateUser(
+  id: string,
+  patch: UpdateUserPatch
+): Promise<void> {
   const sets: string[] = [];
   const params: unknown[] = [];
 
@@ -191,7 +205,7 @@ export async function updateUser(id: string, patch: UpdateUserPatch): Promise<vo
     sets.push(
       patch.email_verified
         ? `email_verified_at = COALESCE(email_verified_at, NOW())`
-        : `email_verified_at = NULL`,
+        : `email_verified_at = NULL`
     );
   }
   if (!sets.length) return;
@@ -199,7 +213,7 @@ export async function updateUser(id: string, patch: UpdateUserPatch): Promise<vo
   params.push(id);
   await pool.query(
     `UPDATE users SET ${sets.join(', ')} WHERE id = $${params.length}`,
-    params,
+    params
   );
 }
 
@@ -218,7 +232,7 @@ export interface UpsertSubInput {
  */
 export async function upsertManualSubscription(
   userId: string,
-  input: UpsertSubInput,
+  input: UpsertSubInput
 ): Promise<void> {
   const client = await pool.connect();
   try {
@@ -228,7 +242,7 @@ export async function upsertManualSubscription(
         WHERE athlete_id = $1
         ORDER BY created_at DESC
         LIMIT 1`,
-      [userId],
+      [userId]
     );
     if (existing.rows[0]) {
       await client.query(
@@ -241,7 +255,7 @@ export async function upsertManualSubscription(
           input.status,
           input.current_period_end ?? null,
           existing.rows[0].id,
-        ],
+        ]
       );
     } else {
       const synthetic = `admin_${userId}_${Date.now()}`;
@@ -256,7 +270,7 @@ export async function upsertManualSubscription(
           synthetic,
           input.status,
           input.current_period_end ?? null,
-        ],
+        ]
       );
     }
     // Authorizing a subscription must also grant access. The login gate checks
@@ -265,16 +279,19 @@ export async function upsertManualSubscription(
     // payment_required. Mirror registerPayment: create/extend the membership and
     // flip the account to approved, in the same transaction.
     if (input.status === 'authorized') {
-      const existingMem = await client.query<{ paid_until: string | number | null }>(
-        `SELECT paid_until FROM memberships WHERE user_id = $1 FOR UPDATE`,
-        [userId],
-      );
+      const existingMem = await client.query<{
+        paid_until: string | number | null;
+      }>(`SELECT paid_until FROM memberships WHERE user_id = $1 FOR UPDATE`, [
+        userId,
+      ]);
       const paidUntil = (() => {
         if (input.current_period_end) return new Date(input.current_period_end);
         // Extend from later of current paid_until or now (renewal vs top-up).
         const cur = existingMem.rows[0]?.paid_until;
         const base =
-          cur != null && cur !== Infinity && cur !== 'infinity' &&
+          cur != null &&
+          cur !== Infinity &&
+          cur !== 'infinity' &&
           new Date(cur).getTime() > Date.now()
             ? new Date(cur)
             : new Date();
@@ -287,12 +304,11 @@ export async function upsertManualSubscription(
          VALUES ($1, 'active', now(), $2, now())
          ON CONFLICT (user_id) DO UPDATE
            SET status = 'active', paid_until = $2, updated_at = now()`,
-        [userId, paidUntil.toISOString()],
+        [userId, paidUntil.toISOString()]
       );
-      await client.query(
-        `UPDATE users SET status = 'approved' WHERE id = $1`,
-        [userId],
-      );
+      await client.query(`UPDATE users SET status = 'approved' WHERE id = $1`, [
+        userId,
+      ]);
     }
     await client.query('COMMIT');
   } catch (e) {
@@ -309,7 +325,7 @@ export async function cancelSubscription(userId: string): Promise<void> {
         SET status = 'cancelled', updated_at = NOW()
       WHERE athlete_id = $1
         AND status <> 'cancelled'`,
-    [userId],
+    [userId]
   );
 }
 
@@ -368,7 +384,7 @@ export async function logAudit(input: LogAuditInput): Promise<void> {
         input.target_id ?? null,
         input.meta ? JSON.stringify(input.meta) : null,
         input.severity ?? null,
-      ],
+      ]
     );
   } catch (e) {
     // Audit must not break the user-facing operation.
@@ -416,7 +432,9 @@ export interface AthleteRmRow {
   tested_at: string;
 }
 
-export async function listAthleteRms(athleteId: string): Promise<AthleteRmRow[]> {
+export async function listAthleteRms(
+  athleteId: string
+): Promise<AthleteRmRow[]> {
   const r = await pool.query<{
     exercise_id: number;
     exercise_name: string;
@@ -437,7 +455,7 @@ export async function listAthleteRms(athleteId: string): Promise<AthleteRmRow[]>
        JOIN exercises e ON e.id = rt.exercise_id
       WHERE rt.athlete_id = $1
       ORDER BY e.name, rt.program_week`,
-    [athleteId],
+    [athleteId]
   );
   return r.rows.map((row) => ({ ...row, value_kg: Number(row.value_kg) }));
 }
@@ -458,16 +476,19 @@ export interface SetAthleteRmInput {
 export async function setAthleteRm(
   athleteId: string,
   input: SetAthleteRmInput,
-  actor: string,
+  actor: string
 ): Promise<AthleteRmRow> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const exR = await client.query<{ id: number; name: string; equipment: string }>(
-      `SELECT id, name, equipment FROM exercises WHERE id = $1`,
-      [input.exerciseId],
-    );
+    const exR = await client.query<{
+      id: number;
+      name: string;
+      equipment: string;
+    }>(`SELECT id, name, equipment FROM exercises WHERE id = $1`, [
+      input.exerciseId,
+    ]);
     if (!exR.rows[0]) throw new Error('exercise_not_found');
     const equipment = exR.rows[0].equipment ?? 'barra';
     const unit = await resolveUnit(athleteId, equipment);
@@ -475,7 +496,7 @@ export async function setAthleteRm(
     const prev = await client.query<{ value_kg: string }>(
       `SELECT value_kg::text AS value_kg FROM rm_tests
         WHERE athlete_id = $1 AND exercise_id = $2 AND program_week = $3`,
-      [athleteId, input.exerciseId, input.programWeek],
+      [athleteId, input.exerciseId, input.programWeek]
     );
     const from = prev.rows[0] ? Number(prev.rows[0].value_kg) : null;
 
@@ -490,8 +511,14 @@ export async function setAthleteRm(
                        coach_note = EXCLUDED.coach_note,
                        tested_at = NOW()
        RETURNING tested_at`,
-      [athleteId, input.exerciseId, input.programWeek, input.valueKg, unit,
-       input.coachNote ?? null],
+      [
+        athleteId,
+        input.exerciseId,
+        input.programWeek,
+        input.valueKg,
+        unit,
+        input.coachNote ?? null,
+      ]
     );
 
     await client.query('COMMIT');
@@ -551,7 +578,7 @@ export interface ActivityFilters {
 }
 
 export async function listActivity(
-  filters: ActivityFilters,
+  filters: ActivityFilters
 ): Promise<AuditEventRow[]> {
   const where: string[] = [];
   const params: unknown[] = [];
@@ -626,11 +653,12 @@ export async function getStats(): Promise<AdminStats> {
          WHERE created_at >= NOW() - INTERVAL '60 days'
            AND created_at <  NOW() - INTERVAL '30 days'
        ) AS prev
-       FROM users`,
+       FROM users`
   );
   const cur = Number(signupsRes.rows[0]?.cur ?? 0);
   const prev = Number(signupsRes.rows[0]?.prev ?? 0);
-  const signupsDeltaPct = prev > 0 ? ((cur - prev) / prev) * 100 : cur > 0 ? 100 : 0;
+  const signupsDeltaPct =
+    prev > 0 ? ((cur - prev) / prev) * 100 : cur > 0 ? 100 : 0;
 
   const trendRes = await pool.query<{ cnt: string }>(
     `SELECT COALESCE(c.cnt, 0)::text AS cnt
@@ -645,12 +673,12 @@ export async function getStats(): Promise<AdminStats> {
           WHERE created_at >= NOW() - INTERVAL '30 days'
           GROUP BY 1
        ) c ON c.day = d::date
-       ORDER BY d`,
+       ORDER BY d`
   );
   const signupsTrend = trendRes.rows.map((r) => Number(r.cnt));
 
   const pendingRes = await pool.query<{ n: string }>(
-    `SELECT COUNT(*) AS n FROM users WHERE status = 'pending'`,
+    `SELECT COUNT(*) AS n FROM users WHERE status = 'pending'`
   );
   const pendingCount = Number(pendingRes.rows[0]?.n ?? 0);
 
@@ -658,13 +686,12 @@ export async function getStats(): Promise<AdminStats> {
     `SELECT COUNT(*) AS total,
             COUNT(*) FILTER (WHERE email_verified) AS verified
        FROM users
-      WHERE status = 'approved'`,
+      WHERE status = 'approved'`
   );
   const totalApproved = Number(verifiedRes.rows[0]?.total ?? 0);
   const verifiedCount = Number(verifiedRes.rows[0]?.verified ?? 0);
-  const verifiedPct = totalApproved > 0
-    ? Math.round((verifiedCount / totalApproved) * 100)
-    : 0;
+  const verifiedPct =
+    totalApproved > 0 ? Math.round((verifiedCount / totalApproved) * 100) : 0;
 
   const activeRes = await pool.query<{ cur: string; prev: string }>(
     `WITH latest AS (
@@ -680,7 +707,7 @@ export async function getStats(): Promise<AdminStats> {
      )
      SELECT
        (SELECT COUNT(*) FROM latest WHERE status = 'authorized') AS cur,
-       (SELECT COUNT(*) FROM latest_30d_ago WHERE status = 'authorized') AS prev`,
+       (SELECT COUNT(*) FROM latest_30d_ago WHERE status = 'authorized') AS prev`
   );
   const activeSubs = Number(activeRes.rows[0]?.cur ?? 0);
   const activeSubsPrev = Number(activeRes.rows[0]?.prev ?? 0);
@@ -706,13 +733,12 @@ export async function getStats(): Promise<AdminStats> {
        COALESCE((SELECT SUM(${priceCase('s', 'ap')})
                    FROM latest_prev s
                    LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
-                  WHERE s.status = 'authorized'), 0) AS mrr_prev`,
+                  WHERE s.status = 'authorized'), 0) AS mrr_prev`
   );
   const mrr = Number(mrrRes.rows[0]?.mrr ?? 0);
   const mrrPrev = Number(mrrRes.rows[0]?.mrr_prev ?? 0);
-  const mrrDeltaPct = mrrPrev > 0
-    ? ((mrr - mrrPrev) / mrrPrev) * 100
-    : mrr > 0 ? 100 : 0;
+  const mrrDeltaPct =
+    mrrPrev > 0 ? ((mrr - mrrPrev) / mrrPrev) * 100 : mrr > 0 ? 100 : 0;
 
   const mrrTrendRes = await pool.query<{ mrr: string }>(
     `WITH months AS (
@@ -734,7 +760,7 @@ export async function getStats(): Promise<AdminStats> {
         WHERE s.status = 'authorized'
      ), 0)::text AS mrr
      FROM months
-     ORDER BY months.m`,
+     ORDER BY months.m`
   );
   const mrrTrend = mrrTrendRes.rows.map((r) => Number(r.mrr));
 
@@ -779,16 +805,15 @@ export async function getStats(): Promise<AdminStats> {
        (SELECT n FROM cur_cancelled) AS cancelled,
        (SELECT n FROM active_start) AS active_start,
        (SELECT n FROM prev_cancelled) AS cancelled_prev,
-       (SELECT n FROM active_start_prev) AS active_start_prev`,
+       (SELECT n FROM active_start_prev) AS active_start_prev`
   );
   const cancelled = Number(churnRes.rows[0]?.cancelled ?? 0);
   const activeStart = Number(churnRes.rows[0]?.active_start ?? 0);
   const cancelledPrev = Number(churnRes.rows[0]?.cancelled_prev ?? 0);
   const activeStartPrev = Number(churnRes.rows[0]?.active_start_prev ?? 0);
   const churnPct = activeStart > 0 ? (cancelled / activeStart) * 100 : 0;
-  const churnPrevPct = activeStartPrev > 0
-    ? (cancelledPrev / activeStartPrev) * 100
-    : 0;
+  const churnPrevPct =
+    activeStartPrev > 0 ? (cancelledPrev / activeStartPrev) * 100 : 0;
   const churnDeltaPp = churnPct - churnPrevPct;
 
   return {
