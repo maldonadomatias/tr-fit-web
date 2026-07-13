@@ -18,7 +18,7 @@ export function ListPaneActivas({
   const { data, isLoading } = useActiveAthletes(debounced.trim() || undefined);
 
   return (
-    <aside className="flex max-h-[60vh] flex-col border-b border-border bg-card lg:max-h-none lg:h-full lg:border-b-0 lg:border-r">
+    <aside className="flex h-full min-h-0 flex-col border-b border-border bg-card lg:border-b-0 lg:border-r">
       <div className="border-b border-border p-4">
         <div className="relative">
           <Search
@@ -33,7 +33,12 @@ export function ListPaneActivas({
           />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div
+        role="region"
+        aria-label="Atletas con rutina activa"
+        tabIndex={0}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
         {isLoading && (
           <div className="p-4 text-sm text-muted-foreground">Cargando...</div>
         )}
@@ -48,7 +53,7 @@ export function ListPaneActivas({
             onClick={() => onSelect(a.athlete_id)}
             className={cn(
               'w-full border-b border-border px-4 py-3 text-left text-sm hover:bg-muted/50',
-              activeId === a.athlete_id && 'bg-muted',
+              activeId === a.athlete_id && 'bg-muted'
             )}
           >
             <div className="font-medium">{a.name}</div>

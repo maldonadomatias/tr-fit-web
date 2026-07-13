@@ -15,13 +15,19 @@ const KEYS = {
     ['admin', 'rutinas', 'detail', athleteId] as const,
 };
 
+type SlotCreateVariables = SlotCreateInput & {
+  exercise_name: string;
+  muscle_group: string;
+  equipment?: string;
+};
+
 export function useActiveAthletes(q?: string) {
   return useQuery({
     queryKey: KEYS.list(q),
     queryFn: async () => {
       const r = await api.get<{ items: ActiveAthleteRow[]; total: number }>(
         '/admin/rutinas/atleta',
-        { params: q ? { q } : undefined }
+        { params: { limit: 200, ...(q ? { q } : {}) } }
       );
       return r.data;
     },
@@ -45,15 +51,69 @@ export function useActiveRutina(athleteId: string | undefined) {
 
 export function useCreateSlot(athleteId: string) {
   const qc = useQueryClient();
+  const detailKey = KEYS.detail(athleteId);
   return useMutation({
-    mutationFn: async (input: SlotCreateInput) => {
+    mutationFn: async ({
+      exercise_name: _exerciseName,
+      muscle_group: _muscleGroup,
+      equipment: _equipment,
+      ...input
+    }: SlotCreateVariables) => {
       const r = await api.post<{ slot: RutinaSlot }>(
         `/admin/rutinas/atleta/${athleteId}/slots`,
         input
       );
       return r.data.slot;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.detail(athleteId) }),
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: detailKey });
+      const previous = qc.getQueryData<ActiveRutinaResponse>(detailKey);
+      const optimisticId = `optimistic-${Date.now()}-${input.slot_index}`;
+
+      qc.setQueryData<ActiveRutinaResponse>(detailKey, (current) => {
+        if (!current?.rutina) return current;
+        return {
+          ...current,
+          rutina: {
+            ...current.rutina,
+            slots: [
+              ...current.rutina.slots,
+              {
+                id: optimisticId,
+                day_of_week: input.day_of_week,
+                slot_index: input.slot_index,
+                exercise_id: input.exercise_id,
+                exercise_name: input.exercise_name,
+                muscle_group: input.muscle_group,
+                equipment: input.equipment,
+                role: input.role,
+                notes: input.notes,
+              },
+            ],
+          },
+        };
+      });
+
+      return { previous, optimisticId };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) qc.setQueryData(detailKey, context.previous);
+    },
+    onSuccess: (created, _input, context) => {
+      qc.setQueryData<ActiveRutinaResponse>(detailKey, (current) => {
+        if (!current?.rutina || !context?.optimisticId) return current;
+        return {
+          ...current,
+          rutina: {
+            ...current.rutina,
+            slots: current.rutina.slots.map((slot) =>
+              slot.id === context.optimisticId ? { ...slot, ...created } : slot
+            ),
+          },
+        };
+      });
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: detailKey }),
   });
 }
 

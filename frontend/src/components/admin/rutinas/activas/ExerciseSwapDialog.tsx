@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { useAdminExercises } from '@/hooks/useAdminExercises';
+import type { Exercise } from '@/types/api';
 
 export function ExerciseSwapDialog({
   open,
@@ -18,7 +19,7 @@ export function ExerciseSwapDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onSelect: (exerciseId: number) => void;
+  onSelect: (exerciseId: number, exercise: Exercise) => void;
   title: string;
   muscleGroup?: string;
 }) {
@@ -81,7 +82,7 @@ export function ExerciseSwapDialog({
             <button
               key={ex.id}
               onClick={() => {
-                onSelect(ex.id);
+                onSelect(ex.id, ex);
                 onClose();
               }}
               className="flex w-full items-center justify-between px-4 py-2 text-left text-sm hover:bg-muted"

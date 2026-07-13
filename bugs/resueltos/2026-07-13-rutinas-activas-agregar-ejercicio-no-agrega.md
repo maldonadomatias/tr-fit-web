@@ -11,5 +11,5 @@
 ## Resolución
 
 - **Resuelto**: 2026-07-13
-- **Commit/PR**: sin commit
-- **Cómo se arregló**: el agregado usa la primera posición libre real y evita colisiones cuando existen huecos tras eliminar o mover ejercicios.
+- **Commit/PR**: `c897c02` + corrección posterior
+- **Cómo se arregló**: el agregado usa la primera posición libre real y evita colisiones cuando existen huecos. Además, actualiza la rutina activa de forma optimista para mostrar el ejercicio seleccionado al instante, reemplaza el registro temporal con la respuesta del servidor y revierte el cambio si el alta falla.

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useCreateSlot } from '@/hooks/useAdminRutina';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
 import { SlotRow } from './SlotRow';
-import type { RutinaSlot } from '@/types/api';
+import type { Exercise, RutinaSlot } from '@/types/api';
 
 const DAY_LABEL: Record<number, string> = {
   1: 'Lunes',
@@ -85,13 +85,16 @@ function DayFooter({
   const create = useCreateSlot(athleteId);
   const [open, setOpen] = useState(false);
 
-  function onPick(exerciseId: number) {
+  function onPick(exerciseId: number, exercise: Exercise) {
     if (nextIndex === null) return;
     create.mutate(
       {
         day_of_week: dayOfWeek,
         slot_index: nextIndex,
         exercise_id: exerciseId,
+        exercise_name: exercise.name,
+        muscle_group: exercise.muscle_group,
+        equipment: exercise.equipment,
         role: 'accesorio',
         notes: null,
       },
