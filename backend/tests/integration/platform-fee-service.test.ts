@@ -1,10 +1,21 @@
 // backend/tests/integration/platform-fee-service.test.ts
 import pool from '../../src/db/connect.js';
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
-import { createAdmin, createAthlete, setMembership } from './helpers/fixtures.js';
 import {
-  getConfig, updateConfig, getActiveAthleteRevenue, computeCurrent,
-  previewAdjustment, applyAdjustment, snapshotMonth, getHistory,
+  createAdmin,
+  createAthlete,
+  setMembership,
+} from './helpers/fixtures.js';
+import {
+  getConfig,
+  updateConfig,
+  getActiveAthleteRevenue,
+  computeCurrent,
+  previewAdjustment,
+  applyAdjustment,
+  snapshotMonth,
+  getHistory,
+  recordCurrentPayment,
 } from '../../src/services/platform-fee.service.js';
 import { setAthleteMonthlyFee } from '../../src/services/admin.service.js';
 
@@ -22,9 +33,16 @@ async function resetPlatformFee(): Promise<void> {
   );
 }
 
-beforeAll(async () => { await ensureMigrated(); });
-beforeEach(async () => { await resetDatabase(); await resetPlatformFee(); });
-afterAll(async () => { await closePool(); });
+beforeAll(async () => {
+  await ensureMigrated();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  await resetPlatformFee();
+});
+afterAll(async () => {
+  await closePool();
+});
 
 describe('platform fee service', () => {
   it('getConfig returns the seeded row', async () => {
@@ -103,7 +121,10 @@ describe('platform fee service', () => {
   });
 
   it('updateConfig patches whitelisted fields only', async () => {
-    const c = await updateConfig({ price_per_athlete_ars: 30000, revenue_share_pct: 5 });
+    const c = await updateConfig({
+      price_per_athlete_ars: 30000,
+      revenue_share_pct: 5,
+    });
     expect(c.price_per_athlete_ars).toBe(30000);
     expect(c.revenue_share_pct).toBe(5);
     expect(c.base_fee_ars).toBe(105000);
@@ -118,5 +139,19 @@ describe('platform fee service', () => {
     expect(h).toHaveLength(1);
     expect(h[0].period).toBe('2026-05-01');
     expect(h[0].total_ars).toBe(106000);
+  });
+
+  it('includes the recorded payment in monthly history', async () => {
+    const coach = await createAdmin();
+    await snapshotMonth('2026-06-01');
+    await recordCurrentPayment(coach, '2026-06-24');
+
+    const h = await getHistory();
+
+    expect(h[0]).toMatchObject({
+      period: '2026-06-01',
+      paid_total_ars: 105000,
+      paid_at: expect.any(String),
+    });
   });
 });

@@ -129,4 +129,64 @@ describe('platform-fee routes', () => {
     expect(r.status).toBe(200);
     expect(r.body[0].to_ars).toBe(26000);
   });
+
+  it('superadmin records the current month payment and exposes it in the summary', async () => {
+    const su = await createSuperadmin();
+    const tok = signToken({ id: su, role: 'superadmin' });
+    const currentPeriod = `${new Date().toISOString().slice(0, 7)}-01`;
+
+    const created = await request(app)
+      .post('/api/platform-fee/payments')
+      .set('Authorization', `Bearer ${tok}`)
+      .send();
+
+    expect(created.status).toBe(201);
+    expect(created.body.period).toBe(currentPeriod);
+    expect(created.body.total_ars).toBe(105000);
+    expect(created.body.recorded_by).toBe(su);
+    expect(created.body.paid_at).toEqual(expect.any(String));
+
+    const summary = await request(app)
+      .get('/api/platform-fee')
+      .set('Authorization', `Bearer ${tok}`);
+
+    expect(summary.status).toBe(200);
+    expect(summary.body.payment).toEqual(created.body);
+  });
+
+  it('admin can see the current payment but cannot record it', async () => {
+    const coach = await createAdmin();
+    const tok = signToken({ id: coach, role: 'admin' });
+
+    const created = await request(app)
+      .post('/api/platform-fee/payments')
+      .set('Authorization', `Bearer ${tok}`)
+      .send();
+
+    expect(created.status).toBe(403);
+
+    const summary = await request(app)
+      .get('/api/platform-fee')
+      .set('Authorization', `Bearer ${tok}`);
+
+    expect(summary.status).toBe(200);
+    expect(summary.body.payment).toBeNull();
+  });
+
+  it('rejects recording the current month payment twice', async () => {
+    const su = await createSuperadmin();
+    const tok = signToken({ id: su, role: 'superadmin' });
+
+    await request(app)
+      .post('/api/platform-fee/payments')
+      .set('Authorization', `Bearer ${tok}`)
+      .send();
+    const duplicate = await request(app)
+      .post('/api/platform-fee/payments')
+      .set('Authorization', `Bearer ${tok}`)
+      .send();
+
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body).toEqual({ error: 'platform_fee_already_paid' });
+  });
 });

@@ -10,6 +10,7 @@ import {
   useUpdatePlatformFeeConfig,
   useApplyAdjustment,
   useFeeLog,
+  useMarkPlatformFeePaid,
   type BillingPhase,
 } from '@/hooks/usePlatformFee';
 
@@ -20,6 +21,7 @@ export default function PlatformFee() {
   const { data: history } = usePlatformFeeHistory();
   const updateConfig = useUpdatePlatformFeeConfig();
   const applyAdjustment = useApplyAdjustment();
+  const markPaid = useMarkPlatformFeePaid();
   const { data: feeLog } = useFeeLog();
 
   const [usdInput, setUsdInput] = useState('');
@@ -28,7 +30,7 @@ export default function PlatformFee() {
     return <div className="p-6 text-sm text-muted-foreground">Cargando…</div>;
   }
 
-  const { summary, config } = data;
+  const { summary, config, payment } = data;
   const isTestflight = summary.phase === 'testflight';
 
   async function onApply() {
@@ -48,6 +50,19 @@ export default function PlatformFee() {
       toast.success('Ajuste aplicado');
     } catch {
       toast.error('No se pudo aplicar el ajuste');
+    }
+  }
+
+  async function onMarkPaid() {
+    const ok = window.confirm(
+      `¿Confirmás que se pagaron ${fmtARS(summary.total_ars)} este mes?`
+    );
+    if (!ok) return;
+    try {
+      await markPaid.mutateAsync();
+      toast.success('Pago del mes registrado');
+    } catch {
+      toast.error('No se pudo registrar el pago');
     }
   }
 
@@ -88,7 +103,9 @@ export default function PlatformFee() {
             <dt className="text-muted-foreground">
               {summary.active_athletes} atletas activos (facturado)
             </dt>
-            <dd className="tabular-nums">{fmtARS(summary.gross_revenue_ars)}</dd>
+            <dd className="tabular-nums">
+              {fmtARS(summary.gross_revenue_ars)}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
@@ -101,6 +118,36 @@ export default function PlatformFee() {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div
+        className={
+          'flex flex-col gap-3 rounded-lg border p-4 text-sm sm:flex-row sm:items-center sm:justify-between ' +
+          (payment
+            ? 'border-emerald-500/40 bg-emerald-500/10'
+            : 'border-amber-400/50 bg-amber-50 dark:bg-amber-950/30')
+        }
+      >
+        <div>
+          <div className="font-semibold">
+            {payment ? 'Pagado este mes' : 'Pago pendiente'}
+          </div>
+          <div className="text-muted-foreground">
+            {payment
+              ? `${fmtARS(payment.total_ars)} registrados el ${fmtShortDate(payment.paid_at)}`
+              : `Todavía no se registró el pago de ${fmtARS(summary.total_ars)}.`}
+          </div>
+        </div>
+        {!payment && isSuper && (
+          <button
+            type="button"
+            onClick={onMarkPaid}
+            disabled={markPaid.isPending}
+            className="h-9 shrink-0 rounded-md bg-primary px-3 font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {markPaid.isPending ? 'Registrando…' : 'Marcar como pagado'}
+          </button>
+        )}
       </div>
 
       {/* Adjustment banner */}
@@ -168,28 +215,34 @@ export default function PlatformFee() {
             Cambios de cuota recientes
           </div>
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase text-muted-foreground">
-                <th className="py-1">Alumno</th>
-                <th className="py-1 text-right">De</th>
-                <th className="py-1 text-right">A</th>
-                <th className="py-1 text-right">Cuándo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {feeLog.map((f) => (
-                <tr key={f.id} className="border-t border-border">
-                  <td className="py-1.5">{f.athlete_name ?? f.athlete_id.slice(0, 8)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{fmtARS(f.from_ars)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{fmtARS(f.to_ars)}</td>
-                  <td className="py-1.5 text-right text-muted-foreground">
-                    {fmtShortDate(f.created_at)}
-                  </td>
+            <table className="w-full min-w-[420px] text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-1">Alumno</th>
+                  <th className="py-1 text-right">De</th>
+                  <th className="py-1 text-right">A</th>
+                  <th className="py-1 text-right">Cuándo</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {feeLog.map((f) => (
+                  <tr key={f.id} className="border-t border-border">
+                    <td className="py-1.5">
+                      {f.athlete_name ?? f.athlete_id.slice(0, 8)}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {fmtARS(f.from_ars)}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {fmtARS(f.to_ars)}
+                    </td>
+                    <td className="py-1.5 text-right text-muted-foreground">
+                      {fmtShortDate(f.created_at)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -211,36 +264,51 @@ export default function PlatformFee() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase text-muted-foreground">
-                <th className="py-1">Mes</th>
-                <th className="py-1 text-right">Atletas</th>
-                <th className="py-1 text-right">Fee base</th>
-                <th className="py-1 text-right">4%</th>
-                <th className="py-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((h) => (
-                <tr key={h.period} className="border-t border-border">
-                  <td className="py-1.5">{fmtShortDate(h.period)}</td>
-                  <td className="py-1.5 text-right tabular-nums">
-                    {h.active_athletes}
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums">
-                    {fmtARS(h.base_fee_ars)}
-                  </td>
-                  <td className="py-1.5 text-right tabular-nums">
-                    {fmtARS(h.revenue_share_ars)}
-                  </td>
-                  <td className="py-1.5 text-right font-semibold tabular-nums">
-                    {fmtARS(h.total_ars)}
-                  </td>
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-1">Mes</th>
+                  <th className="py-1 text-right">Atletas</th>
+                  <th className="py-1 text-right">Fee base</th>
+                  <th className="py-1 text-right">4%</th>
+                  <th className="py-1 text-right">Total</th>
+                  <th className="py-1 text-right">Estado</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((h) => (
+                  <tr key={h.period} className="border-t border-border">
+                    <td className="py-1.5">{fmtShortDate(h.period)}</td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {h.active_athletes}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {fmtARS(h.base_fee_ars)}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {fmtARS(h.revenue_share_ars)}
+                    </td>
+                    <td className="py-1.5 text-right font-semibold tabular-nums">
+                      {fmtARS(h.total_ars)}
+                    </td>
+                    <td className="py-1.5 text-right">
+                      {h.paid_at ? (
+                        <span
+                          title={`Registrado el ${fmtShortDate(h.paid_at)}`}
+                          className="inline-flex rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400"
+                        >
+                          Pagado
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Pendiente
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -278,7 +346,9 @@ function ConfigEditor({
 
   return (
     <div className="rounded-lg border border-border bg-card p-5">
-      <div className="mb-3 text-sm font-semibold">Configuración (superadmin)</div>
+      <div className="mb-3 text-sm font-semibold">
+        Configuración (superadmin)
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col text-xs text-muted-foreground">
           Fee base (ARS)

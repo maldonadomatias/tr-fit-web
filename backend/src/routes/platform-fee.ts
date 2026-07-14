@@ -11,6 +11,8 @@ import {
   previewAdjustment,
   applyAdjustment,
   getFeeLog,
+  getCurrentPayment,
+  recordCurrentPayment,
 } from '../services/platform-fee.service.js';
 
 const router = Router();
@@ -18,8 +20,21 @@ const router = Router();
 router.use(requireAuth, requireAdmin);
 
 router.get('/', async (_req, res) => {
-  const [summary, config] = await Promise.all([computeCurrent(), getConfig()]);
-  res.json({ summary, config });
+  const [summary, config, payment] = await Promise.all([
+    computeCurrent(),
+    getConfig(),
+    getCurrentPayment(),
+  ]);
+  res.json({ summary, config, payment });
+});
+
+router.post('/payments', requireSuperadmin, async (req, res) => {
+  const payment = await recordCurrentPayment(req.user!.id);
+  if (!payment) {
+    res.status(409).json({ error: 'platform_fee_already_paid' });
+    return;
+  }
+  res.status(201).json(payment);
 });
 
 router.get('/history', async (_req, res) => {

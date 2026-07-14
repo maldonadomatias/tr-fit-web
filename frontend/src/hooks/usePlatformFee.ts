@@ -38,6 +38,15 @@ export interface PlatformFeeHistoryRow {
   total_ars: number;
   usd_at_snapshot: number;
   created_at: string;
+  paid_total_ars: number | null;
+  paid_at: string | null;
+}
+
+export interface PlatformFeePayment {
+  period: string;
+  total_ars: number;
+  paid_at: string;
+  recorded_by: string | null;
 }
 
 export interface FeeLogRow {
@@ -67,10 +76,22 @@ export function usePlatformFee() {
       const r = await api.get<{
         summary: PlatformFeeSummary;
         config: PlatformFeeConfig;
+        payment: PlatformFeePayment | null;
       }>('/platform-fee');
       return r.data;
     },
     refetchInterval: 60_000,
+  });
+}
+
+export function useMarkPlatformFeePaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const r = await api.post<PlatformFeePayment>('/platform-fee/payments');
+      return r.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['platform-fee'] }),
   });
 }
 

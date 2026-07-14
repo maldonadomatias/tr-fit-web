@@ -26,7 +26,9 @@ export async function resetDatabase(): Promise<void> {
   // Platform fee tables: clear history and restore the seeded single-row config
   // so each test starts from the migration defaults (config is never truncated
   // away — getConfig() requires the id=1 row to exist).
-  await pool.query(`TRUNCATE TABLE platform_fee_history RESTART IDENTITY`);
+  await pool.query(
+    `TRUNCATE TABLE platform_fee_payments, platform_fee_history RESTART IDENTITY`
+  );
   await pool.query(`
     INSERT INTO platform_fee_config
       (id, base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
@@ -55,9 +57,10 @@ export async function ensureMigrated(): Promise<void> {
   const r = await pool.query(
     `SELECT to_regclass('public.exercises') AS e,
             to_regclass('public.periodization_config') AS p,
-            to_regclass('public.platform_fee_config') AS f`,
+            to_regclass('public.platform_fee_config') AS f,
+            to_regclass('public.platform_fee_payments') AS fp`
   );
-  if (!r.rows[0].e || !r.rows[0].p || !r.rows[0].f) {
+  if (!r.rows[0].e || !r.rows[0].p || !r.rows[0].f || !r.rows[0].fp) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }
   // Ensure seed data
@@ -65,14 +68,16 @@ export async function ensureMigrated(): Promise<void> {
   if (ec.rows[0].n === 0) {
     execSync(
       `npx tsx src/seeds/enrich-exercises.ts && psql $DATABASE_URL -f src/seeds/exercises.sql`,
-      { stdio: 'inherit', env: childEnv },
+      { stdio: 'inherit', env: childEnv }
     );
   }
-  const pc = await pool.query(`SELECT count(*)::int AS n FROM periodization_config`);
+  const pc = await pool.query(
+    `SELECT count(*)::int AS n FROM periodization_config`
+  );
   if (pc.rows[0].n === 0) {
     execSync(
       `npx tsx src/seeds/port-periodization.ts && psql $DATABASE_URL -f src/seeds/periodization_config.sql`,
-      { stdio: 'inherit', env: childEnv },
+      { stdio: 'inherit', env: childEnv }
     );
   }
 }

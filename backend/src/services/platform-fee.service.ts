@@ -1,7 +1,10 @@
 // backend/src/services/platform-fee.service.ts
 import pool from '../db/connect.js';
 import {
-  computeFee, computeAdjustedBase, addMonthsISO, isAdjustmentDue,
+  computeFee,
+  computeAdjustedBase,
+  addMonthsISO,
+  isAdjustmentDue,
 } from './platform-fee.math.js';
 
 export type BillingPhase = 'testflight' | 'production';
@@ -41,6 +44,15 @@ export interface PlatformFeeHistoryRow {
   total_ars: number;
   usd_at_snapshot: number;
   created_at: string;
+  paid_total_ars: number | null;
+  paid_at: string | null;
+}
+
+export interface PlatformFeePayment {
+  period: string;
+  total_ars: number;
+  paid_at: string;
+  recorded_by: string | null;
 }
 
 export interface UpdateConfigInput {
@@ -68,6 +80,9 @@ interface ConfigRow {
 
 const toISODate = (d: Date | string): string =>
   typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
+
+const currentPeriod = (todayISO?: string): string =>
+  `${(todayISO ?? new Date().toISOString().slice(0, 10)).slice(0, 7)}-01`;
 
 function mapConfig(r: ConfigRow): PlatformFeeConfig {
   return {
@@ -108,12 +123,20 @@ export async function getActiveAthleteRevenue(): Promise<{
         AND u.status = 'approved'
         AND (m.paid_until = 'infinity' OR m.paid_until > now())`
   );
-  return { count: Number(r.rows[0]?.n ?? 0), grossArs: Number(r.rows[0]?.gross ?? 0) };
+  return {
+    count: Number(r.rows[0]?.n ?? 0),
+    grossArs: Number(r.rows[0]?.gross ?? 0),
+  };
 }
 
 const UPDATABLE = [
-  'base_fee_ars', 'reference_usd', 'current_usd', 'price_per_athlete_ars',
-  'revenue_share_pct', 'adjustment_interval_months', 'next_adjustment_date',
+  'base_fee_ars',
+  'reference_usd',
+  'current_usd',
+  'price_per_athlete_ars',
+  'revenue_share_pct',
+  'adjustment_interval_months',
+  'next_adjustment_date',
   'phase',
 ] as const;
 
@@ -161,6 +184,49 @@ export async function computeCurrent(
     adjustment_due: isAdjustmentDue(cfg.next_adjustment_date, today),
     phase: cfg.phase,
   };
+}
+
+interface PaymentRow {
+  period: Date | string;
+  total_ars: string;
+  paid_at: Date | string;
+  recorded_by: string | null;
+}
+
+function mapPayment(row: PaymentRow): PlatformFeePayment {
+  return {
+    period: toISODate(row.period),
+    total_ars: Number(row.total_ars),
+    paid_at: new Date(row.paid_at).toISOString(),
+    recorded_by: row.recorded_by,
+  };
+}
+
+export async function getCurrentPayment(
+  todayISO?: string
+): Promise<PlatformFeePayment | null> {
+  const result = await pool.query<PaymentRow>(
+    `SELECT period, total_ars, paid_at, recorded_by
+       FROM platform_fee_payments
+      WHERE period = $1`,
+    [currentPeriod(todayISO)]
+  );
+  return result.rows[0] ? mapPayment(result.rows[0]) : null;
+}
+
+export async function recordCurrentPayment(
+  recordedBy: string,
+  todayISO?: string
+): Promise<PlatformFeePayment | null> {
+  const summary = await computeCurrent(todayISO);
+  const result = await pool.query<PaymentRow>(
+    `INSERT INTO platform_fee_payments (period, total_ars, recorded_by)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (period) DO NOTHING
+     RETURNING period, total_ars, paid_at, recorded_by`,
+    [currentPeriod(todayISO), summary.total_ars, recordedBy]
+  );
+  return result.rows[0] ? mapPayment(result.rows[0]) : null;
 }
 
 export async function previewAdjustment(
@@ -231,9 +297,15 @@ export async function snapshotMonth(periodISO: string): Promise<void> {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (period) DO NOTHING`,
     [
-      periodISO, fee.baseFeeArs, fee.activeAthletes, cfg.price_per_athlete_ars,
-      fee.grossRevenueArs, fee.revenueSharePct, fee.revenueShareArs,
-      fee.totalArs, cfg.reference_usd,
+      periodISO,
+      fee.baseFeeArs,
+      fee.activeAthletes,
+      cfg.price_per_athlete_ars,
+      fee.grossRevenueArs,
+      fee.revenueSharePct,
+      fee.revenueShareArs,
+      fee.totalArs,
+      cfg.reference_usd,
     ]
   );
 }
@@ -249,15 +321,20 @@ interface HistoryRow {
   total_ars: string;
   usd_at_snapshot: string;
   created_at: Date | string;
+  paid_total_ars: string | null;
+  paid_at: Date | string | null;
 }
 
 export async function getHistory(limit = 24): Promise<PlatformFeeHistoryRow[]> {
   const r = await pool.query<HistoryRow>(
-    `SELECT period, base_fee_ars, active_athletes, price_per_athlete_ars,
-            gross_revenue_ars, revenue_share_pct, revenue_share_ars, total_ars,
-            usd_at_snapshot, created_at
-       FROM platform_fee_history
-      ORDER BY period DESC
+    `SELECT h.period, h.base_fee_ars, h.active_athletes,
+            h.price_per_athlete_ars, h.gross_revenue_ars,
+            h.revenue_share_pct, h.revenue_share_ars, h.total_ars,
+            h.usd_at_snapshot, h.created_at,
+            p.total_ars AS paid_total_ars, p.paid_at
+       FROM platform_fee_history h
+       LEFT JOIN platform_fee_payments p ON p.period = h.period
+      ORDER BY h.period DESC
       LIMIT $1`,
     [limit]
   );
@@ -272,6 +349,9 @@ export async function getHistory(limit = 24): Promise<PlatformFeeHistoryRow[]> {
     total_ars: Number(row.total_ars),
     usd_at_snapshot: Number(row.usd_at_snapshot),
     created_at: new Date(row.created_at).toISOString(),
+    paid_total_ars:
+      row.paid_total_ars === null ? null : Number(row.paid_total_ars),
+    paid_at: row.paid_at === null ? null : new Date(row.paid_at).toISOString(),
   }));
 }
 
