@@ -570,6 +570,26 @@ export async function applyEdits(
       [athleteId, skeletonId]
     );
 
+    const editedRepsByExercise = new Map<number, string | null>();
+    for (const override of input.slot_overrides ?? []) {
+      if ('reps' in override) {
+        editedRepsByExercise.set(override.exercise_id, override.reps ?? null);
+      }
+    }
+    for (const added of input.added_slots ?? []) {
+      if (added.reps != null) {
+        editedRepsByExercise.set(added.exercise_id, added.reps);
+      }
+    }
+    for (const [exerciseId, reps] of editedRepsByExercise) {
+      await client.query(
+        `UPDATE athlete_exercise_weights
+            SET current_reps_text = $3, updated_at = NOW(), updated_by = 'coach'
+          WHERE athlete_id = $1 AND exercise_id = $2`,
+        [athleteId, exerciseId, reps]
+      );
+    }
+
     await client.query('COMMIT');
   } catch (e) {
     try {

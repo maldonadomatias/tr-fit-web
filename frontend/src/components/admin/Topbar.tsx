@@ -123,14 +123,14 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Link
-              to="/admin/alerts"
+            <button
+              type="button"
               onClick={toggle}
               className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </Link>
+            </button>
           </TooltipTrigger>
           <TooltipContent>
             {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
@@ -138,8 +138,8 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
-              type="button"
+            <Link
+              to="/admin/alerts"
               className="relative grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Notificaciones"
             >
@@ -148,7 +148,7 @@ export function Topbar({ onMenuClick }: { onMenuClick?: () => void }) {
                 aria-hidden
                 className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-brand"
               />
-            </button>
+            </Link>
           </TooltipTrigger>
           <TooltipContent>Notificaciones</TooltipContent>
         </Tooltip>

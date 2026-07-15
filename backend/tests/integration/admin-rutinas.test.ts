@@ -8,6 +8,7 @@ import {
   approveSkeleton,
   listPendingForCoach,
 } from '../../src/services/skeleton.service.js';
+import { buildTodaySession } from '../../src/services/engine.service.js';
 import app from '../../src/app.js';
 
 beforeAll(async () => {
@@ -437,6 +438,50 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
 // ── apply-edits: atomic batched draft save from the activas editor ──
 
 describe('POST /api/admin/rutinas/atleta/:athleteId/apply-edits', () => {
+  it('uses an edited 10x10x10 prescription instead of stale progressed reps', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+    const slotR = await pool.query<{
+      id: string;
+      day_of_week: number;
+      exercise_id: number;
+    }>(
+      `SELECT id, day_of_week, exercise_id
+         FROM skeleton_slots
+        WHERE skeleton_id = $1 AND role = 'accesorio'
+        LIMIT 1`,
+      [skeletonId]
+    );
+    const slot = slotR.rows[0];
+    await pool.query(
+      `UPDATE athlete_exercise_weights
+          SET current_reps_text = '8 a 10', updated_by = 'progression_cron'
+        WHERE athlete_id = $1 AND exercise_id = $2`,
+      [athleteId, slot.exercise_id]
+    );
+
+    const response = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        slot_overrides: [
+          {
+            slot_id: slot.id,
+            exercise_id: slot.exercise_id,
+            notes: null,
+            series: 2,
+            reps: '10x10x10',
+            descanso: '2 min',
+          },
+        ],
+      });
+
+    expect(response.status).toBe(204);
+    const session = await buildTodaySession(athleteId, slot.day_of_week);
+    expect(
+      session.find((item) => item.exercise.id === slot.exercise_id)?.reps
+    ).toBe('10x10x10');
+  });
+
   it('204 applies override + add + delete + reorder in one call', async () => {
     const { athleteId, skeletonId, tok } = await setupActiveRutina();
     const slotsR = await pool.query<{
