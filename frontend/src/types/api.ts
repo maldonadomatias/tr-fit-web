@@ -382,3 +382,30 @@ export interface SlotPatchInput {
 export interface ReorderInput {
   slots: { slot_id: string; day_of_week: number; slot_index: number }[];
 }
+
+export interface ApplyEditsInput {
+  slot_overrides?: {
+    slot_id: string;
+    exercise_id: number;
+    notes?: string | null;
+    series?: number | null;
+    reps?: string | null;
+    descanso?: string | null;
+  }[];
+  slot_order?: {
+    slot_id: string;
+    day_of_week: number;
+    slot_index: number;
+  }[];
+  deleted_slot_ids?: string[];
+  added_slots?: {
+    id: string;
+    day_of_week: number;
+    exercise_id: number;
+    role: RutinaSlot['role'];
+    notes?: string | null;
+    series?: number | null;
+    reps?: string | null;
+    descanso?: string | null;
+  }[];
+}

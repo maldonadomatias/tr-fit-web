@@ -1,6 +1,5 @@
 import type { CSSProperties } from 'react';
 import { GripVertical } from 'lucide-react';
-import { toast } from 'sonner';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -8,22 +7,29 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useUpdateSlot, useDeleteSlot } from '@/hooks/useAdminRutina';
 import {
   EditSlotPopover,
   type SlotOverride,
 } from '@/components/admin/rutinas/EditSlotPopover';
-import type { RutinaSlot, SlotPatchInput } from '@/types/api';
+import type { RutinaSlot } from '@/types/api';
 
-export function SlotRow({
-  athleteId,
-  slot,
-  flagged = false,
-}: {
-  athleteId: string;
+/* eslint-disable no-unused-vars -- callback parameter names document the API */
+interface SlotRowProps {
   slot: RutinaSlot;
   flagged?: boolean;
-}) {
+  edited?: boolean;
+  onEdit(slotId: string, payload: SlotOverride): void;
+  onDelete(slotId: string): void;
+}
+/* eslint-enable no-unused-vars */
+
+export function SlotRow({
+  slot,
+  flagged = false,
+  edited = false,
+  onEdit,
+  onDelete,
+}: SlotRowProps) {
   const {
     attributes,
     listeners,
@@ -37,43 +43,6 @@ export function SlotRow({
     transition,
     opacity: isDragging ? 0.5 : 1,
   };
-  const update = useUpdateSlot(athleteId);
-  const remove = useDeleteSlot(athleteId);
-
-  function onSave(payload: SlotOverride) {
-    const patch: SlotPatchInput = { notes: payload.notes ?? null };
-    // Only re-send exercise_id when it actually changed, so saving notes or
-    // the set scheme doesn't needlessly reseed the athlete's working weight.
-    if (payload.exercise_id !== slot.exercise_id) {
-      patch.exercise_id = payload.exercise_id;
-    }
-    // Accessories expose the full scheme; warm-ups expose their series count.
-    if (slot.role === 'accesorio') {
-      patch.series = payload.series ?? null;
-      patch.reps = payload.reps ?? null;
-      patch.descanso = payload.descanso ?? null;
-    } else if (slot.role === 'calentamiento') {
-      patch.series = payload.series ?? 1;
-    }
-    update.mutate(
-      { slotId: slot.id, patch },
-      {
-        onError: (e: unknown) => {
-          const status = (e as { response?: { status?: number } })?.response
-            ?.status;
-          if (status === 409) toast.error('Rutina ya no activa');
-          else toast.error('No se pudo guardar el cambio');
-        },
-      }
-    );
-  }
-
-  function onDelete() {
-    remove.mutate(slot.id, {
-      onError: () => toast.error('No se pudo eliminar'),
-    });
-  }
-
   const hasScheme = slot.series != null || slot.reps || slot.descanso;
 
   return (
@@ -96,6 +65,12 @@ export function SlotRow({
           <span className="min-w-0 truncate font-medium">
             {slot.exercise_name}
           </span>
+          {edited ? (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-primary"
+              aria-label="Cambio sin guardar"
+            />
+          ) : null}
           {flagged ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -151,8 +126,8 @@ export function SlotRow({
         currentSeries={slot.series}
         currentReps={slot.reps}
         currentDescanso={slot.descanso}
-        onSave={onSave}
-        onDelete={onDelete}
+        onSave={(payload) => onEdit(slot.id, payload)}
+        onDelete={() => onDelete(slot.id)}
       />
     </div>
   );

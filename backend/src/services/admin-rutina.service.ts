@@ -5,13 +5,16 @@ import type {
   AdminSlotPatch,
   AdminReorderInput,
   AdminTrainingDaysInput,
+  AdminApplyEditsInput,
 } from '../domain/schemas.js';
+import { applySlotEdits } from './skeleton.service.js';
 import type { PoolClient } from 'pg';
 
 export type AdminRutinaErrorCode =
   | 'not_found'
   | 'rutina_not_active'
   | 'invalid_exercise'
+  | 'invalid_payload'
   | 'empty_patch'
   | 'regen_pending';
 
@@ -206,7 +209,8 @@ async function assertAthleteActiveSkeleton(
        FROM athlete_program_state ps
        JOIN athlete_skeletons s
          ON s.id = ps.active_skeleton_id AND s.status = 'approved'
-      WHERE ps.athlete_id = $1`,
+      WHERE ps.athlete_id = $1
+      FOR UPDATE OF ps, s`,
     [athleteId]
   );
   if (!r.rows[0]) throw new AdminRutinaError('rutina_not_active');
@@ -402,10 +406,13 @@ export async function reorderSlots(
       exercise_id: number;
       role: string;
       notes: string | null;
+      series: number | null;
+      reps: string | null;
+      descanso: string | null;
     }>(
       `DELETE FROM skeleton_slots
         WHERE id = ANY($1::uuid[])
-        RETURNING id, exercise_id, role, notes`,
+        RETURNING id, exercise_id, role, notes, series, reps, descanso`,
       [targetedSlotIds]
     );
 
@@ -416,8 +423,9 @@ export async function reorderSlots(
       if (!orig) continue; // already validated above
       await client.query(
         `INSERT INTO skeleton_slots
-           (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+           (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+            series, reps, descanso)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           orig.id,
           skId,
@@ -426,9 +434,142 @@ export async function reorderSlots(
           orig.exercise_id,
           orig.role,
           orig.notes,
+          orig.series,
+          orig.reps,
+          orig.descanso,
         ]
       );
     }
+    await client.query('COMMIT');
+  } catch (e) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore — preserve original error
+    }
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+/** Applies the activas editor draft atomically to the active routine. */
+export async function applyEdits(
+  athleteId: string,
+  input: AdminApplyEditsInput
+): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      athleteId,
+    ]);
+    const skeletonId = await assertAthleteActiveSkeleton(client, athleteId);
+
+    const currentR = await client.query<{
+      id: string;
+      day_of_week: number;
+      exercise_id: number;
+    }>(
+      `SELECT id, day_of_week, exercise_id
+         FROM skeleton_slots
+        WHERE skeleton_id = $1`,
+      [skeletonId]
+    );
+    const currentById = new Map(currentR.rows.map((slot) => [slot.id, slot]));
+    const deletedIds = new Set(input.deleted_slot_ids ?? []);
+    const addedById = new Map(
+      (input.added_slots ?? []).map((slot) => [slot.id, slot])
+    );
+
+    if (
+      deletedIds.size !== (input.deleted_slot_ids?.length ?? 0) ||
+      [...deletedIds].some((id) => !currentById.has(id)) ||
+      addedById.size !== (input.added_slots?.length ?? 0) ||
+      [...addedById].some(([id]) => currentById.has(id))
+    ) {
+      throw new AdminRutinaError('not_found', 'invalid slot ids');
+    }
+
+    for (const added of input.added_slots ?? []) {
+      await assertExerciseAvailable(client, added.exercise_id);
+    }
+
+    const finalIds = new Set([
+      ...currentR.rows
+        .filter((slot) => !deletedIds.has(slot.id))
+        .map((slot) => slot.id),
+      ...addedById.keys(),
+    ]);
+
+    for (const override of input.slot_overrides ?? []) {
+      if (!finalIds.has(override.slot_id)) {
+        throw new AdminRutinaError('not_found', 'slot override not in routine');
+      }
+      const currentExerciseId =
+        currentById.get(override.slot_id)?.exercise_id ??
+        addedById.get(override.slot_id)?.exercise_id;
+      if (override.exercise_id !== currentExerciseId) {
+        await assertExerciseAvailable(client, override.exercise_id);
+      }
+    }
+
+    if (input.slot_order) {
+      const orderIds = new Set(input.slot_order.map((slot) => slot.slot_id));
+      if (
+        orderIds.size !== input.slot_order.length ||
+        orderIds.size !== finalIds.size ||
+        [...finalIds].some((id) => !orderIds.has(id))
+      ) {
+        throw new AdminRutinaError(
+          'not_found',
+          'slot_order must include every slot of the skeleton'
+        );
+      }
+      const positions = new Set(
+        input.slot_order.map((slot) => `${slot.day_of_week}:${slot.slot_index}`)
+      );
+      if (positions.size !== input.slot_order.length) {
+        throw new AdminRutinaError(
+          'invalid_payload',
+          'slot_order positions must be unique'
+        );
+      }
+    } else {
+      const counts = new Map<number, number>();
+      for (const slot of currentR.rows) {
+        if (!deletedIds.has(slot.id)) {
+          counts.set(slot.day_of_week, (counts.get(slot.day_of_week) ?? 0) + 1);
+        }
+      }
+      for (const slot of input.added_slots ?? []) {
+        counts.set(slot.day_of_week, (counts.get(slot.day_of_week) ?? 0) + 1);
+      }
+      if ([...counts.values()].some((count) => count > 12)) {
+        throw new AdminRutinaError(
+          'invalid_payload',
+          'a training day cannot have more than 12 slots'
+        );
+      }
+    }
+
+    await applySlotEdits(client, skeletonId, {
+      slotOverrides: input.slot_overrides,
+      slotOrder: input.slot_order,
+      deletedSlotIds: input.deleted_slot_ids,
+      addedSlots: input.added_slots,
+    });
+
+    await client.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by)
+       SELECT $1, exercise_id, NULL, NULL, 'athlete_initial'
+       FROM (SELECT DISTINCT exercise_id FROM skeleton_slots
+              WHERE skeleton_id = $2) s
+       ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
+      [athleteId, skeletonId]
+    );
+
     await client.query('COMMIT');
   } catch (e) {
     try {

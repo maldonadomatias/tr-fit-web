@@ -1,8 +1,11 @@
 import pool from '../db/connect.js';
 import type {
-  AthleteSkeleton, SkeletonSlot, SkeletonStatus,
+  AthleteSkeleton,
+  SkeletonSlot,
+  SkeletonStatus,
 } from '../domain/types.js';
 import type { AiSkeletonOutput } from '../domain/schemas.js';
+import type { PoolClient } from 'pg';
 
 export interface CreateSkeletonInput {
   athleteId: string;
@@ -13,7 +16,7 @@ export interface CreateSkeletonInput {
 
 export async function createPendingSkeleton(
   input: CreateSkeletonInput,
-  aiOutput: AiSkeletonOutput,
+  aiOutput: AiSkeletonOutput
 ): Promise<{ skeletonId: string }> {
   const client = await pool.connect();
   try {
@@ -29,7 +32,7 @@ export async function createPendingSkeleton(
         JSON.stringify(input.generationPrompt),
         input.generationRationale,
         input.rejectionFeedback ?? null,
-      ],
+      ]
     );
     const skeletonId = sk.rows[0].id;
 
@@ -45,12 +48,16 @@ export async function createPendingSkeleton(
               series, reps, descanso)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
-            skeletonId, day.day_index, slot.slot_index,
-            slot.exercise_id, slot.role, slot.notes,
-            isAccessory ? slot.series ?? null : null,
-            isAccessory ? slot.reps ?? null : null,
-            isAccessory ? slot.descanso ?? null : null,
-          ],
+            skeletonId,
+            day.day_index,
+            slot.slot_index,
+            slot.exercise_id,
+            slot.role,
+            slot.notes,
+            isAccessory ? (slot.series ?? null) : null,
+            isAccessory ? (slot.reps ?? null) : null,
+            isAccessory ? (slot.descanso ?? null) : null,
+          ]
         );
       }
     }
@@ -60,7 +67,7 @@ export async function createPendingSkeleton(
         `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
          VALUES ($1, $2, $3)
          ON CONFLICT (skeleton_id, day_of_week) DO NOTHING`,
-        [skeletonId, day.day_index, day.focus],
+        [skeletonId, day.day_index, day.focus]
       );
     }
 
@@ -74,9 +81,12 @@ export async function createPendingSkeleton(
   }
 }
 
-export async function findSkeleton(id: string): Promise<AthleteSkeleton | null> {
+export async function findSkeleton(
+  id: string
+): Promise<AthleteSkeleton | null> {
   const { rows } = await pool.query<AthleteSkeleton>(
-    `SELECT * FROM athlete_skeletons WHERE id = $1`, [id],
+    `SELECT * FROM athlete_skeletons WHERE id = $1`,
+    [id]
   );
   return rows[0] ?? null;
 }
@@ -88,13 +98,12 @@ export async function listSlots(skeletonId: string): Promise<SkeletonSlot[]> {
      JOIN exercises e ON e.id = s.exercise_id
      WHERE s.skeleton_id = $1
      ORDER BY s.day_of_week, s.slot_index`,
-    [skeletonId],
+    [skeletonId]
   );
   return rows;
 }
 
-export interface ApproveSkeletonOptions {
-  startDate?: Date;
+export interface SlotEditOptions {
   /** Exercise/notes/set-scheme edits made by the admin before approving. */
   slotOverrides?: {
     slot_id: string;
@@ -127,10 +136,141 @@ export interface ApproveSkeletonOptions {
   }[];
 }
 
+export interface ApproveSkeletonOptions extends SlotEditOptions {
+  startDate?: Date;
+}
+
+/**
+ * Applies staged slot edits inside the caller's transaction. Keeping this
+ * shared with approval prevents the two editing flows from drifting apart.
+ */
+export async function applySlotEdits(
+  client: PoolClient,
+  skeletonId: string,
+  opts: SlotEditOptions
+): Promise<void> {
+  if (opts.deletedSlotIds && opts.deletedSlotIds.length > 0) {
+    await client.query(
+      `DELETE FROM skeleton_slots
+        WHERE id = ANY($1::uuid[]) AND skeleton_id = $2`,
+      [opts.deletedSlotIds, skeletonId]
+    );
+  }
+
+  if (opts.addedSlots && opts.addedSlots.length > 0) {
+    for (const added of opts.addedSlots) {
+      const occupiedR = await client.query<{ slot_index: number }>(
+        `SELECT slot_index FROM skeleton_slots
+          WHERE skeleton_id = $1 AND day_of_week = $2`,
+        [skeletonId, added.day_of_week]
+      );
+      const occupied = new Set(occupiedR.rows.map((row) => row.slot_index));
+      let idx = 1;
+      while (occupied.has(idx)) idx += 1;
+      if (idx > 12) throw new Error('day exceeds 12 slots');
+      await client.query(
+        `INSERT INTO skeleton_slots
+           (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+            series, reps, descanso)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          added.id,
+          skeletonId,
+          added.day_of_week,
+          idx,
+          added.exercise_id,
+          added.role,
+          added.notes ?? null,
+          added.series ?? null,
+          added.reps ?? null,
+          added.descanso ?? null,
+        ]
+      );
+    }
+  }
+
+  for (const override of opts.slotOverrides ?? []) {
+    const hasScheme =
+      'series' in override || 'reps' in override || 'descanso' in override;
+    if (hasScheme) {
+      await client.query(
+        `UPDATE skeleton_slots
+            SET exercise_id = $1, notes = $2,
+                series = $3, reps = $4, descanso = $5
+          WHERE id = $6 AND skeleton_id = $7`,
+        [
+          override.exercise_id,
+          override.notes ?? null,
+          override.series ?? null,
+          override.reps ?? null,
+          override.descanso ?? null,
+          override.slot_id,
+          skeletonId,
+        ]
+      );
+    } else {
+      await client.query(
+        `UPDATE skeleton_slots
+            SET exercise_id = $1, notes = $2
+          WHERE id = $3 AND skeleton_id = $4`,
+        [
+          override.exercise_id,
+          override.notes ?? null,
+          override.slot_id,
+          skeletonId,
+        ]
+      );
+    }
+  }
+
+  if (opts.slotOrder && opts.slotOrder.length > 0) {
+    const orderIds = opts.slotOrder.map((slot) => slot.slot_id);
+    const moved = await client.query<{
+      id: string;
+      exercise_id: number;
+      role: string;
+      notes: string | null;
+      series: number | null;
+      reps: string | null;
+      descanso: string | null;
+    }>(
+      `DELETE FROM skeleton_slots
+        WHERE id = ANY($1::uuid[]) AND skeleton_id = $2
+        RETURNING id, exercise_id, role, notes, series, reps, descanso`,
+      [orderIds, skeletonId]
+    );
+    if (moved.rowCount !== orderIds.length) {
+      throw new Error('slot_order references slot not in skeleton');
+    }
+    const byId = new Map(moved.rows.map((row) => [row.id, row]));
+    for (const slot of opts.slotOrder) {
+      const original = byId.get(slot.slot_id)!;
+      await client.query(
+        `INSERT INTO skeleton_slots
+           (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+            series, reps, descanso)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          original.id,
+          skeletonId,
+          slot.day_of_week,
+          slot.slot_index,
+          original.exercise_id,
+          original.role,
+          original.notes,
+          original.series,
+          original.reps,
+          original.descanso,
+        ]
+      );
+    }
+  }
+}
+
 export async function approveSkeleton(
   skeletonId: string,
   reviewerId: string,
-  opts: ApproveSkeletonOptions = {},
+  opts: ApproveSkeletonOptions = {}
 ): Promise<void> {
   const startDate = opts.startDate ?? new Date();
   const client = await pool.connect();
@@ -138,7 +278,8 @@ export async function approveSkeleton(
     await client.query('BEGIN');
 
     const sk = await client.query<AthleteSkeleton>(
-      `SELECT * FROM athlete_skeletons WHERE id = $1 FOR UPDATE`, [skeletonId],
+      `SELECT * FROM athlete_skeletons WHERE id = $1 FOR UPDATE`,
+      [skeletonId]
     );
     if (!sk.rows[0]) throw new Error('skeleton not found');
     if (sk.rows[0].status !== 'pending_review') {
@@ -146,123 +287,14 @@ export async function approveSkeleton(
     }
     const athleteId = sk.rows[0].athlete_id;
 
-    // Remove slots the admin deleted before any other edit so downstream
-    // reorder/seeding never sees them.
-    if (opts.deletedSlotIds && opts.deletedSlotIds.length > 0) {
-      await client.query(
-        `DELETE FROM skeleton_slots
-          WHERE id = ANY($1::uuid[]) AND skeleton_id = $2`,
-        [opts.deletedSlotIds, skeletonId],
-      );
-    }
-
-    // Insert brand-new slots the admin added. Done before reorder & seeding so
-    // they participate in the final ordering and get a weight row. The client
-    // supplies the id; slot_index is assigned per day as max(existing)+1 (and
-    // re-set later if the admin also reordered).
-    if (opts.addedSlots && opts.addedSlots.length > 0) {
-      const nextIndex = new Map<number, number>();
-      for (const a of opts.addedSlots) {
-        let idx = nextIndex.get(a.day_of_week);
-        if (idx === undefined) {
-          const maxR = await client.query<{ max: number | null }>(
-            `SELECT MAX(slot_index) AS max FROM skeleton_slots
-              WHERE skeleton_id = $1 AND day_of_week = $2`,
-            [skeletonId, a.day_of_week],
-          );
-          idx = (maxR.rows[0]?.max ?? 0) + 1;
-        }
-        if (idx > 12) {
-          throw new Error('day exceeds 12 slots');
-        }
-        nextIndex.set(a.day_of_week, idx + 1);
-        await client.query(
-          `INSERT INTO skeleton_slots
-             (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
-              series, reps, descanso)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [
-            a.id, skeletonId, a.day_of_week, idx, a.exercise_id, a.role,
-            a.notes ?? null, a.series ?? null, a.reps ?? null, a.descanso ?? null,
-          ],
-        );
-      }
-    }
-
-    // Apply admin edits (exercise swap / notes / set scheme) before reorder &
-    // seeding so downstream queries (weight seeding) see the final exercise set.
-    for (const ov of opts.slotOverrides ?? []) {
-      // Only touch the set-scheme columns when the edit actually carried them
-      // (accessories); otherwise a plain swap/notes edit would wipe them.
-      const hasScheme =
-        'series' in ov || 'reps' in ov || 'descanso' in ov;
-      if (hasScheme) {
-        await client.query(
-          `UPDATE skeleton_slots
-              SET exercise_id = $1, notes = $2,
-                  series = $3, reps = $4, descanso = $5
-            WHERE id = $6 AND skeleton_id = $7`,
-          [
-            ov.exercise_id, ov.notes ?? null,
-            ov.series ?? null, ov.reps ?? null, ov.descanso ?? null,
-            ov.slot_id, skeletonId,
-          ],
-        );
-      } else {
-        await client.query(
-          `UPDATE skeleton_slots
-              SET exercise_id = $1, notes = $2
-            WHERE id = $3 AND skeleton_id = $4`,
-          [ov.exercise_id, ov.notes ?? null, ov.slot_id, skeletonId],
-        );
-      }
-    }
-
-    // Apply admin reordering. Delete + re-insert (preserving the final
-    // exercise_id/role/notes) to avoid intermediate
-    // UNIQUE(skeleton_id, day_of_week, slot_index) violations.
-    if (opts.slotOrder && opts.slotOrder.length > 0) {
-      const orderIds = opts.slotOrder.map((s) => s.slot_id);
-      const moved = await client.query<{
-        id: string;
-        exercise_id: number;
-        role: string;
-        notes: string | null;
-        series: number | null;
-        reps: string | null;
-        descanso: string | null;
-      }>(
-        `DELETE FROM skeleton_slots
-          WHERE id = ANY($1::uuid[]) AND skeleton_id = $2
-          RETURNING id, exercise_id, role, notes, series, reps, descanso`,
-        [orderIds, skeletonId],
-      );
-      if (moved.rowCount !== orderIds.length) {
-        throw new Error('slot_order references slot not in skeleton');
-      }
-      const byId = new Map(moved.rows.map((r) => [r.id, r]));
-      for (const s of opts.slotOrder) {
-        const orig = byId.get(s.slot_id)!;
-        await client.query(
-          `INSERT INTO skeleton_slots
-             (id, skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
-              series, reps, descanso)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [
-            orig.id, skeletonId, s.day_of_week, s.slot_index,
-            orig.exercise_id, orig.role, orig.notes,
-            orig.series, orig.reps, orig.descanso,
-          ],
-        );
-      }
-    }
+    await applySlotEdits(client, skeletonId, opts);
 
     // Supersede previous approved skeleton (if any)
     await client.query(
       `UPDATE athlete_skeletons
          SET status = 'superseded'
        WHERE athlete_id = $1 AND status = 'approved'`,
-      [athleteId],
+      [athleteId]
     );
 
     // Approve this one
@@ -272,7 +304,7 @@ export async function approveSkeleton(
              reviewed_at = NOW(),
              reviewed_by = $1
        WHERE id = $2`,
-      [reviewerId, skeletonId],
+      [reviewerId, skeletonId]
     );
 
     // Upsert program_state
@@ -282,7 +314,7 @@ export async function approveSkeleton(
        VALUES ($1, $2, 1, $3::date, false)
        ON CONFLICT (athlete_id) DO UPDATE
          SET active_skeleton_id = EXCLUDED.active_skeleton_id`,
-      [athleteId, skeletonId, startDate.toISOString().slice(0, 10)],
+      [athleteId, skeletonId, startDate.toISOString().slice(0, 10)]
     );
 
     // Seed athlete_exercise_weights with NULL for every distinct exercise in slots
@@ -292,7 +324,7 @@ export async function approveSkeleton(
        SELECT $1, exercise_id, NULL, NULL, 'athlete_initial'
        FROM (SELECT DISTINCT exercise_id FROM skeleton_slots WHERE skeleton_id = $2) s
        ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
-      [athleteId, skeletonId],
+      [athleteId, skeletonId]
     );
 
     await client.query('COMMIT');
@@ -307,7 +339,7 @@ export async function approveSkeleton(
 export async function rejectSkeleton(
   skeletonId: string,
   reviewerId: string,
-  feedback: string,
+  feedback: string
 ): Promise<void> {
   await pool.query(
     `UPDATE athlete_skeletons
@@ -316,7 +348,7 @@ export async function rejectSkeleton(
            reviewed_at = NOW(),
            reviewed_by = $2
      WHERE id = $3 AND status = 'pending_review'`,
-    [feedback, reviewerId, skeletonId],
+    [feedback, reviewerId, skeletonId]
   );
 }
 
@@ -333,7 +365,7 @@ export async function listPendingForCoach(coachId: string) {
           ORDER BY s.athlete_id, s.created_at DESC
        ) t
       ORDER BY created_at ASC`,
-    [coachId],
+    [coachId]
   );
   return rows;
 }
@@ -346,7 +378,7 @@ export async function findActiveByAthlete(athleteId: string): Promise<{
   const stateR = await pool.query(
     `SELECT current_week, rm_test_blocking, active_skeleton_id
        FROM athlete_program_state WHERE athlete_id = $1`,
-    [athleteId],
+    [athleteId]
   );
   if (!stateR.rows[0]) {
     // Maybe a pending skeleton without state yet
@@ -354,10 +386,11 @@ export async function findActiveByAthlete(athleteId: string): Promise<{
       `SELECT * FROM athlete_skeletons
         WHERE athlete_id = $1
         ORDER BY created_at DESC LIMIT 1`,
-      [athleteId],
+      [athleteId]
     );
     return {
-      state: null, skeleton: pendingR.rows[0] ?? null,
+      state: null,
+      skeleton: pendingR.rows[0] ?? null,
       status: pendingR.rows[0]?.status ?? null,
     };
   }

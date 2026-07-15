@@ -10,9 +10,15 @@ import {
 } from '../../src/services/skeleton.service.js';
 import app from '../../src/app.js';
 
-beforeAll(async () => { await ensureMigrated(); });
-beforeEach(async () => { await resetDatabase(); });
-afterAll(async () => { await closePool(); });
+beforeAll(async () => {
+  await ensureMigrated();
+});
+beforeEach(async () => {
+  await resetDatabase();
+});
+afterAll(async () => {
+  await closePool();
+});
 
 // Minimal AI output fixture — uses exercise_ids 1 and 2 which are seeded.
 const aiOut = {
@@ -22,18 +28,39 @@ const aiOut = {
       day_index: 1,
       focus: 'pecho',
       slots: [
-        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null,
-          series: null, reps: null, descanso: null },
-        { slot_index: 2, exercise_id: 2, role: 'accesorio' as const, notes: null,
-          series: 2, reps: '10x10x10', descanso: '2 min' },
+        {
+          slot_index: 1,
+          exercise_id: 1,
+          role: 'principal' as const,
+          notes: null,
+          series: null,
+          reps: null,
+          descanso: null,
+        },
+        {
+          slot_index: 2,
+          exercise_id: 2,
+          role: 'accesorio' as const,
+          notes: null,
+          series: 2,
+          reps: '10x10x10',
+          descanso: '2 min',
+        },
       ],
     },
     {
       day_index: 2,
       focus: 'espalda',
       slots: [
-        { slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null,
-          series: null, reps: null, descanso: null },
+        {
+          slot_index: 1,
+          exercise_id: 1,
+          role: 'principal' as const,
+          notes: null,
+          series: null,
+          reps: null,
+          descanso: null,
+        },
       ],
     },
   ],
@@ -45,7 +72,7 @@ async function setupActiveRutina() {
   const athleteId = await createAthlete(adminId);
   const { skeletonId } = await createPendingSkeleton(
     { athleteId, generationPrompt: {}, generationRationale: 'r' },
-    aiOut,
+    aiOut
   );
   await approveSkeleton(skeletonId, adminId);
   const tok = signToken({ id: adminId, role: 'admin' });
@@ -66,7 +93,9 @@ describe('GET /api/admin/rutinas/atleta', () => {
     expect(r.body).toHaveProperty('items');
     expect(Array.isArray(r.body.items)).toBe(true);
     expect(r.body.items.length).toBeGreaterThanOrEqual(1);
-    const athleteIds = r.body.items.map((a: { athlete_id: string }) => a.athlete_id);
+    const athleteIds = r.body.items.map(
+      (a: { athlete_id: string }) => a.athlete_id
+    );
     expect(athleteIds).toContain(athleteId);
   });
 
@@ -105,7 +134,7 @@ describe('GET /api/admin/rutinas/atleta/:athleteId', () => {
     const athleteId = await createAthlete(adminId);
     const { skeletonId } = await createPendingSkeleton(
       { athleteId, generationPrompt: {}, generationRationale: 'r' },
-      aiOut,
+      aiOut
     );
     const tok = signToken({ id: adminId, role: 'admin' });
 
@@ -152,7 +181,7 @@ describe('PATCH /api/admin/rutinas/slots/:slotId', () => {
     // Fetch the first slot id
     const slotsR = await pool.query<{ id: string }>(
       `SELECT id FROM skeleton_slots WHERE skeleton_id = $1 ORDER BY day_of_week, slot_index LIMIT 1`,
-      [skeletonId],
+      [skeletonId]
     );
     const slotId = slotsR.rows[0].id;
 
@@ -167,7 +196,7 @@ describe('PATCH /api/admin/rutinas/slots/:slotId', () => {
     // Verify DB
     const dbRow = await pool.query<{ notes: string }>(
       `SELECT notes FROM skeleton_slots WHERE id = $1`,
-      [slotId],
+      [slotId]
     );
     expect(dbRow.rows[0].notes).toBe('updated');
     void athleteId; // suppress unused warning
@@ -179,14 +208,14 @@ describe('PATCH /api/admin/rutinas/slots/:slotId', () => {
 
     const slotsR = await pool.query<{ id: string }>(
       `SELECT id FROM skeleton_slots WHERE skeleton_id = $1 LIMIT 1`,
-      [skeletonId],
+      [skeletonId]
     );
     const slotId = slotsR.rows[0].id;
 
     // Manually supersede the skeleton
     await pool.query(
       `UPDATE athlete_skeletons SET status = 'superseded' WHERE id = $1`,
-      [skeletonId],
+      [skeletonId]
     );
 
     const r = await request(app)
@@ -204,7 +233,7 @@ describe('PATCH /api/admin/rutinas/slots/:slotId', () => {
 
     const slotsR = await pool.query<{ id: string }>(
       `SELECT id FROM skeleton_slots WHERE skeleton_id = $1 LIMIT 1`,
-      [skeletonId],
+      [skeletonId]
     );
     const slotId = slotsR.rows[0].id;
 
@@ -252,7 +281,7 @@ describe('DELETE /api/admin/rutinas/slots/:slotId', () => {
 
     const slotsR = await pool.query<{ id: string }>(
       `SELECT id FROM skeleton_slots WHERE skeleton_id = $1 LIMIT 1`,
-      [skeletonId],
+      [skeletonId]
     );
     const slotId = slotsR.rows[0].id;
 
@@ -265,7 +294,7 @@ describe('DELETE /api/admin/rutinas/slots/:slotId', () => {
     // Verify row is gone
     const check = await pool.query(
       `SELECT id FROM skeleton_slots WHERE id = $1`,
-      [slotId],
+      [slotId]
     );
     expect(check.rowCount).toBe(0);
   });
@@ -286,7 +315,7 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
       `SELECT id, day_of_week, slot_index FROM skeleton_slots
         WHERE skeleton_id = $1
         ORDER BY day_of_week, slot_index`,
-      [skeletonId],
+      [skeletonId]
     );
     expect(allSlotsR.rows.length).toBeGreaterThanOrEqual(3);
 
@@ -299,10 +328,22 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
     const payload = {
       slots: allSlotsR.rows.map((s) => {
         if (s.id === slotA.id)
-          return { slot_id: s.id, day_of_week: s.day_of_week, slot_index: slotB.slot_index };
+          return {
+            slot_id: s.id,
+            day_of_week: s.day_of_week,
+            slot_index: slotB.slot_index,
+          };
         if (s.id === slotB.id)
-          return { slot_id: s.id, day_of_week: s.day_of_week, slot_index: slotA.slot_index };
-        return { slot_id: s.id, day_of_week: s.day_of_week, slot_index: s.slot_index };
+          return {
+            slot_id: s.id,
+            day_of_week: s.day_of_week,
+            slot_index: slotA.slot_index,
+          };
+        return {
+          slot_id: s.id,
+          day_of_week: s.day_of_week,
+          slot_index: s.slot_index,
+        };
       }),
     };
 
@@ -317,11 +358,273 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/reorder', () => {
     const after = await pool.query<{ id: string; slot_index: number }>(
       `SELECT id, slot_index FROM skeleton_slots
         WHERE id = ANY($1::uuid[])`,
-      [[slotA.id, slotB.id]],
+      [[slotA.id, slotB.id]]
     );
-    const byId = Object.fromEntries(after.rows.map((row) => [row.id, row.slot_index]));
+    const byId = Object.fromEntries(
+      after.rows.map((row) => [row.id, row.slot_index])
+    );
     expect(byId[slotA.id]).toBe(slotB.slot_index);
     expect(byId[slotB.id]).toBe(slotA.slot_index);
+  });
+
+  it('preserves per-slot prescription (series/reps/descanso) after reorder', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+
+    // aiOut seeds one accesorio with series=2, reps='10x10x10', descanso='2 min'
+    const allSlotsR = await pool.query<{
+      id: string;
+      day_of_week: number;
+      slot_index: number;
+      series: number | null;
+      reps: string | null;
+      descanso: string | null;
+    }>(
+      `SELECT id, day_of_week, slot_index, series, reps, descanso
+         FROM skeleton_slots
+        WHERE skeleton_id = $1
+        ORDER BY day_of_week, slot_index`,
+      [skeletonId]
+    );
+    const accesorio = allSlotsR.rows.find((s) => s.series !== null);
+    expect(accesorio).toBeDefined();
+
+    // Swap the two day-1 slots (accesorio lives on day 1)
+    const day1Slots = allSlotsR.rows.filter((s) => s.day_of_week === 1);
+    const [slotA, slotB] = day1Slots;
+    const payload = {
+      slots: allSlotsR.rows.map((s) => {
+        if (s.id === slotA.id)
+          return {
+            slot_id: s.id,
+            day_of_week: s.day_of_week,
+            slot_index: slotB.slot_index,
+          };
+        if (s.id === slotB.id)
+          return {
+            slot_id: s.id,
+            day_of_week: s.day_of_week,
+            slot_index: slotA.slot_index,
+          };
+        return {
+          slot_id: s.id,
+          day_of_week: s.day_of_week,
+          slot_index: s.slot_index,
+        };
+      }),
+    };
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/reorder`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send(payload);
+    expect(r.status).toBe(204);
+
+    const after = await pool.query<{
+      series: number | null;
+      reps: string | null;
+      descanso: string | null;
+    }>(`SELECT series, reps, descanso FROM skeleton_slots WHERE id = $1`, [
+      accesorio!.id,
+    ]);
+    expect(after.rows[0]).toEqual({
+      series: 2,
+      reps: '10x10x10',
+      descanso: '2 min',
+    });
+  });
+});
+
+// ── apply-edits: atomic batched draft save from the activas editor ──
+
+describe('POST /api/admin/rutinas/atleta/:athleteId/apply-edits', () => {
+  it('204 applies override + add + delete + reorder in one call', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+    const slotsR = await pool.query<{
+      id: string;
+      day_of_week: number;
+      slot_index: number;
+      role: string;
+    }>(
+      `SELECT id, day_of_week, slot_index, role FROM skeleton_slots
+        WHERE skeleton_id = $1 ORDER BY day_of_week, slot_index`,
+      [skeletonId]
+    );
+    const day1 = slotsR.rows.filter((s) => s.day_of_week === 1);
+    const day2 = slotsR.rows.filter((s) => s.day_of_week === 2);
+    const [d1s1, d1s2] = day1;
+    const addedId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        slot_overrides: [
+          {
+            slot_id: d1s2.id,
+            exercise_id: 2,
+            notes: 'editado',
+            series: 3,
+            reps: '8 a 10',
+            descanso: '1 min',
+          },
+        ],
+        deleted_slot_ids: [day2[0].id],
+        added_slots: [
+          {
+            id: addedId,
+            day_of_week: 1,
+            exercise_id: 1,
+            role: 'accesorio',
+            notes: null,
+            series: null,
+            reps: null,
+            descanso: null,
+          },
+        ],
+        slot_order: [
+          { slot_id: d1s2.id, day_of_week: 1, slot_index: 1 },
+          { slot_id: d1s1.id, day_of_week: 1, slot_index: 2 },
+          { slot_id: addedId, day_of_week: 1, slot_index: 3 },
+        ],
+      });
+    expect(r.status).toBe(204);
+
+    const after = await pool.query<{
+      id: string;
+      day_of_week: number;
+      slot_index: number;
+      notes: string | null;
+      series: number | null;
+      reps: string | null;
+      descanso: string | null;
+    }>(
+      `SELECT id, day_of_week, slot_index, notes, series, reps, descanso
+         FROM skeleton_slots WHERE skeleton_id = $1
+        ORDER BY day_of_week, slot_index`,
+      [skeletonId]
+    );
+    expect(after.rows).toHaveLength(3);
+    expect(after.rows.map((s) => s.id)).toEqual([d1s2.id, d1s1.id, addedId]);
+    expect(after.rows.find((s) => s.id === d1s2.id)).toMatchObject({
+      notes: 'editado',
+      series: 3,
+      reps: '8 a 10',
+      descanso: '1 min',
+    });
+  });
+
+  it('rolls back everything when slot_order is incomplete', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+    const slotsR = await pool.query<{ id: string; day_of_week: number }>(
+      `SELECT id, day_of_week FROM skeleton_slots WHERE skeleton_id = $1`,
+      [skeletonId]
+    );
+    const day2Slot = slotsR.rows.find((s) => s.day_of_week === 2)!;
+    const aDay1Slot = slotsR.rows.find((s) => s.day_of_week === 1)!;
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        deleted_slot_ids: [day2Slot.id],
+        slot_order: [{ slot_id: aDay1Slot.id, day_of_week: 1, slot_index: 1 }],
+      });
+    expect(r.status).toBe(404);
+
+    const count = await pool.query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM skeleton_slots WHERE skeleton_id = $1`,
+      [skeletonId]
+    );
+    expect(count.rows[0].c).toBe(3);
+  });
+
+  it('409 when athlete has no active skeleton', async () => {
+    const adminId = await createAdmin();
+    const athleteId = await createAthlete(adminId);
+    const tok = signToken({ id: adminId, role: 'admin' });
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({ deleted_slot_ids: [] });
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe('rutina_not_active');
+  });
+
+  it('seeds athlete_exercise_weights for added exercises', async () => {
+    const { athleteId, tok } = await setupActiveRutina();
+    const addedId = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        added_slots: [
+          {
+            id: addedId,
+            day_of_week: 2,
+            exercise_id: 3,
+            role: 'accesorio',
+            notes: null,
+            series: null,
+            reps: null,
+            descanso: null,
+          },
+        ],
+      });
+    expect(r.status).toBe(204);
+    const weight = await pool.query(
+      `SELECT 1 FROM athlete_exercise_weights
+        WHERE athlete_id = $1 AND exercise_id = 3`,
+      [athleteId]
+    );
+    expect(weight.rowCount).toBe(1);
+  });
+
+  it('can add into a day with a gap when its highest slot_index is 12', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+    const day1 = await pool.query<{ id: string; slot_index: number }>(
+      `SELECT id, slot_index FROM skeleton_slots
+        WHERE skeleton_id = $1 AND day_of_week = 1
+        ORDER BY slot_index`,
+      [skeletonId]
+    );
+    await pool.query(
+      `UPDATE skeleton_slots SET slot_index = 12 WHERE id = $1`,
+      [day1.rows[1].id]
+    );
+    const day2 = await pool.query<{ id: string }>(
+      `SELECT id FROM skeleton_slots
+        WHERE skeleton_id = $1 AND day_of_week = 2`,
+      [skeletonId]
+    );
+    const addedId = 'cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa';
+
+    const response = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        deleted_slot_ids: [day1.rows[0].id],
+        added_slots: [
+          {
+            id: addedId,
+            day_of_week: 1,
+            exercise_id: 3,
+            role: 'accesorio',
+          },
+        ],
+        slot_order: [
+          { slot_id: day1.rows[1].id, day_of_week: 1, slot_index: 1 },
+          { slot_id: addedId, day_of_week: 1, slot_index: 2 },
+          {
+            slot_id: day2.rows[0].id,
+            day_of_week: 2,
+            slot_index: 1,
+          },
+        ],
+      });
+
+    expect(response.status).toBe(204);
   });
 });
 
@@ -339,13 +642,13 @@ describe('listPendingForCoach', () => {
        VALUES
          ($1,'pending_review','ai','{}'::jsonb,'older'),
          ($1,'pending_review','ai','{}'::jsonb,'newer')`,
-      [athlete],
+      [athlete]
     );
     // Force a deterministic ordering: make 'newer' the latest.
     await pool.query(
       `UPDATE athlete_skeletons SET created_at = now() - interval '1 hour'
         WHERE athlete_id = $1 AND generation_rationale = 'older'`,
-      [athlete],
+      [athlete]
     );
 
     const list = await listPendingForCoach(coach);
@@ -363,7 +666,7 @@ describe('Fall-through to queue router', () => {
     const athleteId = await createAthlete(adminId);
     const { skeletonId } = await createPendingSkeleton(
       { athleteId, generationPrompt: {}, generationRationale: 'r' },
-      aiOut,
+      aiOut
     );
     const tok = signToken({ id: adminId, role: 'admin' });
 

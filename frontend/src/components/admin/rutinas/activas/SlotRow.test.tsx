@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DndContext } from '@dnd-kit/core';
@@ -10,7 +10,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { SlotRow } from './SlotRow';
 import type { RutinaSlot } from '@/types/api';
 
-function renderRow(slot: RutinaSlot) {
+function renderRow(slot: RutinaSlot, extra?: { edited?: boolean }) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -22,11 +22,16 @@ function renderRow(slot: RutinaSlot) {
             items={[slot.id]}
             strategy={verticalListSortingStrategy}
           >
-            <SlotRow athleteId="athlete-1" slot={slot} />
+            <SlotRow
+              slot={slot}
+              edited={extra?.edited}
+              onEdit={vi.fn()}
+              onDelete={vi.fn()}
+            />
           </SortableContext>
         </DndContext>
       </TooltipProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
 }
 
@@ -56,5 +61,19 @@ describe('SlotRow archived chip', () => {
   it('does not render chip when exercise_archived_at is absent', () => {
     renderRow(baseSlot);
     expect(screen.queryByText('Ejercicio archivado')).not.toBeInTheDocument();
+  });
+});
+
+describe('SlotRow draft marker', () => {
+  it('shows pending-change marker when edited', () => {
+    renderRow(baseSlot, { edited: true });
+    expect(screen.getByLabelText('Cambio sin guardar')).toBeInTheDocument();
+  });
+
+  it('hides marker when not edited', () => {
+    renderRow(baseSlot);
+    expect(
+      screen.queryByLabelText('Cambio sin guardar')
+    ).not.toBeInTheDocument();
   });
 });

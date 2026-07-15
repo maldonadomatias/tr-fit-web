@@ -7,6 +7,7 @@ import {
   adminSlotPatchPayload,
   adminReorderPayload,
   adminTrainingDaysPayload,
+  adminApplyEditsPayload,
 } from '../domain/schemas.js';
 import {
   listActiveAthletes,
@@ -18,6 +19,7 @@ import {
   reorderSlots,
   AdminRutinaError,
   changeTrainingDays,
+  applyEdits,
 } from '../services/admin-rutina.service.js';
 
 const UUID_RE =
@@ -44,6 +46,9 @@ function mapError(err: unknown, res: Response): Response | void {
     }
     if (err.code === 'invalid_exercise') {
       return res.status(400).json({ error: 'invalid_exercise' });
+    }
+    if (err.code === 'invalid_payload') {
+      return res.status(400).json({ error: 'invalid_payload' });
     }
     if (err.code === 'not_found') {
       return res.status(404).json({ error: 'not_found' });
@@ -125,6 +130,26 @@ router.post(
     }
     try {
       await reorderSlots(athleteId, parsed.data);
+      res.status(204).end();
+    } catch (e) {
+      mapError(e, res);
+    }
+  }
+);
+
+router.post(
+  '/atleta/:athleteId/apply-edits',
+  async (req: Request, res: Response) => {
+    const athleteId = requireUuid(req.params.athleteId, res);
+    if (!athleteId) return;
+    const parsed = adminApplyEditsPayload.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: 'invalid_payload', issues: parsed.error.issues });
+    }
+    try {
+      await applyEdits(athleteId, parsed.data);
       res.status(204).end();
     } catch (e) {
       mapError(e, res);

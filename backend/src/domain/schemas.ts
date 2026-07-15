@@ -269,6 +269,10 @@ export const skeletonApprovePayload = z.object({
 
 export type SkeletonApprovePayload = z.infer<typeof skeletonApprovePayload>;
 
+// The activas editor's batched draft save reuses the exact approval shape.
+export const adminApplyEditsPayload = skeletonApprovePayload;
+export type AdminApplyEditsInput = z.infer<typeof adminApplyEditsPayload>;
+
 // IA structured output schema (also used for runtime validation)
 export const aiSkeletonOutput = z.object({
   rationale: z.string(),

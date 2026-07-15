@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { toast } from 'sonner';
 import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
-import { useCreateSlot } from '@/hooks/useAdminRutina';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
 import { SlotRow } from './SlotRow';
+import type { SlotOverride } from '@/components/admin/rutinas/EditSlotPopover';
 import type { Exercise, RutinaSlot } from '@/types/api';
 
 const DAY_LABEL: Record<number, string> = {
@@ -21,20 +20,31 @@ const DAY_LABEL: Record<number, string> = {
   7: 'Domingo',
 };
 
-export function DayCard({
-  athleteId,
-  dayOfWeek,
-  focus,
-  slots,
-  flaggedExerciseIds,
-}: {
-  athleteId: string;
+/* eslint-disable no-unused-vars -- callback parameter names document the API */
+interface DayCardProps {
   dayOfWeek: number;
   focus: string | null;
   slots: RutinaSlot[];
   flaggedExerciseIds: Set<number>;
-}) {
+  editedSlotIds: Set<string>;
+  onEdit(slotId: string, payload: SlotOverride): void;
+  onDelete(slotId: string): void;
+  onAdd(dayOfWeek: number, exercise: Exercise): void;
+}
+/* eslint-enable no-unused-vars */
+
+export function DayCard({
+  dayOfWeek,
+  focus,
+  slots,
+  flaggedExerciseIds,
+  editedSlotIds,
+  onEdit,
+  onDelete,
+  onAdd,
+}: DayCardProps) {
   const nextIndex = nextAvailableSlotIndex(slots);
+  const [addOpen, setAddOpen] = useState(false);
 
   return (
     <section className="rounded-2xl border border-border bg-card">
@@ -57,76 +67,41 @@ export function DayCard({
           {slots.map((s) => (
             <SlotRow
               key={s.id}
-              athleteId={athleteId}
               slot={s}
               flagged={flaggedExerciseIds.has(s.exercise_id)}
+              edited={editedSlotIds.has(s.id)}
+              onEdit={onEdit}
+              onDelete={onDelete}
             />
           ))}
         </SortableContext>
       </div>
-      <DayFooter
-        athleteId={athleteId}
-        dayOfWeek={dayOfWeek}
-        nextIndex={nextIndex}
-      />
+      <div className="flex flex-wrap items-center gap-y-1 px-4 py-3 sm:px-5">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setAddOpen(true)}
+          disabled={nextIndex === null}
+        >
+          <Plus size={14} className="mr-1" /> Agregar ejercicio
+        </Button>
+        {nextIndex === null && (
+          <span className="ml-2 text-xs text-muted-foreground">
+            Máximo 12 por día.
+          </span>
+        )}
+        <ExerciseSwapDialog
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onSelect={(_, exercise) => onAdd(dayOfWeek, exercise)}
+          title={`Agregar ejercicio al día ${dayOfWeek}`}
+        />
+      </div>
     </section>
   );
 }
 
-function DayFooter({
-  athleteId,
-  dayOfWeek,
-  nextIndex,
-}: {
-  athleteId: string;
-  dayOfWeek: number;
-  nextIndex: number | null;
-}) {
-  const create = useCreateSlot(athleteId);
-  const [open, setOpen] = useState(false);
-
-  function onPick(exerciseId: number, exercise: Exercise) {
-    if (nextIndex === null) return;
-    create.mutate(
-      {
-        day_of_week: dayOfWeek,
-        slot_index: nextIndex,
-        exercise_id: exerciseId,
-        exercise_name: exercise.name,
-        muscle_group: exercise.muscle_group,
-        equipment: exercise.equipment,
-        role: 'accesorio',
-        notes: null,
-      },
-      { onError: () => toast.error('No se pudo agregar el ejercicio') }
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-y-1 px-4 py-3 sm:px-5">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setOpen(true)}
-        disabled={create.isPending || nextIndex === null}
-      >
-        <Plus size={14} className="mr-1" /> Agregar ejercicio
-      </Button>
-      {nextIndex === null && (
-        <span className="ml-2 text-xs text-muted-foreground">
-          Máximo 12 por día.
-        </span>
-      )}
-      <ExerciseSwapDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        onSelect={onPick}
-        title={`Agregar ejercicio al día ${dayOfWeek}`}
-      />
-    </div>
-  );
-}
-
+// eslint-disable-next-line react-refresh/only-export-components
 export function nextAvailableSlotIndex(
   slots: Pick<RutinaSlot, 'slot_index'>[]
 ) {

@@ -7,6 +7,7 @@ import type {
   SlotCreateInput,
   SlotPatchInput,
   RutinaSlot,
+  ApplyEditsInput,
 } from '@/types/api';
 
 const KEYS = {
@@ -53,12 +54,16 @@ export function useCreateSlot(athleteId: string) {
   const qc = useQueryClient();
   const detailKey = KEYS.detail(athleteId);
   return useMutation({
-    mutationFn: async ({
-      exercise_name: _exerciseName,
-      muscle_group: _muscleGroup,
-      equipment: _equipment,
-      ...input
-    }: SlotCreateVariables) => {
+    mutationFn: async (variables: SlotCreateVariables) => {
+      const {
+        exercise_name: exerciseName,
+        muscle_group: muscleGroup,
+        equipment,
+        ...input
+      } = variables;
+      void exerciseName;
+      void muscleGroup;
+      void equipment;
       const r = await api.post<{ slot: RutinaSlot }>(
         `/admin/rutinas/atleta/${athleteId}/slots`,
         input
@@ -146,6 +151,16 @@ export function useReorderSlots(athleteId: string) {
   return useMutation({
     mutationFn: async (input: ReorderInput) => {
       await api.post(`/admin/rutinas/atleta/${athleteId}/reorder`, input);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.detail(athleteId) }),
+  });
+}
+
+export function useApplyRutinaEdits(athleteId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ApplyEditsInput) => {
+      await api.post(`/admin/rutinas/atleta/${athleteId}/apply-edits`, input);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: KEYS.detail(athleteId) }),
   });
