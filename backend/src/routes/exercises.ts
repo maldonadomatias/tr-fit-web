@@ -22,9 +22,10 @@ router.get('/', async (req: Request, res: Response) => {
   }
   const result = await listExercisesAdmin({
     q: parsed.data.q,
-    // The slot sends its full subgroup (e.g. 'Pecho - Mayor') and we widen it
-    // to the whole parent group so the buscador shows all 'Pecho' exercises.
-    muscle_group_parent: parsed.data.muscle_group,
+    // Exact subgroup match: the buscador dropdown lets the admin pick a precise
+    // subgroup (e.g. 'Piernas - Cuadriceps') and expects only that subgroup —
+    // widening to the parent ('Piernas') would leak the whole leg catalog.
+    muscle_group: parsed.data.muscle_group,
     limit: parsed.data.limit ?? 8,
     archived: 'false',
   });
@@ -45,7 +46,7 @@ router.get('/:id/technique-video', async (req: Request, res: Response) => {
     `SELECT id, name, video_url, illustration_url
        FROM exercises
       WHERE id = $1 AND archived_at IS NULL`,
-    [id],
+    [id]
   );
   const ex = rows[0];
   if (!ex || !ex.video_url) {
@@ -76,7 +77,8 @@ router.get('/:id/alternatives', async (req: Request, res: Response) => {
   if (!Number.isFinite(id) || id <= 0) {
     return res.status(400).json({ error: 'invalid_id' });
   }
-  const excludeRaw = typeof req.query.exclude === 'string' ? req.query.exclude : '';
+  const excludeRaw =
+    typeof req.query.exclude === 'string' ? req.query.exclude : '';
   const excludeIds = excludeRaw
     .split(',')
     .map((s) => parseInt(s, 10))
