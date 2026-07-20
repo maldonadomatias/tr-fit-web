@@ -80,8 +80,9 @@ export function EditSlotPopover({
     currentDescanso,
   ]);
 
-  // Slots store a subgroup like 'Pecho - Mayor'; show only the parent ('Pecho')
-  // in the toggle since the filter widens to the whole parent group.
+  // Slots store a subgroup like 'Pecho - Mayor'; the dropdown lists exact
+  // subgroups and the filter matches that subgroup precisely (pick 'Todos' to
+  // widen). Catalog fetch (no group) populates the dropdown options.
   const { data: catalog = [] } = useExercisesSearch('', {
     enabled: open,
     limit: 300,

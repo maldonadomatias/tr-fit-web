@@ -36,6 +36,7 @@ export function AddSlotPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
   const [selected, setSelected] = useState<Exercise | null>(null);
   const [notes, setNotes] = useState('');
   const [series, setSeries] = useState('');
@@ -47,6 +48,7 @@ export function AddSlotPopover({
   useEffect(() => {
     if (open) {
       setQuery('');
+      setSelectedGroup('');
       setSelected(null);
       setNotes('');
       setSeries('');
@@ -57,9 +59,19 @@ export function AddSlotPopover({
     }
   }, [open]);
 
+  // Full catalog (no group filter) to populate the group dropdown.
+  const { data: catalog = [] } = useExercisesSearch('', {
+    enabled: open,
+    limit: 300,
+  });
+  const groups = [
+    ...new Set(catalog.map((exercise) => exercise.muscle_group)),
+  ].sort();
   const { data: results = [] } = useExercisesSearch(query, {
     enabled: open,
-    limit: 8,
+    // High enough to list a whole subgroup instead of a short autocomplete.
+    limit: 250,
+    muscle_group: selectedGroup || undefined,
   });
 
   function commit() {
@@ -115,6 +127,22 @@ export function AddSlotPopover({
               className="h-9 w-full rounded-md border border-input bg-background pl-7 pr-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
             />
           </div>
+          <select
+            aria-label="Grupo muscular"
+            value={selectedGroup}
+            onChange={(event) => {
+              setSelectedGroup(event.target.value);
+              setSelected(null);
+            }}
+            className="mt-1.5 h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+          >
+            <option value="">Todos los grupos musculares</option>
+            {groups.map((group) => (
+              <option key={group} value={group}>
+                {group}
+              </option>
+            ))}
+          </select>
           <ul className="mt-1 max-h-44 overflow-y-auto rounded-md border border-border">
             {results.length === 0 && (
               <li className="px-2 py-1.5 text-[12px] text-muted-foreground">
