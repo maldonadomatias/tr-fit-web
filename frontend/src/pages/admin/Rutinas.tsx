@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { CheckCircle2 } from 'lucide-react';
 import { ListPane } from '@/components/admin/rutinas/ListPane';
 import { DetailPane } from '@/components/admin/rutinas/DetailPane';
@@ -46,6 +47,10 @@ function ColaPane() {
 
   function goNext() {
     if (queue.length === 0) return;
+    if (queue.length === 1) {
+      toast.info('No hay otra rutina en la cola');
+      return;
+    }
     const idx = activeIndex >= 0 ? activeIndex : -1;
     const next = queue[(idx + 1) % queue.length];
     if (next) goToId(next.id);
@@ -53,9 +58,21 @@ function ColaPane() {
 
   function goPrev() {
     if (queue.length === 0) return;
+    if (queue.length === 1) {
+      toast.info('No hay otra rutina en la cola');
+      return;
+    }
     const idx = activeIndex >= 0 ? activeIndex : 0;
     const prev = queue[(idx - 1 + queue.length) % queue.length];
     if (prev) goToId(prev.id);
+  }
+
+  function skip() {
+    if (queue.length <= 1) {
+      toast.info('No hay otra rutina en la cola');
+      return;
+    }
+    advance();
   }
 
   function advance() {
@@ -71,7 +88,6 @@ function ColaPane() {
     else goToId(remaining[0].id);
   }
 
-  const canSkip = queue.length > 1;
   const empty = !id && queue.length === 0;
 
   return (
@@ -81,7 +97,7 @@ function ColaPane() {
         {id ? (
           <DetailPane
             id={id}
-            canSkip={canSkip}
+            onSkip={skip}
             onAdvance={advance}
             onNext={goNext}
             onPrev={goPrev}

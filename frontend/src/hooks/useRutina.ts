@@ -51,7 +51,7 @@ export function useApproveRutina() {
             slot_order?: SlotOrderPayload[];
             deleted_slot_ids?: string[];
             added_slots?: AddedSlotPayload[];
-          },
+          }
     ) => {
       const id = typeof args === 'string' ? args : args.id;
       const body =
@@ -71,16 +71,22 @@ export function useApproveRutina() {
   });
 }
 
+export function useDiscardRutina() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await api.post(`/admin/rutinas/${id}/discard`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'rutinas'] });
+    },
+  });
+}
+
 export function useRejectRutina() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({
-      id,
-      feedback,
-    }: {
-      id: string;
-      feedback: string;
-    }) => {
+    mutationFn: async ({ id, feedback }: { id: string; feedback: string }) => {
       const r = await api.post<{
         newRutinaId?: string;
         newSkeletonId?: string;

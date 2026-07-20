@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useApproveRutina,
+  useDiscardRutina,
   useRejectRutina,
   useRutina,
 } from '@/hooks/useRutina';
@@ -25,6 +26,7 @@ import { TabContexto } from './TabContexto';
 import { TabHistorial } from './TabHistorial';
 import { TabDiff } from './TabDiff';
 import { ActionFooter } from './ActionFooter';
+import { DiscardDialog } from './DiscardDialog';
 import { RejectDialog, type RejectPayload } from './RejectDialog';
 import { ShortcutsModal } from './ShortcutsModal';
 import type { SlotOverride } from './EditSlotPopover';
@@ -39,13 +41,13 @@ type TabKey = 'rutina' | 'contexto' | 'historial' | 'diff';
 
 export function DetailPane({
   id,
-  canSkip,
+  onSkip,
   onAdvance,
   onNext,
   onPrev,
 }: {
   id: string;
-  canSkip: boolean;
+  onSkip: () => void;
   onAdvance: () => void;
   onNext: () => void;
   onPrev: () => void;
@@ -53,8 +55,10 @@ export function DetailPane({
   const { data, isLoading, error } = useRutina(id);
   const approve = useApproveRutina();
   const reject = useRejectRutina();
+  const discard = useDiscardRutina();
   const [tab, setTab] = useState<TabKey>('rutina');
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [overrides, setOverrides] = useState<Record<string, SlotOverride>>({});
   // Local reordering of slots; null = use server order untouched.
@@ -70,6 +74,7 @@ export function DetailPane({
   useEffect(() => {
     setTab('rutina');
     setRejectOpen(false);
+    setDiscardOpen(false);
     const draft = loadRoutineDraft(id);
     setOverrides(draft?.overrides ?? {});
     setOrder(draft?.order ?? null);
@@ -151,7 +156,7 @@ export function DetailPane({
     setOrder(sorted);
   }
 
-  const modalOpen = rejectOpen || shortcutsOpen;
+  const modalOpen = rejectOpen || discardOpen || shortcutsOpen;
 
   useRutinasHotkeys(
     {
@@ -187,6 +192,7 @@ export function DetailPane({
       },
       onEsc: () => {
         if (rejectOpen) setRejectOpen(false);
+        else if (discardOpen) setDiscardOpen(false);
         else if (shortcutsOpen) setShortcutsOpen(false);
       },
     },
@@ -252,6 +258,25 @@ export function DetailPane({
         onAdvance();
       } else {
         toast.error('No se pudo aprobar · intentá de nuevo');
+      }
+    }
+  }
+
+  async function onDiscard() {
+    try {
+      await discard.mutateAsync(id);
+      setDiscardOpen(false);
+      clearRoutineDraft(id);
+      toast.success('Rutina descartada');
+      onAdvance();
+    } catch (e) {
+      const err = e as AxiosError<{ error?: string }>;
+      if (err.response?.status === 409) {
+        setDiscardOpen(false);
+        toast.info('Ya fue procesada · pasando a la siguiente');
+        onAdvance();
+      } else {
+        toast.error('No se pudo descartar · intentá de nuevo');
       }
     }
   }
@@ -451,10 +476,11 @@ export function DetailPane({
       <ActionFooter
         onApprove={onApprove}
         onReject={() => setRejectOpen(true)}
-        onSkip={onAdvance}
+        onDiscard={() => setDiscardOpen(true)}
+        onSkip={onSkip}
         approving={approve.isPending}
         rejecting={reject.isPending}
-        canSkip={canSkip}
+        discarding={discard.isPending}
       />
 
       <RejectDialog
@@ -463,6 +489,14 @@ export function DetailPane({
         athleteName={data.profile.name}
         onSubmit={onReject}
         submitting={reject.isPending}
+      />
+
+      <DiscardDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        athleteName={data.profile.name}
+        onConfirm={onDiscard}
+        submitting={discard.isPending}
       />
 
       <ShortcutsModal open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

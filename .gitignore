@@ -38,3 +38,4 @@ backend/uploads/*
 
 # Local agent artifacts (rule 65)
 .local/
+.gstack/
