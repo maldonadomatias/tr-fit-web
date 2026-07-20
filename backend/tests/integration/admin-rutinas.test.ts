@@ -703,6 +703,67 @@ describe('listPendingForCoach', () => {
   });
 });
 
+describe('POST /api/admin/rutinas/:id/discard', () => {
+  it('supersedes every pending skeleton of the athlete without regenerating', async () => {
+    const adminId = await createAdmin();
+    const athleteId = await createAthlete(adminId);
+    const ins = await pool.query<{ id: string }>(
+      `INSERT INTO athlete_skeletons
+         (athlete_id, status, generated_by, generation_prompt, generation_rationale, created_at)
+       VALUES
+         ($1,'pending_review','ai','{}'::jsonb,'older', now() - interval '1 hour'),
+         ($1,'pending_review','ai','{}'::jsonb,'newer', now())
+       RETURNING id`,
+      [athleteId]
+    );
+    const newerId = ins.rows[1].id;
+    const tok = signToken({ id: adminId, role: 'admin' });
+
+    const before = await pool.query(
+      `SELECT count(*)::int AS n FROM athlete_skeletons WHERE athlete_id = $1`,
+      [athleteId]
+    );
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/${newerId}/discard`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(204);
+
+    // Both pendings (visible + hidden older one) are superseded and reviewed.
+    const rows = await pool.query(
+      `SELECT status, reviewed_by FROM athlete_skeletons WHERE athlete_id = $1`,
+      [athleteId]
+    );
+    expect(rows.rows).toHaveLength(before.rows[0].n);
+    for (const row of rows.rows) {
+      expect(row.status).toBe('superseded');
+      expect(row.reviewed_by).toBe(adminId);
+    }
+
+    // Gone from the queue, and no regenerated replacement.
+    const list = await listPendingForCoach(adminId);
+    expect(list.filter((p) => p.athlete_id === athleteId)).toHaveLength(0);
+  });
+
+  it('returns 409 when the skeleton was already processed', async () => {
+    const { skeletonId, tok } = await setupActiveRutina();
+    const r = await request(app)
+      .post(`/api/admin/rutinas/${skeletonId}/discard`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe('not_pending');
+  });
+
+  it('returns 404 for an unknown skeleton', async () => {
+    const adminId = await createAdmin();
+    const tok = signToken({ id: adminId, role: 'admin' });
+    const r = await request(app)
+      .post(`/api/admin/rutinas/00000000-0000-4000-8000-000000000000/discard`)
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(404);
+  });
+});
+
 // ── Test 10: Fall-through to queue router for /:skeletonId ──
 
 describe('Fall-through to queue router', () => {

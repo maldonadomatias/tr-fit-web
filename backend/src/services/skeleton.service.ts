@@ -352,6 +352,24 @@ export async function rejectSkeleton(
   );
 }
 
+// Coach discards the pending queue entry (e.g. already built a routine by
+// hand): supersede EVERY pending skeleton of the athlete, not just the visible
+// one, so an older hidden pending doesn't resurface via DISTINCT ON. No
+// regeneration, no athlete notification.
+export async function discardPendingForAthlete(
+  athleteId: string,
+  reviewerId: string
+): Promise<void> {
+  await pool.query(
+    `UPDATE athlete_skeletons
+       SET status = 'superseded',
+           reviewed_at = NOW(),
+           reviewed_by = $1
+     WHERE athlete_id = $2 AND status = 'pending_review'`,
+    [reviewerId, athleteId]
+  );
+}
+
 export async function listPendingForCoach(coachId: string) {
   const { rows } = await pool.query(
     `SELECT id, athlete_id, created_at, generation_rationale, athlete_name

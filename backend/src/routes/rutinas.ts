@@ -8,6 +8,7 @@ import {
 import {
   approveSkeleton,
   rejectSkeleton,
+  discardPendingForAthlete,
   listPendingForCoach,
   findSkeleton,
   listSlots,
@@ -81,6 +82,15 @@ router.post('/:id/approve', async (req, res) => {
     .catch((e) =>
       logger.error({ err: e }, 'skeleton lookup for push failed'),
     );
+  res.status(204).end();
+});
+
+router.post('/:id/discard', async (req, res) => {
+  const sk = await findSkeleton(req.params.id);
+  if (!sk) return res.status(404).json({ error: 'not_found' });
+  if (sk.status !== 'pending_review')
+    return res.status(409).json({ error: 'not_pending' });
+  await discardPendingForAthlete(sk.athlete_id, req.user!.id);
   res.status(204).end();
 });
 
