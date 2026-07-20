@@ -41,27 +41,41 @@ async function setupAthlete() {
   return { ath, principalId: p.rows[0].id, accesorioId: a.rows[0].id };
 }
 
-it('startSession 201 with expected items, rejects wrong_day', async () => {
+it('startSession 201 computes the day server-side', async () => {
   const { ath } = await setupAthlete();
-  const out = await startSession(ath, 1, randomUUID());
+  const out = await startSession(ath, randomUUID());
   expect(out.sessionId).toBeTruthy();
   expect(out.expectedDay).toBe(1);
   expect(out.items.length).toBeGreaterThan(0);
+});
 
-  await expect(startSession(ath, 3, randomUUID()))
-    .rejects.toMatchObject({ reason: 'wrong_day' });
+// Regression (bug: día repetido): a stale client used to send yesterday's
+// day_of_week and, with ALLOW_ANY_DAY=1, the server logged a duplicate
+// session for a day already finished. The server now derives the day from
+// its own state, so consecutive sessions always advance.
+it('startSession advances to the next pending day after each finish', async () => {
+  const { ath } = await setupAthlete();
+  for (const expected of [1, 2, 3, 4]) {
+    const out = await startSession(ath, randomUUID(), { force: true });
+    expect(out.expectedDay).toBe(expected);
+    await finishSession(out.sessionId, ath, 'normal');
+  }
+  // All days done and the week hasn't advanced yet → wraps to day 1,
+  // mirroring computeNextPendingDay (what the dashboard shows).
+  const wrapped = await startSession(ath, randomUUID(), { force: true });
+  expect(wrapped.expectedDay).toBe(1);
 });
 
 it('startSession rejects when already in progress', async () => {
   const { ath } = await setupAthlete();
-  await startSession(ath, 1, randomUUID());
-  await expect(startSession(ath, 1, randomUUID()))
+  await startSession(ath, randomUUID());
+  await expect(startSession(ath, randomUUID()))
     .rejects.toMatchObject({ reason: 'session_in_progress' });
 });
 
 it('logSet idempotent by client_id', async () => {
   const { ath, principalId } = await setupAthlete();
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   const clientId = randomUUID();
   const r1 = await logSet(sessionId, ath, {
     exercise_id: principalId, set_index: 1, unit: 'kg', value: 80, reps: 8,
@@ -87,7 +101,7 @@ it('logSet idempotent by client_id', async () => {
 
 it('logSet rejects 404 for session belonging to another athlete', async () => {
   const { ath, principalId } = await setupAthlete();
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   const otherR = await pool.query<{ id: string }>(
     `INSERT INTO users (email, password_hash, role)
      VALUES ('other@test.local', 'x', 'athlete') RETURNING id`,
@@ -101,7 +115,7 @@ it('logSet rejects 404 for session belonging to another athlete', async () => {
 
 it('finishSession computes summary + detects PRs', async () => {
   const { ath, principalId, accesorioId } = await setupAthlete();
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   for (const setIdx of [1, 2, 3]) {
     await logSet(sessionId, ath, {
       exercise_id: principalId, set_index: setIdx,
@@ -129,7 +143,7 @@ it('finishSession clamps compliancePct at 100 when extra sets are logged', async
   // compliance well over 100% (e.g. "39 / 22 → 177%"). Compliance must cap
   // at 100 while the honest setsCompleted/setsTarget counts stay unclamped.
   const { ath, principalId } = await setupAthlete();
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   const target = (
     await pool.query<{ t: number }>(
       `SELECT total_sets_target AS t FROM session_logs WHERE id = $1`,
@@ -154,7 +168,7 @@ it('finishSession clamps compliancePct at 100 when extra sets are logged', async
 
 it('finishSession rejects already_finished', async () => {
   const { ath } = await setupAthlete();
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   await finishSession(sessionId, ath, 'normal');
   await expect(finishSession(sessionId, ath, 'normal'))
     .rejects.toMatchObject({ reason: 'already_finished' });
@@ -165,7 +179,7 @@ it('getActive returns null when no session, returns session id otherwise', async
   const empty = await getActive(ath);
   expect(empty.session).toBeNull();
 
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   const present = await getActive(ath);
   expect(present.session?.id).toBe(sessionId);
 });

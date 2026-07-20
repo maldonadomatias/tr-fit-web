@@ -1,11 +1,13 @@
 import pool from '../db/connect.js';
 import type { SessionSummary } from '../domain/types.js';
 import type { SetLogPayload } from '../domain/schemas.js';
-import { buildTodaySession, TodayBlockedError } from './engine.service.js';
+import {
+  buildTodaySession, computeNextPendingDay, TodayBlockedError,
+} from './engine.service.js';
 
 export class SessionError extends Error {
   constructor(public reason:
-    'session_in_progress' | 'wrong_day' | 'session_finished' | 'not_found' |
+    'session_in_progress' | 'session_finished' | 'not_found' |
     'no_active_skeleton' | 'already_finished' | 'already_trained_today') {
     super(reason);
   }
@@ -19,7 +21,6 @@ interface StartSessionResult {
 
 export async function startSession(
   athleteId: string,
-  dayOfWeek: number,
   clientId: string,
   opts: { force?: boolean } = {},
 ): Promise<StartSessionResult> {
@@ -35,20 +36,12 @@ export async function startSession(
     throw new SessionError('no_active_skeleton');
   }
 
-  const lastR = await pool.query<{ day_of_week: number }>(
-    `SELECT day_of_week FROM session_logs
-       WHERE athlete_id = $1 AND program_week = $2 AND finished_at IS NOT NULL
-       ORDER BY day_of_week DESC LIMIT 1`,
-    [athleteId, state.current_week],
-  );
-  const lastDay = lastR.rows[0]?.day_of_week ?? 0;
-  const expectedDay = lastDay + 1;
-
-  if (dayOfWeek !== expectedDay && process.env.ALLOW_ANY_DAY !== '1') {
-    const err = new SessionError('wrong_day');
-    (err as SessionError & { expectedDay?: number }).expectedDay = expectedDay;
-    throw err;
-  }
+  // The day is derived server-side, never trusted from the client: a stale
+  // home screen used to re-send yesterday's day and duplicate an already
+  // finished session. Same wrap logic the dashboard shows, so what the
+  // athlete sees is what gets started.
+  const dayOfWeek = await computeNextPendingDay(athleteId);
+  const expectedDay = dayOfWeek;
 
   const activeR = await pool.query<{ id: string }>(
     `SELECT id FROM session_logs

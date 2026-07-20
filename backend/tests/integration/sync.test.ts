@@ -31,7 +31,7 @@ async function setupSession() {
     `UPDATE athlete_program_state SET current_week = 3 WHERE athlete_id = $1`,
     [ath],
   );
-  const { sessionId } = await startSession(ath, 1, randomUUID());
+  const { sessionId } = await startSession(ath, randomUUID());
   return { ath, sessionId, principalId: p.rows[0].id };
 }
 

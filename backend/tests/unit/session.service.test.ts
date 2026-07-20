@@ -56,6 +56,7 @@ const mockBuildToday = jest.fn(async (_a: string, _d: number) => [
 ]);
 jest.unstable_mockModule('../../src/services/engine.service.js', () => ({
   buildTodaySession: mockBuildToday,
+  computeNextPendingDay: jest.fn(async () => 1),
   TodayBlockedError: class TodayBlockedError extends Error {
     constructor(public reason: string) { super(reason); }
   },

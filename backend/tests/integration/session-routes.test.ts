@@ -103,12 +103,14 @@ it('PATCH /api/sessions/:id/finish returns summary', async () => {
   expect(fin.body.summary.setsCompleted).toBe(1);
 });
 
-it('POST /api/sessions wrong day returns 400 with expectedDay', async () => {
+it('POST /api/sessions ignores the client day and starts the pending one', async () => {
+  // Regression (bug: día repetido): a stale home screen used to send an
+  // already-finished day and the server duplicated it. The day sent by the
+  // client is now ignored — the server always starts its own next pending day.
   const { tok } = await setup();
   const r = await request(app).post('/api/sessions')
     .set('Authorization', `Bearer ${tok}`)
     .send({ day_of_week: 3, client_id: randomUUID() });
-  expect(r.status).toBe(400);
-  expect(r.body.error).toBe('wrong_day');
+  expect(r.status).toBe(201);
   expect(r.body.expectedDay).toBe(1);
 });

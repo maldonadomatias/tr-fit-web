@@ -16,16 +16,12 @@ router.post('/', async (req: Request, res: Response) => {
   const parsed = startSessionPayload.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_payload', issues: parsed.error.issues });
   try {
-    const out = await startSession(req.user!.id, parsed.data.day_of_week, parsed.data.client_id, {
+    const out = await startSession(req.user!.id, parsed.data.client_id, {
       force: parsed.data.force,
     });
     return res.status(201).json(out);
   } catch (e) {
     if (e instanceof SessionError) {
-      if (e.reason === 'wrong_day') {
-        const expected = (e as SessionError & { expectedDay?: number }).expectedDay;
-        return res.status(400).json({ error: 'wrong_day', expectedDay: expected });
-      }
       if (e.reason === 'session_in_progress') return res.status(409).json({ error: 'session_in_progress' });
       if (e.reason === 'no_active_skeleton') return res.status(403).json({ error: 'no_active_skeleton' });
       return res.status(400).json({ error: e.reason });

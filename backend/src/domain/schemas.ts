@@ -354,7 +354,9 @@ export type VerifyResetCodePayload = z.infer<typeof verifyResetCodePayload>;
 export type ResetPasswordPayload = z.infer<typeof resetPasswordPayload>;
 
 export const startSessionPayload = z.object({
-  day_of_week: z.number().int().min(1).max(7),
+  // Ignored by the server (the day is computed server-side); still accepted
+  // so older app builds that send it keep working.
+  day_of_week: z.number().int().min(1).max(7).optional(),
   client_id: z.string().uuid(),
   // Override the "already trained today" rest guard ("Entrenar de todas formas").
   force: z.boolean().optional(),
