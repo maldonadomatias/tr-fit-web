@@ -10,5 +10,5 @@
 ## Resolución
 
 - **Resuelto**: 2026-07-20
-- **Commit/PR**: pendiente de commit
+- **Commit/PR**: 4479907
 - **Cómo se arregló**: agregado `<select>` "Grupo muscular" a AddSlotPopover (fetch de catálogo para armar opciones + estado `selectedGroup` que pasa `muscle_group` a `useExercisesSearch`), reflejando el patrón de EditSlotPopover. Verificado en vivo: 22 opciones, seleccionar "Piernas - Cuadriceps" lista solo cuádriceps. Test `frontend/src/components/admin/rutinas/AddSlotPopover.test.tsx`.
