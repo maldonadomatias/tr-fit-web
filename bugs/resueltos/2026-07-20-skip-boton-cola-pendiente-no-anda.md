@@ -15,5 +15,5 @@
 ## Resolución
 
 - **Resuelto**: 2026-07-20
-- **Commit/PR**: pendiente de commit (cambios en working tree)
+- **Commit/PR**: 8eb49ae
 - **Cómo se arregló**: root cause reproducido en browser: con exactamente 1 rutina pendiente, Skip quedaba `disabled` (`canSkip = queue.length > 1`) y la tecla J navegaba al mismo id — cero feedback, parecía roto. Fix: botón siempre habilitado; skip/J/K con una sola rutina muestran toast "No hay otra rutina en la cola". Con 2+ pendientes ya funcionaba (verificado). Tests en `frontend/src/pages/admin/Rutinas.skip.test.tsx`.
