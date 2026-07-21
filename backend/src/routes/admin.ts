@@ -36,7 +36,7 @@ async function actorEmail(req: Request): Promise<string> {
   if (!req.user) return 'system';
   const r = await pool.query<{ email: string }>(
     `SELECT email FROM users WHERE id = $1`,
-    [req.user.id],
+    [req.user.id]
   );
   return r.rows[0]?.email ?? `admin:${req.user.id.slice(0, 8)}`;
 }
@@ -85,7 +85,8 @@ const createBody = z.object({
 
 router.post('/users', async (req: Request, res: Response) => {
   const parsed = createBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
   try {
     const user = await createUser(parsed.data);
     await logAudit({
@@ -136,7 +137,10 @@ router.get('/users/:id', async (req: Request, res: Response) => {
 
 // Coach view of an athlete's logged training (dropsets grouped "3-2-1 lad").
 router.get('/users/:id/sessions', async (req: Request, res: Response) => {
-  const limit = Math.min(60, Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20));
+  const limit = Math.min(
+    60,
+    Math.max(1, parseInt(String(req.query.limit ?? '20'), 10) || 20)
+  );
   res.json(await getLoggedSessions(req.params.id, limit));
 });
 
@@ -150,7 +154,8 @@ const patchBody = z
 
 router.patch('/users/:id', async (req: Request, res: Response) => {
   const parsed = patchBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
 
   if (req.params.id === req.user!.id) {
     const me = req.user!;
@@ -235,7 +240,8 @@ const subBody = z.object({
 
 router.put('/users/:id/subscription', async (req: Request, res: Response) => {
   const parsed = subBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
   const before = await getUser(req.params.id);
   await upsertManualSubscription(req.params.id, {
     tier: parsed.data.tier,
@@ -280,28 +286,28 @@ router.put('/users/:id/subscription', async (req: Request, res: Response) => {
   res.json(fresh);
 });
 
-router.delete('/users/:id/subscription', async (req: Request, res: Response) => {
-  const before = await getUser(req.params.id);
-  await cancelSubscription(req.params.id);
-  const fresh = await getUser(req.params.id);
-  await logAudit({
-    type: 'subscription_cancelled',
-    actor: await actorEmail(req),
-    target: fresh?.email ?? before?.email ?? null,
-    target_id: req.params.id,
-    severity: 'destructive',
-    meta: { tier: before?.subscription_tier ?? null },
-  });
-  res.json(fresh);
-});
+router.delete(
+  '/users/:id/subscription',
+  async (req: Request, res: Response) => {
+    const before = await getUser(req.params.id);
+    await cancelSubscription(req.params.id);
+    const fresh = await getUser(req.params.id);
+    await logAudit({
+      type: 'subscription_cancelled',
+      actor: await actorEmail(req),
+      target: fresh?.email ?? before?.email ?? null,
+      target_id: req.params.id,
+      severity: 'destructive',
+      meta: { tier: before?.subscription_tier ?? null },
+    });
+    res.json(fresh);
+  }
+);
 
-const MONTHLY_FEE_MIN = 5000;
-const MONTHLY_FEE_MAX = 500000;
 const monthlyFeeBody = z.object({
   monthly_fee_ars: z
     .number()
-    .min(MONTHLY_FEE_MIN, { message: 'out_of_range' })
-    .max(MONTHLY_FEE_MAX, { message: 'out_of_range' }),
+    .nonnegative({ message: 'out_of_range' }),
 });
 
 router.put('/users/:id/monthly-fee', async (req, res) => {
@@ -310,7 +316,9 @@ router.put('/users/:id/monthly-fee', async (req, res) => {
     const outOfRange = parsed.error.issues.some(
       (i) => i.message === 'out_of_range'
     );
-    res.status(400).json({ error: outOfRange ? 'fee_out_of_range' : 'invalid_payload' });
+    res
+      .status(400)
+      .json({ error: outOfRange ? 'fee_out_of_range' : 'invalid_payload' });
     return;
   }
   const value = await setAthleteMonthlyFee(
@@ -341,7 +349,8 @@ const rmBody = z.object({
 
 router.put('/users/:id/rms', async (req: Request, res: Response) => {
   const parsed = rmBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
   const user = await getUser(req.params.id);
   if (!user) return res.status(404).json({ error: 'not_found' });
   try {
@@ -353,7 +362,7 @@ router.put('/users/:id/rms', async (req: Request, res: Response) => {
         valueKg: parsed.data.value_kg,
         coachNote: parsed.data.coach_note ?? null,
       },
-      await actorEmail(req),
+      await actorEmail(req)
     );
     res.json({ rm: row });
   } catch (e) {
@@ -379,7 +388,8 @@ const paymentBody = z.object({
 // account is approved — the single admin "enable / reactivate" action.
 router.post('/users/:id/payments', async (req: Request, res: Response) => {
   const parsed = paymentBody.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
   const before = await getUser(req.params.id);
   if (!before) return res.status(404).json({ error: 'not_found' });
 
@@ -430,62 +440,71 @@ router.post('/users/:id/force-logout', async (req: Request, res: Response) => {
 });
 
 // Freeze a membership (injury/vacation): blocks access, stops the paid clock.
-router.post('/users/:id/membership/pause', async (req: Request, res: Response) => {
-  const before = await getUser(req.params.id);
-  if (!before) return res.status(404).json({ error: 'not_found' });
-  try {
-    const membership = await pauseMembership(req.params.id);
-    await logAudit({
-      type: 'membership_paused',
-      actor: await actorEmail(req),
-      target: before.email,
-      target_id: req.params.id,
-      severity: 'warning',
-    });
-    return res.json({ membership });
-  } catch (e) {
-    if (e instanceof MembershipError) {
-      return res.status(409).json({ error: 'membership_not_active' });
+router.post(
+  '/users/:id/membership/pause',
+  async (req: Request, res: Response) => {
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+    try {
+      const membership = await pauseMembership(req.params.id);
+      await logAudit({
+        type: 'membership_paused',
+        actor: await actorEmail(req),
+        target: before.email,
+        target_id: req.params.id,
+        severity: 'warning',
+      });
+      return res.json({ membership });
+    } catch (e) {
+      if (e instanceof MembershipError) {
+        return res.status(409).json({ error: 'membership_not_active' });
+      }
+      throw e;
     }
-    throw e;
   }
-});
+);
 
 // Unfreeze: credits the paused days back (paid_until shifts by the pause span).
-router.post('/users/:id/membership/resume', async (req: Request, res: Response) => {
-  const before = await getUser(req.params.id);
-  if (!before) return res.status(404).json({ error: 'not_found' });
-  try {
-    const membership = await resumeMembership(req.params.id);
+router.post(
+  '/users/:id/membership/resume',
+  async (req: Request, res: Response) => {
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+    try {
+      const membership = await resumeMembership(req.params.id);
+      await logAudit({
+        type: 'membership_resumed',
+        actor: await actorEmail(req),
+        target: before.email,
+        target_id: req.params.id,
+        severity: 'brand',
+        meta: { paid_until: membership.paid_until },
+      });
+      return res.json({ membership });
+    } catch (e) {
+      if (e instanceof MembershipError) {
+        return res.status(409).json({ error: 'membership_not_paused' });
+      }
+      throw e;
+    }
+  }
+);
+
+router.post(
+  '/users/:id/membership/cancel',
+  async (req: Request, res: Response) => {
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+    await cancelMembership(req.params.id);
     await logAudit({
-      type: 'membership_resumed',
+      type: 'membership_cancelled',
       actor: await actorEmail(req),
       target: before.email,
       target_id: req.params.id,
-      severity: 'brand',
-      meta: { paid_until: membership.paid_until },
+      severity: 'destructive',
     });
-    return res.json({ membership });
-  } catch (e) {
-    if (e instanceof MembershipError) {
-      return res.status(409).json({ error: 'membership_not_paused' });
-    }
-    throw e;
+    res.json({ ok: true });
   }
-});
-
-router.post('/users/:id/membership/cancel', async (req: Request, res: Response) => {
-  const before = await getUser(req.params.id);
-  if (!before) return res.status(404).json({ error: 'not_found' });
-  await cancelMembership(req.params.id);
-  await logAudit({
-    type: 'membership_cancelled',
-    actor: await actorEmail(req),
-    target: before.email,
-    target_id: req.params.id,
-    severity: 'destructive',
-  });
-  res.json({ ok: true });
-});
+);
 
 export default router;

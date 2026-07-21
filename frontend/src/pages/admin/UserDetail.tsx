@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -66,8 +66,14 @@ import type {
   UserStatus,
 } from '@/types/api';
 
-const TAB_KEYS = ['resumen', 'entrenamientos', 'rm', 'estado', 'suscripcion', 'actividad', 'peligro'] as const;
-type TabKey = (typeof TAB_KEYS)[number];
+type TabKey =
+  | 'resumen'
+  | 'entrenamientos'
+  | 'rm'
+  | 'estado'
+  | 'suscripcion'
+  | 'actividad'
+  | 'peligro';
 
 const TIER_PRICE: Record<SubscriptionTier, number> = {
   basico: 15000,
@@ -173,13 +179,7 @@ export default function UserDetail() {
   );
 }
 
-function IdentityCard({
-  user,
-  isSelf,
-}: {
-  user: AdminUser;
-  isSelf: boolean;
-}) {
+function IdentityCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   const update = useUpdateAdminUser(user.id);
   const onApprove = () =>
     update.mutate(
@@ -188,7 +188,7 @@ function IdentityCard({
         onSuccess: () => toast.success('Usuario aprobado'),
         onError: (e) =>
           toast.error(`No se pudo aprobar: ${(e as Error).message}`),
-      },
+      }
     );
   const onReject = () =>
     update.mutate(
@@ -197,13 +197,15 @@ function IdentityCard({
         onSuccess: () => toast.success('Usuario rechazado'),
         onError: (e) =>
           toast.error(`No se pudo rechazar: ${(e as Error).message}`),
-      },
+      }
     );
   const forceLogout = useForceLogout(user.id);
   const onForceLogout = () =>
     forceLogout.mutate(undefined, {
       onSuccess: () =>
-        toast.success('Sesiones cerradas. El logout se hace efectivo en unos minutos.'),
+        toast.success(
+          'Sesiones cerradas. El logout se hace efectivo en unos minutos.'
+        ),
       onError: (e) =>
         toast.error(`No se pudo forzar el logout: ${(e as Error).message}`),
     });
@@ -216,73 +218,71 @@ function IdentityCard({
     <div className="mb-4 rounded-2xl border bg-card p-[22px]">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 items-start gap-5">
-        <Avatar
-          name={user.name ?? user.email}
-          size="xl"
-          brand
-        />
-        <div className="min-w-0 flex-1">
-          <Eyebrow variant="brand">Detalle de cuenta</Eyebrow>
-          <h1 className="mt-1 text-[22px] font-bold leading-7 tracking-tight">
-            {user.name ?? user.email.split('@')[0]}
-          </h1>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="break-all font-mono text-foreground">{user.email}</span>
-            {user.email_verified ? (
-              <span className="inline-flex items-center gap-1 text-brand">
-                <MailCheck size={12} />
-                verificado{' '}
-                {user.email_verified_at && (
-                  <span className="font-mono tabular-nums">
-                    {fmtShortDate(user.email_verified_at)}
-                  </span>
-                )}
+          <Avatar name={user.name ?? user.email} size="xl" brand />
+          <div className="min-w-0 flex-1">
+            <Eyebrow variant="brand">Detalle de cuenta</Eyebrow>
+            <h1 className="mt-1 text-[22px] font-bold leading-7 tracking-tight">
+              {user.name ?? user.email.split('@')[0]}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+              <span className="break-all font-mono text-foreground">
+                {user.email}
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                <Mail size={12} />
-                sin verificar
+              {user.email_verified ? (
+                <span className="inline-flex items-center gap-1 text-brand">
+                  <MailCheck size={12} />
+                  verificado{' '}
+                  {user.email_verified_at && (
+                    <span className="font-mono tabular-nums">
+                      {fmtShortDate(user.email_verified_at)}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <Mail size={12} />
+                  sin verificar
+                </span>
+              )}
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">
+                ID{' '}
+                <span className="font-mono text-foreground">
+                  {user.id.slice(0, 8)}…
+                </span>
               </span>
-            )}
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">
-              ID{' '}
-              <span className="font-mono text-foreground">
-                {user.id.slice(0, 8)}…
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={copyId}
+                    aria-label="Copiar id"
+                    className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <Copy size={12} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Copiar id completo</TooltipContent>
+              </Tooltip>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">
+                creado el{' '}
+                <span className="font-mono tabular-nums text-foreground">
+                  {fmtShortDate(user.created_at)}
+                </span>
               </span>
-            </span>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  onClick={copyId}
-                  aria-label="Copiar id"
-                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <Copy size={12} />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>Copiar id completo</TooltipContent>
-            </Tooltip>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">
-              creado el{' '}
-              <span className="font-mono tabular-nums text-foreground">
-                {fmtShortDate(user.created_at)}
-              </span>
-            </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <RoleBadge role={user.role} />
+              <StatusBadge status={user.status} />
+              {user.subscription_tier && (
+                <>
+                  <TierBadge tier={user.subscription_tier} />
+                  <SubStatusBadge status={user.subscription_status} />
+                </>
+              )}
+            </div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <RoleBadge role={user.role} />
-            <StatusBadge status={user.status} />
-            {user.subscription_tier && (
-              <>
-                <TierBadge tier={user.subscription_tier} />
-                <SubStatusBadge status={user.subscription_status} />
-              </>
-            )}
-          </div>
-        </div>
         </div>
 
         <div className="flex shrink-0 flex-col items-stretch gap-2 lg:items-end">
@@ -365,11 +365,7 @@ function ResumenTab({ user }: { user: AdminUser }) {
                 )
               }
             />
-            <Kv
-              label="Creado"
-              value={fmtShortDate(user.created_at)}
-              mono
-            />
+            <Kv label="Creado" value={fmtShortDate(user.created_at)} mono />
             <Kv label="Última sesión" value="—" mono />
           </dl>
         </div>
@@ -456,7 +452,7 @@ function Kv({
   mono = false,
 }: {
   label: string;
-  value: React.ReactNode;
+  value: ReactNode;
   mono?: boolean;
 }) {
   return (
@@ -464,20 +460,16 @@ function Kv({
       <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         {label}
       </dt>
-      <dd className={cn('min-w-0 break-words', mono && 'font-mono tabular-nums')}>
+      <dd
+        className={cn('min-w-0 break-words', mono && 'font-mono tabular-nums')}
+      >
         {value}
       </dd>
     </>
   );
 }
 
-function EstadoTab({
-  user,
-  isSelf,
-}: {
-  user: AdminUser;
-  isSelf: boolean;
-}) {
+function EstadoTab({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   const { user: me } = useAuth();
   const update = useUpdateAdminUser(user.id);
   const [status, setStatus] = useState<UserStatus>(user.status);
@@ -582,13 +574,23 @@ function EstadoTab({
         </Field>
 
         <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-          <Button variant="outline" size="sm" onClick={discard} disabled={!dirty}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={discard}
+            disabled={!dirty}
+          >
             Descartar cambios
           </Button>
           <Button
             size="sm"
             onClick={save}
-            disabled={!dirty || update.isPending || cantSetSuper || (isSelf && (status !== 'approved' || role !== 'admin'))}
+            disabled={
+              !dirty ||
+              update.isPending ||
+              cantSetSuper ||
+              (isSelf && (status !== 'approved' || role !== 'admin'))
+            }
           >
             {update.isPending ? 'Guardando…' : 'Guardar'}
           </Button>
@@ -604,8 +606,8 @@ function Field({
   children,
 }: {
   label: string;
-  hint?: React.ReactNode;
-  children: React.ReactNode;
+  hint?: ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -635,9 +637,10 @@ function MembresiaCard({ user }: { user: AdminUser }) {
   const onPause = () =>
     pause.mutate(undefined, {
       onSuccess: () =>
-        toast.success('Membresía pausada. El acceso queda bloqueado y los días pagados se congelan.'),
-      onError: (e) =>
-        toast.error(`No se pudo pausar: ${(e as Error).message}`),
+        toast.success(
+          'Membresía pausada. El acceso queda bloqueado y los días pagados se congelan.'
+        ),
+      onError: (e) => toast.error(`No se pudo pausar: ${(e as Error).message}`),
     });
   const onResume = () =>
     resume.mutate(undefined, {
@@ -665,7 +668,9 @@ function MembresiaCard({ user }: { user: AdminUser }) {
             Pagado hasta
           </div>
           <div className="mt-1 font-mono tabular-nums font-semibold">
-            {user.paid_until ? fmtShortDate(user.paid_until) : 'Sin vencimiento'}
+            {user.paid_until
+              ? fmtShortDate(user.paid_until)
+              : 'Sin vencimiento'}
           </div>
         </div>
         <div className="ml-auto">
@@ -705,10 +710,10 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
   const cancel = useCancelSubscription(user.id);
   const setFee = useSetMonthlyFee(user.id);
   const [tier, setTier] = useState<SubscriptionTier>(
-    user.subscription_tier ?? 'full',
+    user.subscription_tier ?? 'full'
   );
   const [subStatus, setSubStatus] = useState<SubscriptionStatus>(
-    user.subscription_status ?? 'authorized',
+    user.subscription_status ?? 'authorized'
   );
   const [cuota, setCuota] = useState(String(user.monthly_fee_ars ?? 25000));
 
@@ -729,14 +734,16 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
       { tier, status: subStatus },
       {
         onSuccess: () =>
-          toast.success(hasSub ? 'Suscripción actualizada' : 'Suscripción creada'),
+          toast.success(
+            hasSub ? 'Suscripción actualizada' : 'Suscripción creada'
+          ),
         onError: () =>
           toast.error(
             hasSub
               ? 'No se pudo guardar la suscripción'
-              : 'No se pudo crear la suscripción',
+              : 'No se pudo crear la suscripción'
           ),
-      },
+      }
     );
   }
   function cancelSub() {
@@ -816,30 +823,28 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
             hint="El cambio se aplica al próximo período de cobro."
           >
             <div className="grid max-w-[540px] grid-cols-1 gap-2 sm:grid-cols-2">
-              {(['full', 'premium'] as SubscriptionTier[]).map(
-                (t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTier(t)}
-                    className={cn(
-                      'rounded-2xl border p-[14px] text-left transition-colors',
-                      tier === t
-                        ? 'border-brand bg-brand/6'
-                        : 'border-border bg-background hover:bg-muted/40',
-                    )}
-                  >
-                    <TierBadge tier={t} className="mb-1.5" />
-                    <div className="font-mono tabular-nums text-sm font-semibold">
-                      {fmtARS(TIER_PRICE[t])}{' '}
-                      <span className="text-muted-foreground">/mes</span>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {TIER_LABEL[t]}
-                    </div>
-                  </button>
-                ),
-              )}
+              {(['full', 'premium'] as SubscriptionTier[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTier(t)}
+                  className={cn(
+                    'rounded-2xl border p-[14px] text-left transition-colors',
+                    tier === t
+                      ? 'border-brand bg-brand/6'
+                      : 'border-border bg-background hover:bg-muted/40'
+                  )}
+                >
+                  <TierBadge tier={t} className="mb-1.5" />
+                  <div className="font-mono tabular-nums text-sm font-semibold">
+                    {fmtARS(TIER_PRICE[t])}{' '}
+                    <span className="text-muted-foreground">/mes</span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {TIER_LABEL[t]}
+                  </div>
+                </button>
+              ))}
             </div>
           </Field>
 
@@ -848,14 +853,13 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
             <label className="text-xs text-muted-foreground">
               Cuota mensual (ARS){' '}
               <span className="text-muted-foreground/70">
-                (entre {fmtARS(5000)} y {fmtARS(500000)})
+                (desde {fmtARS(0)}, sin tope)
               </span>
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                min={5000}
-                max={500000}
+                min={0}
                 step={1000}
                 value={cuota}
                 onChange={(e) => setCuota(e.target.value)}
@@ -866,12 +870,8 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
                 disabled={setFee.isPending}
                 onClick={async () => {
                   const v = Number(cuota);
-                  if (!v || v <= 0) {
+                  if (cuota.trim() === '' || !Number.isFinite(v) || v < 0) {
                     toast.error('Cuota inválida');
-                    return;
-                  }
-                  if (v < 5000 || v > 500000) {
-                    toast.error('La cuota debe estar entre $5.000 y $500.000');
                     return;
                   }
                   try {
@@ -983,7 +983,13 @@ function ActividadTab({ user }: { user: AdminUser }) {
 }
 
 const DAY_LABEL: Record<number, string> = {
-  1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom',
+  1: 'Lun',
+  2: 'Mar',
+  3: 'Mié',
+  4: 'Jue',
+  5: 'Vie',
+  6: 'Sáb',
+  7: 'Dom',
 };
 
 function EntrenamientosTab({ user }: { user: AdminUser }) {
@@ -1021,7 +1027,8 @@ function EntrenamientosTab({ user }: { user: AdminUser }) {
           <div className="flex items-center justify-between border-b border-border bg-muted/30 px-[18px] py-3">
             <div className="flex items-center gap-2">
               <span className="rounded-md bg-background px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums">
-                SEM {s.program_week} · {DAY_LABEL[s.day_of_week] ?? `D${s.day_of_week}`}
+                SEM {s.program_week} ·{' '}
+                {DAY_LABEL[s.day_of_week] ?? `D${s.day_of_week}`}
               </span>
               {s.fatigue_rating && (
                 <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -1038,7 +1045,9 @@ function EntrenamientosTab({ user }: { user: AdminUser }) {
           <div className="divide-y divide-border">
             {s.exercises.map((ex) => (
               <div key={ex.exercise_id} className="px-[18px] py-3">
-                <div className="mb-1.5 text-[13px] font-semibold">{ex.name}</div>
+                <div className="mb-1.5 text-[13px] font-semibold">
+                  {ex.name}
+                </div>
                 <div className="flex flex-col gap-1">
                   {ex.sets.map((set) => (
                     <div
@@ -1097,7 +1106,12 @@ function RmTab({ user }: { user: AdminUser }) {
 
   const rms = q.data ?? [];
 
-  function startEdit(r: { exercise_id: number; program_week: number; value_kg: number; coach_note: string | null }) {
+  function startEdit(r: {
+    exercise_id: number;
+    program_week: number;
+    value_kg: number;
+    coach_note: string | null;
+  }) {
     setEditKey(`${r.exercise_id}-${r.program_week}`);
     setValue(String(r.value_kg));
     setNote(r.coach_note ?? '');
@@ -1162,7 +1176,8 @@ function RmTab({ user }: { user: AdminUser }) {
                       {r.exercise_name}
                     </div>
                     <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                      {RM_WEEK_LABEL[r.program_week] ?? `Semana ${r.program_week}`}
+                      {RM_WEEK_LABEL[r.program_week] ??
+                        `Semana ${r.program_week}`}
                     </div>
                   </div>
                   {!editing && (
@@ -1253,7 +1268,9 @@ function PeligroTab({
   const onForceLogout = () =>
     forceLogout.mutate(undefined, {
       onSuccess: () =>
-        toast.success('Sesiones cerradas. El logout se hace efectivo en unos minutos.'),
+        toast.success(
+          'Sesiones cerradas. El logout se hace efectivo en unos minutos.'
+        ),
       onError: (e) =>
         toast.error(`No se pudo forzar el logout: ${(e as Error).message}`),
     });
@@ -1288,8 +1305,8 @@ function PeligroTab({
             title="Eliminar usuario"
             body={
               <>
-                Borra al usuario y todos sus datos asociados — perfil,
-                sesiones, suscripciones, tokens.
+                Borra al usuario y todos sus datos asociados — perfil, sesiones,
+                suscripciones, tokens.
               </>
             }
             action="Eliminar"
@@ -1348,11 +1365,7 @@ function ConfirmDeleteDialog({
           <Button variant="ghost" onClick={onClose} disabled={del.isPending}>
             Cancelar
           </Button>
-          <Button
-            variant="destructive"
-            onClick={run}
-            disabled={del.isPending}
-          >
+          <Button variant="destructive" onClick={run} disabled={del.isPending}>
             {del.isPending ? 'Eliminando…' : 'Eliminar definitivamente'}
           </Button>
         </DialogFooter>

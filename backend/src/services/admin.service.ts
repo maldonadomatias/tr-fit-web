@@ -53,7 +53,7 @@ export function buildListUsersSql(whereSql: string): string {
       u.created_at,
       COALESCE(ap.name, cp.name) AS name,
       ap.phone,
-      ap.monthly_fee_ars AS monthly_fee_ars,
+      COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars) AS monthly_fee_ars,
       s.tier AS subscription_tier,
       s.status AS subscription_status,
       s.current_period_end,
@@ -111,7 +111,7 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        u.created_at,
        COALESCE(ap.name, cp.name) AS name,
        ap.phone,
-       ap.monthly_fee_ars AS monthly_fee_ars,
+       COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars) AS monthly_fee_ars,
        s.tier AS subscription_tier,
        s.status AS subscription_status,
        s.current_period_end,
@@ -399,13 +399,17 @@ export async function setAthleteMonthlyFee(
   actor: string
 ): Promise<number> {
   const prev = await pool.query<{ monthly_fee_ars: string }>(
-    `SELECT monthly_fee_ars FROM athlete_profiles WHERE user_id = $1`,
+    `SELECT COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)::text
+              AS monthly_fee_ars
+       FROM users u
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
+      WHERE u.id = $1 AND u.role = 'athlete'`,
     [athleteId]
   );
   if (!prev.rows[0]) throw new Error('athlete_not_found');
   const from = Number(prev.rows[0].monthly_fee_ars);
   await pool.query(
-    `UPDATE athlete_profiles SET monthly_fee_ars = $1 WHERE user_id = $2`,
+    `UPDATE users SET monthly_fee_ars = $1 WHERE id = $2`,
     [feeArs, athleteId]
   );
   await logAudit({
@@ -628,11 +632,10 @@ export interface AdminStats {
   verified_pct: number;
 }
 
-// Per-student MRR contribution. Uses the student's real custom fee
-// (athlete_profiles.monthly_fee_ars) when set, falling back to the hardcoded
-// tier price only when there is no profile / no custom fee. Mirrors the
+// Per-student MRR contribution. Uses the student's real custom fee from users
+// when set, falling back to the hardcoded tier price. Mirrors the
 // frontend `feeOf = monthly_fee_ars ?? TIER_PRICE[tier]` logic.
-function priceCase(alias = 's', feeAlias = 'ap'): string {
+function priceCase(alias = 's', feeAlias = 'u'): string {
   return `COALESCE(${feeAlias}.monthly_fee_ars,
           CASE
             WHEN ${alias}.tier = 'basico'  THEN ${TIER_PRICE_ARS.basico}
@@ -726,13 +729,13 @@ export async function getStats(): Promise<AdminStats> {
         ORDER BY athlete_id, created_at DESC
      )
      SELECT
-       COALESCE((SELECT SUM(${priceCase('s', 'ap')})
+       COALESCE((SELECT SUM(${priceCase('s', 'u')})
                    FROM latest s
-                   LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
+                   LEFT JOIN users u ON u.id = s.athlete_id
                   WHERE s.status = 'authorized'), 0) AS mrr,
-       COALESCE((SELECT SUM(${priceCase('s', 'ap')})
+       COALESCE((SELECT SUM(${priceCase('s', 'u')})
                    FROM latest_prev s
-                   LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
+                   LEFT JOIN users u ON u.id = s.athlete_id
                   WHERE s.status = 'authorized'), 0) AS mrr_prev`
   );
   const mrr = Number(mrrRes.rows[0]?.mrr ?? 0);
@@ -749,14 +752,14 @@ export async function getStats(): Promise<AdminStats> {
        ) AS m
      )
      SELECT COALESCE((
-       SELECT SUM(${priceCase('s', 'ap')})
+       SELECT SUM(${priceCase('s', 'u')})
          FROM (
            SELECT DISTINCT ON (athlete_id) athlete_id, tier, status
              FROM subscriptions
             WHERE created_at < (months.m + INTERVAL '1 month')
             ORDER BY athlete_id, created_at DESC
          ) s
-         LEFT JOIN athlete_profiles ap ON ap.user_id = s.athlete_id
+         LEFT JOIN users u ON u.id = s.athlete_id
         WHERE s.status = 'authorized'
      ), 0)::text AS mrr
      FROM months

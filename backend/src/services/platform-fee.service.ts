@@ -115,9 +115,9 @@ export async function getActiveAthleteRevenue(): Promise<{
 }> {
   const r = await pool.query<{ n: number; gross: string }>(
     `SELECT COUNT(*)::int AS n,
-            COALESCE(SUM(ap.monthly_fee_ars), 0) AS gross
+            COALESCE(SUM(COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)), 0) AS gross
        FROM users u
-       JOIN athlete_profiles ap ON ap.user_id = u.id
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
        JOIN memberships m ON m.user_id = u.id
       WHERE u.role = 'athlete'
         AND u.status = 'approved'

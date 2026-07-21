@@ -58,9 +58,22 @@ export async function ensureMigrated(): Promise<void> {
     `SELECT to_regclass('public.exercises') AS e,
             to_regclass('public.periodization_config') AS p,
             to_regclass('public.platform_fee_config') AS f,
-            to_regclass('public.platform_fee_payments') AS fp`
+            to_regclass('public.platform_fee_payments') AS fp,
+            EXISTS (
+              SELECT 1
+                FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'users'
+                 AND column_name = 'monthly_fee_ars'
+            ) AS uf`
   );
-  if (!r.rows[0].e || !r.rows[0].p || !r.rows[0].f || !r.rows[0].fp) {
+  if (
+    !r.rows[0].e ||
+    !r.rows[0].p ||
+    !r.rows[0].f ||
+    !r.rows[0].fp ||
+    !r.rows[0].uf
+  ) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }
   // Ensure seed data
