@@ -13,14 +13,14 @@ export const ADVANCE_REPS: Record<string, string> = {
   '4 a 6': '6 a 8',
   '6 a 8': '8 a 10',
   '8 a 10': '10 a 12',
-  '10 a 12': '4 a 6',          // bumps weight
+  '10 a 12': '4 a 6', // bumps weight
   '10x10x10': '12x12x12',
-  '12x12x12': '10x10x10',      // bumps weight
+  '12x12x12': '10x10x10', // bumps weight
   '12 - 10 - 8': '8 - 6 - 4',
   '8 - 6 - 4': '10 - 8 - 6',
   '10 - 8 - 6': '12 - 10 - 8', // bumps weight
   '8x6x4x6x8': '10x8x6x8x10',
-  '10x8x6x8x10': '8x6x4x6x8',  // bumps weight
+  '10x8x6x8x10': '8x6x4x6x8', // bumps weight
 };
 
 const REP_BUMP_TRIGGERS = new Set([
@@ -48,7 +48,11 @@ export const EJERCICIOS_PRINCIPAL = new Set([
 ]);
 
 export const GRUPOS_EXCLUIDOS = [
-  'abdomen', 'calentamiento', 'cardio', 'superserie', 'rest-pause',
+  'abdomen',
+  'calentamiento',
+  'cardio',
+  'superserie',
+  'rest-pause',
 ];
 
 // ─── Helpers ──────────────────────────────────────────
@@ -58,22 +62,24 @@ export function roundToNearest25(value: number): number {
   // first match wins via reduce).
   const candidates: number[] = [];
   for (let v = 2.5; v <= 300; v += 2.5) candidates.push(v);
-  return candidates.reduce((best, cur) =>
-    Math.abs(cur - value) < Math.abs(best - value) ? cur : best
-  , candidates[0]);
+  return candidates.reduce(
+    (best, cur) =>
+      Math.abs(cur - value) < Math.abs(best - value) ? cur : best,
+    candidates[0]
+  );
 }
 
 /** Round a computed weight per equipment: 2.5-step for barbell/smith, 1-step otherwise. */
-export function roundWeightForEquipment(value: number, equipment: string): number {
+export function roundWeightForEquipment(
+  value: number,
+  equipment: string
+): number {
   return equipment === 'barra' || equipment === 'smith'
     ? roundToNearest25(value)
     : Math.round(value);
 }
 
-function nextInList(
-  value: number,
-  list: readonly number[],
-): number {
+function nextInList(value: number, list: readonly number[]): number {
   return list.find((v) => v > value) ?? value;
 }
 
@@ -91,11 +97,18 @@ export function applyIncrement(currentKg: number, exercise: Exercise): number {
   if (nl.includes('desplante') && nl.includes('barra')) return currentKg + 1;
   if (nl.includes('pantorrillas en maquina sentado')) return currentKg + 2.5;
   if (nl.includes('pecho sentado en mariposa')) return currentKg + 1;
-  if (nl.includes('jalon') || nl.includes('face pull') ||
-      nl.includes('flexion') || nl.includes('fondos')) {
+  if (
+    nl.includes('jalon') ||
+    nl.includes('face pull') ||
+    nl.includes('flexion') ||
+    nl.includes('fondos')
+  ) {
     return currentKg + 1;
   }
-  if (exercise.equipment === 'mancuerna' || exercise.equipment === 'pesa_rusa') {
+  if (
+    exercise.equipment === 'mancuerna' ||
+    exercise.equipment === 'pesa_rusa'
+  ) {
     return nextInList(currentKg, PESOS_MANCUERNAS);
   }
   if (exercise.equipment === 'maquina' || exercise.equipment === 'polea') {
@@ -119,9 +132,57 @@ export interface AdvanceOptions {
   resetReps: number;
 }
 
+type RepSchemeFamily =
+  | 'plain'
+  | 'range'
+  | `dropset:${number}`
+  | `pyramid:${number}`
+  | 'fixed';
+
+function repSchemeFamily(reps: string): RepSchemeFamily {
+  const value = reps.trim();
+  const nums = value.match(/\d+/g) ?? [];
+
+  if (/^\d+$/.test(value)) return 'plain';
+  if (nums.length >= 3 && /\d\s*[x×]\s*\d/i.test(value)) {
+    return `dropset:${nums.length}`;
+  }
+  if (nums.length >= 3 && /\d\s*[-–]\s*\d/.test(value)) {
+    return `pyramid:${nums.length}`;
+  }
+  if (/^\d+\s*(?:a|[-–])\s*\d+$/i.test(value)) return 'range';
+  return 'fixed';
+}
+
+/**
+ * Resolves the reps prescription for an accessory without letting stale
+ * per-exercise progression erase a coach-authored per-slot scheme.
+ *
+ * Progressed reps win only inside the same scheme family: 10x10x10 may advance
+ * to 12x12x12, but a stale plain "10" cannot turn that dropset into a normal
+ * set. Fixed targets (time, fallo, per-side, etc.) must match exactly.
+ */
+export function resolveAccessoryReps(
+  slotReps: string | null | undefined,
+  currentReps: string | null | undefined,
+  fallbackReps: string
+): string {
+  const base = slotReps?.trim() || fallbackReps;
+  const current = currentReps?.trim();
+  if (!current) return base;
+  if (!slotReps) return current;
+
+  const baseFamily = repSchemeFamily(base);
+  const currentFamily = repSchemeFamily(current);
+  if (baseFamily === 'fixed' || currentFamily === 'fixed') {
+    return base.toLowerCase() === current.toLowerCase() ? current : base;
+  }
+  return baseFamily === currentFamily ? current : base;
+}
+
 export function advanceReps(
   currentReps: string,
-  opts: AdvanceOptions,
+  opts: AdvanceOptions
 ): AdvanceResult {
   const { threshold, resetReps } = opts;
 
@@ -150,7 +211,7 @@ export function advanceReps(
 
 export function isExcludedFromAutoProgression(
   exerciseName: string,
-  muscleGroup: string,
+  muscleGroup: string
 ): boolean {
   if (EJERCICIOS_PRINCIPAL.has(exerciseName)) return true;
   const g = muscleGroup.toLowerCase();

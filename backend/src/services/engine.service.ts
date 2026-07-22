@@ -1,5 +1,8 @@
 import pool from '../db/connect.js';
-import { roundWeightForEquipment } from './progression-helpers.js';
+import {
+  resolveAccessoryReps,
+  roundWeightForEquipment,
+} from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
 import type { WeeklyOverride } from './weekly-overrides.service.js';
@@ -274,9 +277,14 @@ async function buildItem(
   } else {
     // accesorio. Per-slot prescription (migration 038) is the coach-designed
     // set-scheme for this accessory; it takes precedence over the block-level
-    // periodization defaults. The athlete's progressed reps (current_reps_text)
-    // still win once progression has run — slot.reps is only the seed/week-1
-    // value. Principals are unaffected: they keep periodization above.
+    // periodization defaults. Compatible progressed reps still win (e.g.
+    // 10x10x10 -> 12x12x12), but a stale plain value cannot erase the slot's
+    // dropset/pyramid/fixed format. Principals keep periodization above.
+    const reps = resolveAccessoryReps(
+      slot.reps,
+      w?.current_reps_text,
+      cfg.accesorio_reps
+    );
     item = baseItem(
       exercise,
       role,
@@ -284,7 +292,7 @@ async function buildItem(
       aewValue,
       unit,
       slot.series ?? cfg.accesorio_series,
-      w?.current_reps_text ?? slot.reps ?? cfg.accesorio_reps,
+      reps,
       slot.descanso ?? cfg.accesorio_descanso,
       notes
     );

@@ -10,6 +10,7 @@ import {
   applyIncrement,
   advanceReps,
   isExcludedFromAutoProgression,
+  resolveAccessoryReps,
   roundWeightForEquipment,
 } from '../../src/services/progression-helpers.js';
 
@@ -29,19 +30,34 @@ describe('roundToNearest25', () => {
 
 describe('applyIncrement — barbell exercises (round +2.5)', () => {
   it('Press Plano con Barra: 80 -> 82.5', () => {
-    expect(applyIncrement(80, mockExercise({ name: 'Press Plano con Barra', equipment: 'barra' })))
-      .toBe(82.5);
+    expect(
+      applyIncrement(
+        80,
+        mockExercise({ name: 'Press Plano con Barra', equipment: 'barra' })
+      )
+    ).toBe(82.5);
   });
   it('Press Plano con Barra: 81 -> 82.5 (rounds up)', () => {
-    expect(applyIncrement(81, mockExercise({ name: 'Press Plano con Barra', equipment: 'barra' })))
-      .toBe(82.5);
+    expect(
+      applyIncrement(
+        81,
+        mockExercise({ name: 'Press Plano con Barra', equipment: 'barra' })
+      )
+    ).toBe(82.5);
   });
 });
 
 describe('applyIncrement — Smith machine (+2.5)', () => {
   it('Sentadilla en maquina Smith: 60 -> 62.5', () => {
-    expect(applyIncrement(60, mockExercise({ name: 'Sentadilla en maquina Smith', equipment: 'smith' })))
-      .toBe(62.5);
+    expect(
+      applyIncrement(
+        60,
+        mockExercise({
+          name: 'Sentadilla en maquina Smith',
+          equipment: 'smith',
+        })
+      )
+    ).toBe(62.5);
   });
 });
 
@@ -56,34 +72,78 @@ describe('applyIncrement — mancuerna (next in pesosMancuernas)', () => {
     [30, 32.5],
     [35, 35], // top of list — stays
   ])('mancuerna %f -> %f', (from, to) => {
-    expect(applyIncrement(from, mockExercise({ name: 'Curl con Mancuerna', equipment: 'mancuerna' })))
-      .toBe(to);
+    expect(
+      applyIncrement(
+        from,
+        mockExercise({ name: 'Curl con Mancuerna', equipment: 'mancuerna' })
+      )
+    ).toBe(to);
   });
 });
 
 describe('applyIncrement — Svend Press disco', () => {
   it('5 -> 10', () => {
-    expect(applyIncrement(5, mockExercise({ name: 'Svend Press con Disco acostado', equipment: 'disco', default_increment_kg: 5 })))
-      .toBe(10);
+    expect(
+      applyIncrement(
+        5,
+        mockExercise({
+          name: 'Svend Press con Disco acostado',
+          equipment: 'disco',
+          default_increment_kg: 5,
+        })
+      )
+    ).toBe(10);
   });
   it('20 -> 20 (top)', () => {
-    expect(applyIncrement(20, mockExercise({ name: 'Svend Press con Disco acostado', equipment: 'disco', default_increment_kg: 5 })))
-      .toBe(20);
+    expect(
+      applyIncrement(
+        20,
+        mockExercise({
+          name: 'Svend Press con Disco acostado',
+          equipment: 'disco',
+          default_increment_kg: 5,
+        })
+      )
+    ).toBe(20);
   });
 });
 
 describe('applyIncrement — maquina/polea (+1)', () => {
   it('Prensa: 100 -> 102.5 (special case +2.5)', () => {
-    expect(applyIncrement(100, mockExercise({ name: 'Prensa', equipment: 'maquina', default_increment_kg: 2.5 })))
-      .toBe(102.5);
+    expect(
+      applyIncrement(
+        100,
+        mockExercise({
+          name: 'Prensa',
+          equipment: 'maquina',
+          default_increment_kg: 2.5,
+        })
+      )
+    ).toBe(102.5);
   });
   it('Curl Femoral: 30 -> 31', () => {
-    expect(applyIncrement(30, mockExercise({ name: 'Curl Femoral Sentado en maquina', equipment: 'maquina', default_increment_kg: 1 })))
-      .toBe(31);
+    expect(
+      applyIncrement(
+        30,
+        mockExercise({
+          name: 'Curl Femoral Sentado en maquina',
+          equipment: 'maquina',
+          default_increment_kg: 1,
+        })
+      )
+    ).toBe(31);
   });
   it('Face Pull (polea, +1): 15 -> 16', () => {
-    expect(applyIncrement(15, mockExercise({ name: 'Face Pull parado con Soga', equipment: 'polea', default_increment_kg: 1 })))
-      .toBe(16);
+    expect(
+      applyIncrement(
+        15,
+        mockExercise({
+          name: 'Face Pull parado con Soga',
+          equipment: 'polea',
+          default_increment_kg: 1,
+        })
+      )
+    ).toBe(16);
   });
 });
 
@@ -112,27 +172,37 @@ describe('advanceReps — integer climb to threshold (female reset 4)', () => {
 
 describe('advanceReps — odd threshold lands exactly (15)', () => {
   it('male: 12 -> 14', () => {
-    expect(advanceReps('12', { threshold: 15, resetReps: 6 }))
-      .toEqual({ newReps: '14', bumpWeight: false });
+    expect(advanceReps('12', { threshold: 15, resetReps: 6 })).toEqual({
+      newReps: '14',
+      bumpWeight: false,
+    });
   });
   it('male: 14 -> 15 (clamped, no bump yet)', () => {
-    expect(advanceReps('14', { threshold: 15, resetReps: 6 }))
-      .toEqual({ newReps: '15', bumpWeight: false });
+    expect(advanceReps('14', { threshold: 15, resetReps: 6 })).toEqual({
+      newReps: '15',
+      bumpWeight: false,
+    });
   });
   it('male: 15 -> reset 6 with weight bump', () => {
-    expect(advanceReps('15', { threshold: 15, resetReps: 6 }))
-      .toEqual({ newReps: '6', bumpWeight: true });
+    expect(advanceReps('15', { threshold: 15, resetReps: 6 })).toEqual({
+      newReps: '6',
+      bumpWeight: true,
+    });
   });
 });
 
 describe('advanceReps — at or above threshold resets and bumps', () => {
   it('exactly at threshold', () => {
-    expect(advanceReps('12', { threshold: 12, resetReps: 6 }))
-      .toEqual({ newReps: '6', bumpWeight: true });
+    expect(advanceReps('12', { threshold: 12, resetReps: 6 })).toEqual({
+      newReps: '6',
+      bumpWeight: true,
+    });
   });
   it('above threshold (defensive)', () => {
-    expect(advanceReps('16', { threshold: 12, resetReps: 6 }))
-      .toEqual({ newReps: '6', bumpWeight: true });
+    expect(advanceReps('16', { threshold: 12, resetReps: 6 })).toEqual({
+      newReps: '6',
+      bumpWeight: true,
+    });
   });
 });
 
@@ -152,14 +222,38 @@ describe('advanceReps — legacy range/pyramid schemes unchanged', () => {
 
 describe('advanceReps — unknown pattern holds', () => {
   it('passes through unchanged, no bump', () => {
-    expect(advanceReps('AMRAP', { threshold: 12, resetReps: 6 }))
-      .toEqual({ newReps: 'AMRAP', bumpWeight: false });
+    expect(advanceReps('AMRAP', { threshold: 12, resetReps: 6 })).toEqual({
+      newReps: 'AMRAP',
+      bumpWeight: false,
+    });
+  });
+});
+
+describe('resolveAccessoryReps', () => {
+  it.each([
+    ['10x10x10', null, '10x10x10'],
+    ['10x10x10', '12x12x12', '12x12x12'],
+    ['10x10x10', '10', '10x10x10'],
+    ['10x10x10', '10x8x6x8x10', '10x10x10'],
+    ['10 - 8 - 6', '12 - 10 - 8', '12 - 10 - 8'],
+    ['10 - 8 - 6', '10', '10 - 8 - 6'],
+    ['6 a 8', '8 a 10', '8 a 10'],
+    ['30 seg', '10', '30 seg'],
+  ])('slot %s with current %s resolves to %s', (slot, current, expected) => {
+    expect(resolveAccessoryReps(slot, current, '8')).toBe(expected);
+  });
+
+  it('keeps legacy progression when the slot has no prescription', () => {
+    expect(resolveAccessoryReps(null, '10', '8')).toBe('10');
+    expect(resolveAccessoryReps(null, null, '8')).toBe('8');
   });
 });
 
 describe('isExcludedFromAutoProgression', () => {
   it('excludes principal exercises', () => {
-    expect(isExcludedFromAutoProgression('Press Plano con Barra', 'pecho')).toBe(true);
+    expect(
+      isExcludedFromAutoProgression('Press Plano con Barra', 'pecho')
+    ).toBe(true);
     expect(isExcludedFromAutoProgression('Hip Thrust', 'gluteos')).toBe(true);
   });
   it('excludes by group', () => {
@@ -168,7 +262,9 @@ describe('isExcludedFromAutoProgression', () => {
     expect(isExcludedFromAutoProgression('Press X', 'superserie')).toBe(true);
   });
   it('does not exclude regular accesorio', () => {
-    expect(isExcludedFromAutoProgression('Curl Biceps con Mancuerna', 'biceps')).toBe(false);
+    expect(
+      isExcludedFromAutoProgression('Curl Biceps con Mancuerna', 'biceps')
+    ).toBe(false);
   });
 });
 
@@ -184,15 +280,27 @@ describe('roundWeightForEquipment', () => {
   });
 });
 
-function mockExercise(over: Partial<{
-  name: string; equipment: string; default_increment_kg: number;
-}>) {
+function mockExercise(
+  over: Partial<{
+    name: string;
+    equipment: string;
+    default_increment_kg: number;
+  }>
+) {
   return {
     id: 1,
     name: over.name ?? 'Test',
     muscle_group: 'Pecho - Mayor',
     equipment: (over.equipment ?? 'mancuerna') as
-      'barra' | 'mancuerna' | 'maquina' | 'polea' | 'smith' | 'bw' | 'pesa_rusa' | 'elastico' | 'disco',
+      | 'barra'
+      | 'mancuerna'
+      | 'maquina'
+      | 'polea'
+      | 'smith'
+      | 'bw'
+      | 'pesa_rusa'
+      | 'elastico'
+      | 'disco',
     movement_pattern: 'isolation' as const,
     is_principal: false,
     is_unilateral: false,

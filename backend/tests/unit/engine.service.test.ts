@@ -480,6 +480,20 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
     expect(item!.reps).toBe('12x12x12'); // progression overrides the seed
     expect(item!.series).toBe(2); // series still from the slot
   });
+
+  it('ignores a stale plain-reps override that would erase a dropset scheme', async () => {
+    seedAccessory({ series: 2, reps: '10x10x10', descanso: '2 min' }, [
+      {
+        exercise_id: exA.id,
+        current_value: null,
+        unit: null,
+        current_weight_kg: null,
+        current_reps_text: '10',
+      },
+    ]);
+    const [item] = await buildTodaySession('athlete-acc', 1);
+    expect(item!.reps).toBe('10x10x10');
+  });
 });
 
 describe('buildTodaySession — warm-up role safety net (bug 2026-07-04)', () => {

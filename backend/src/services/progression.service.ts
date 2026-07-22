@@ -1,7 +1,10 @@
 import pool from '../db/connect.js';
 import { env } from '../config/env.js';
 import {
-  advanceReps, applyIncrement, isExcludedFromAutoProgression,
+  advanceReps,
+  applyIncrement,
+  isExcludedFromAutoProgression,
+  resolveAccessoryReps,
 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import type { Exercise } from '../domain/types.js';
@@ -25,42 +28,55 @@ export interface BumpRecord {
 }
 
 export async function runWeeklyProgressionForAthlete(
-  athleteId: string,
+  athleteId: string
 ): Promise<ProgressionResult> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [athleteId]);
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      athleteId,
+    ]);
 
     const stateR = await client.query<{
-      current_week: number; active_skeleton_id: string | null;
+      current_week: number;
+      active_skeleton_id: string | null;
     }>(
       `SELECT current_week, active_skeleton_id
          FROM athlete_program_state WHERE athlete_id = $1
          FOR UPDATE`,
-      [athleteId],
+      [athleteId]
     );
     const state = stateR.rows[0];
     if (!state || !state.active_skeleton_id) {
       await client.query('COMMIT');
       return {
-        athleteId, fromWeek: 0, toWeek: 0,
-        compliance: 0, weightsBumped: [], status: 'skipped',
+        athleteId,
+        fromWeek: 0,
+        toWeek: 0,
+        compliance: 0,
+        weightsBumped: [],
+        status: 'skipped',
       };
     }
     const genderR = await client.query<{ gender: string }>(
       `SELECT gender FROM athlete_profiles WHERE user_id = $1`,
-      [athleteId],
+      [athleteId]
     );
     const resetReps = genderR.rows[0]?.gender === 'female' ? 4 : 6;
     const fromWeek = state.current_week;
 
-    const accR = await client.query<Exercise & { slot_role: string }>(
-      `SELECT e.*, s.role AS slot_role
+    const accR = await client.query<
+      Exercise & {
+        slot_role: string;
+        slot_reps: string | null;
+      }
+    >(
+      `SELECT e.*, s.role AS slot_role, s.reps AS slot_reps
          FROM skeleton_slots s
          JOIN exercises e ON e.id = s.exercise_id
-        WHERE s.skeleton_id = $1`,
-      [state.active_skeleton_id],
+        WHERE s.skeleton_id = $1
+        ORDER BY e.id, (s.reps IS NULL), s.day_of_week, s.slot_index`,
+      [state.active_skeleton_id]
     );
     const seen = new Set<number>();
     const accesorios = accR.rows.filter((r) => {
@@ -71,11 +87,12 @@ export async function runWeeklyProgressionForAthlete(
     });
 
     const logsR = await client.query<{
-      exercise_id: number; completed: boolean;
+      exercise_id: number;
+      completed: boolean;
     }>(
       `SELECT exercise_id, completed FROM set_logs
         WHERE athlete_id = $1 AND week = $2`,
-      [athleteId, fromWeek],
+      [athleteId, fromWeek]
     );
     const logsByEx = new Map<number, boolean[]>();
     for (const l of logsR.rows) {
@@ -95,19 +112,25 @@ export async function runWeeklyProgressionForAthlete(
       if (!arr || arr.length === 0 || !arr.every(Boolean)) continue;
 
       const wR = await client.query<{
-        current_value: string | null; unit: string | null; current_reps_text: string | null;
+        current_value: string | null;
+        unit: string | null;
+        current_reps_text: string | null;
       }>(
         `SELECT COALESCE(current_value, current_weight_kg)::text AS current_value,
                 unit, current_reps_text
            FROM athlete_exercise_weights
           WHERE athlete_id = $1 AND exercise_id = $2`,
-        [athleteId, ex.id],
+        [athleteId, ex.id]
       );
       const w = wR.rows[0];
       if (!w) continue;
 
       const threshold = ex.rep_cycle_threshold ?? 12;
-      const currentReps = w.current_reps_text ?? '8';
+      const currentReps = resolveAccessoryReps(
+        ex.slot_reps,
+        w.current_reps_text,
+        '8'
+      );
       const adv = advanceReps(currentReps, { threshold, resetReps });
 
       let newWeight: number | null =
@@ -117,7 +140,7 @@ export async function runWeeklyProgressionForAthlete(
       }
 
       // Resolve unit: prefer stored unit, fall back to resolveUnit
-      const unit = w.unit ?? await resolveUnit(athleteId, ex.equipment);
+      const unit = w.unit ?? (await resolveUnit(athleteId, ex.equipment));
 
       await client.query(
         `UPDATE athlete_exercise_weights
@@ -128,7 +151,7 @@ export async function runWeeklyProgressionForAthlete(
                 updated_at = NOW(),
                 updated_by = 'progression_cron'
           WHERE athlete_id = $4 AND exercise_id = $5`,
-        [newWeight, unit, adv.newReps, athleteId, ex.id],
+        [newWeight, unit, adv.newReps, athleteId, ex.id]
       );
 
       bumped.push({
@@ -143,18 +166,23 @@ export async function runWeeklyProgressionForAthlete(
     let toWeek = fromWeek;
     if (compliance >= env.COMPLIANCE_THRESHOLD && fromWeek < 30) {
       toWeek = fromWeek + 1;
-      const nextCfg = await client.query<{ is_rm_test: boolean; is_amrap: boolean }>(
+      const nextCfg = await client.query<{
+        is_rm_test: boolean;
+        is_amrap: boolean;
+      }>(
         `SELECT is_rm_test, is_amrap FROM periodization_config WHERE week_number = $1`,
-        [toWeek],
+        [toWeek]
       );
-      const blocking = !!(nextCfg.rows[0]?.is_rm_test || nextCfg.rows[0]?.is_amrap);
+      const blocking = !!(
+        nextCfg.rows[0]?.is_rm_test || nextCfg.rows[0]?.is_amrap
+      );
       await client.query(
         `UPDATE athlete_program_state
             SET current_week = $1,
                 last_week_advanced_at = NOW(),
                 rm_test_blocking = $2
           WHERE athlete_id = $3`,
-        [toWeek, blocking, athleteId],
+        [toWeek, blocking, athleteId]
       );
     }
 
@@ -162,13 +190,17 @@ export async function runWeeklyProgressionForAthlete(
       `INSERT INTO progression_runs
          (athlete_id, from_week, to_week, compliance, weights_bumped, status)
        VALUES ($1, $2, $3, $4, $5::jsonb, 'success')`,
-      [athleteId, fromWeek, toWeek, compliance, JSON.stringify(bumped)],
+      [athleteId, fromWeek, toWeek, compliance, JSON.stringify(bumped)]
     );
 
     await client.query('COMMIT');
     return {
-      athleteId, fromWeek, toWeek, compliance,
-      weightsBumped: bumped, status: 'success',
+      athleteId,
+      fromWeek,
+      toWeek,
+      compliance,
+      weightsBumped: bumped,
+      status: 'success',
     };
   } catch (e) {
     await client.query('ROLLBACK');
@@ -182,13 +214,16 @@ export async function runWeeklyProgressionForAthlete(
 export async function runWeeklyProgressionForAll(): Promise<void> {
   const { rows } = await pool.query<{ athlete_id: string }>(
     `SELECT athlete_id FROM athlete_program_state
-      WHERE active_skeleton_id IS NOT NULL`,
+      WHERE active_skeleton_id IS NOT NULL`
   );
   for (const r of rows) {
     try {
       await runWeeklyProgressionForAthlete(r.athlete_id);
     } catch (e) {
-      logger.error({ err: e, athleteId: r.athlete_id }, 'progression cron error');
+      logger.error(
+        { err: e, athleteId: r.athlete_id },
+        'progression cron error'
+      );
     }
   }
 }
