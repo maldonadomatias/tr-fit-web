@@ -46,26 +46,32 @@ export async function sendLiveActivityEnd(
   const body = JSON.stringify(buildEndPayload(contentState, dismissalAtSec));
   return await new Promise<ApnsStatus>((resolve) => {
     const client = http2.connect(`https://${env.APNS_HOST}`);
-    client.on('error', () => resolve('failed'));
-    const req = client.request({
-      ':method': 'POST',
-      ':path': `/3/device/${apnsToken}`,
-      authorization: `bearer ${apnsAuthToken()}`,
-      'apns-topic': `${env.APNS_BUNDLE_ID}.push-type.liveactivity`,
-      'apns-push-type': 'liveactivity',
-      'apns-priority': '10',
-      'content-type': 'application/json',
-    });
-    let status = 0;
-    req.on('response', (h) => { status = Number(h[':status']) || 0; });
-    req.on('end', () => {
+    client.on('error', () => { client.close(); resolve('failed'); });
+    try {
+      client.setTimeout(10000, () => { client.close(); resolve('failed'); });
+      const req = client.request({
+        ':method': 'POST',
+        ':path': `/3/device/${apnsToken}`,
+        authorization: `bearer ${apnsAuthToken()}`,
+        'apns-topic': `${env.APNS_BUNDLE_ID}.push-type.liveactivity`,
+        'apns-push-type': 'liveactivity',
+        'apns-priority': '10',
+        'content-type': 'application/json',
+      });
+      let status = 0;
+      req.on('response', (h) => { status = Number(h[':status']) || 0; });
+      req.on('end', () => {
+        client.close();
+        if (status === 200) resolve('sent');
+        else if (status === 410 || status === 400) resolve('token_invalid');
+        else resolve('failed');
+      });
+      req.on('error', () => { client.close(); resolve('failed'); });
+      req.write(body);
+      req.end();
+    } catch {
       client.close();
-      if (status === 200) resolve('sent');
-      else if (status === 410 || status === 400) resolve('token_invalid');
-      else resolve('failed');
-    });
-    req.on('error', () => { client.close(); resolve('failed'); });
-    req.write(body);
-    req.end();
+      resolve('failed');
+    }
   });
 }
