@@ -26,6 +26,11 @@ const schema = z.object({
   FIREBASE_STORAGE_BUCKET: z
     .string()
     .default('tatoroblesfit-2c13e.firebasestorage.app'),
+  APNS_KEY_P8: z.string().default(''),
+  APNS_KEY_ID: z.string().default(''),
+  APNS_TEAM_ID: z.string().default('W6DLX49R4D'),
+  APNS_BUNDLE_ID: z.string().default('com.trfit.app'),
+  APNS_HOST: z.string().default('api.push.apple.com'),
   OWNER_COACH_EMAIL: z.string().email(),
 });
 

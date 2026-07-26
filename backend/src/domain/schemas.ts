@@ -417,6 +417,13 @@ export const pushRegisterPayload = z.object({
   platform: z.enum(['ios', 'android', 'web']),
 });
 
+export const liveActivityRegisterPayload = z.object({
+  apnsToken: z.string().min(1),
+  activityName: z.string().min(1),
+  endMs: z.number().int().positive(),
+  props: z.record(z.unknown()),
+});
+
 export const notificationPrefsPayload = z
   .object({
     session_reminder: z.boolean().optional(),

@@ -6,6 +6,7 @@ import { startNotificationCron } from './workers/notification-cron.js';
 import { startMembershipCron } from './workers/membership-cron.js';
 import { startPlatformFeeCron } from './workers/platform-fee-cron.js';
 import { startRegenWorker } from './workers/regen-worker.js';
+import { startLiveActivityWorker } from './workers/live-activity-worker.js';
 
 dotenv.config();
 
@@ -34,4 +35,5 @@ if (process.env.NODE_ENV !== 'test') {
   startMembershipCron();
   startPlatformFeeCron();
   startRegenWorker();
+  startLiveActivityWorker();
 }
