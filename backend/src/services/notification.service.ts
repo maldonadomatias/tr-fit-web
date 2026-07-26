@@ -15,10 +15,35 @@ const DEDUP_WINDOW_HOURS: Record<NotificationType, number> = {
   membership_expired: 24,
 };
 
+// Routes fire notifyUser without awaiting it so the response is not blocked by
+// a push round-trip. That background work still writes to the DB when it lands,
+// which makes it observable — tests reset the database between cases and would
+// otherwise have a straggler delete rows belonging to the next test. Tracking
+// in-flight calls lets a caller wait for the tail without changing behaviour.
+const inFlight = new Set<Promise<void>>();
+
+export function pendingNotifications(): Promise<void> {
+  return Promise.allSettled([...inFlight]).then(() => undefined);
+}
+
 export async function notifyUser(
   userId: string,
   type: NotificationType,
   vars: Record<string, string> = {},
+): Promise<void> {
+  const p = deliver(userId, type, vars);
+  inFlight.add(p);
+  try {
+    await p;
+  } finally {
+    inFlight.delete(p);
+  }
+}
+
+async function deliver(
+  userId: string,
+  type: NotificationType,
+  vars: Record<string, string>,
 ): Promise<void> {
   // 1. Check prefs
   const u = await pool.query<{ notification_prefs: NotificationPrefs }>(

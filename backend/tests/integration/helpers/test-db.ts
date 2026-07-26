@@ -2,6 +2,15 @@ import { execSync } from 'child_process';
 import pool from '../../../src/db/connect.js';
 
 export async function resetDatabase(): Promise<void> {
+  // Routes fire notifyUser without awaiting it. Truncating while one of those
+  // is still in flight lets its late writes (e.g. deleting an invalid push
+  // token) hit the *next* test's rows. Drain them first. Optional-called
+  // because suites that mock notification.service supply only notifyUser.
+  const notifications = await import(
+    '../../../src/services/notification.service.js'
+  );
+  await notifications.pendingNotifications?.();
+
   await pool.query(`
     TRUNCATE TABLE
       payments,
