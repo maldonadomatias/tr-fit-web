@@ -144,6 +144,58 @@ router.get('/users/:id/sessions', async (req: Request, res: Response) => {
   res.json(await getLoggedSessions(req.params.id, limit));
 });
 
+// Audit trail of the automatic weekly progression: what the cron bumped on each
+// run (from/to kg + reps per exercise), so coaches can check it did the right thing.
+router.get('/users/:id/progression', async (req: Request, res: Response) => {
+  const { rows: runs } = await pool.query<{
+    id: string;
+    ran_at: string;
+    from_week: number;
+    to_week: number;
+    compliance: number | null;
+    weights_bumped: Array<{
+      exercise_id: number;
+      from_kg: number | null;
+      to_kg: number | null;
+      reps_from: string | null;
+      reps_to: string;
+    }>;
+    status: string;
+    error_message: string | null;
+  }>(
+    `SELECT id, ran_at, from_week, to_week, compliance,
+            weights_bumped, status, error_message
+       FROM progression_runs
+      WHERE athlete_id = $1
+      ORDER BY ran_at DESC
+      LIMIT 50`,
+    [req.params.id]
+  );
+
+  // weights_bumped stores exercise ids only; resolve names for display.
+  const ids = [
+    ...new Set(runs.flatMap((r) => r.weights_bumped.map((b) => b.exercise_id))),
+  ];
+  const names = new Map<number, string>();
+  if (ids.length) {
+    const nameR = await pool.query<{ id: number; name: string }>(
+      `SELECT id, name FROM exercises WHERE id = ANY($1)`,
+      [ids]
+    );
+    for (const e of nameR.rows) names.set(e.id, e.name);
+  }
+
+  res.json(
+    runs.map((r) => ({
+      ...r,
+      weights_bumped: r.weights_bumped.map((b) => ({
+        ...b,
+        exercise_name: names.get(b.exercise_id) ?? `#${b.exercise_id}`,
+      })),
+    }))
+  );
+});
+
 const patchBody = z
   .object({
     role: z.enum(['athlete', 'admin', 'superadmin']).optional(),

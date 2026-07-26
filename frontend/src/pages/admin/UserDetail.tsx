@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Check,
   ChevronLeft,
+  ChevronRight,
   Copy,
   Dumbbell,
   ExternalLink,
@@ -52,6 +53,10 @@ import {
 } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { useLoggedSessions } from '@/hooks/useLoggedSessions';
+import {
+  useProgressionRuns,
+  type ProgressionRun,
+} from '@/hooks/useProgressionRuns';
 import { useSetMonthlyFee } from '@/hooks/useSetMonthlyFee';
 import { useAthleteRms, useSetAthleteRm } from '@/hooks/useAthleteRms';
 import { activityLabel, activitySub } from '@/lib/activity';
@@ -69,6 +74,7 @@ import type {
 type TabKey =
   | 'resumen'
   | 'entrenamientos'
+  | 'progresion'
   | 'rm'
   | 'estado'
   | 'suscripcion'
@@ -141,6 +147,7 @@ export default function UserDetail() {
         tabs={[
           { key: 'resumen', label: 'Resumen' },
           { key: 'entrenamientos', label: 'Entrenamientos' },
+          { key: 'progresion', label: 'Progresión' },
           { key: 'rm', label: 'RM / Planilla' },
           { key: 'estado', label: 'Estado de la cuenta' },
           { key: 'suscripcion', label: 'Suscripción' },
@@ -157,6 +164,7 @@ export default function UserDetail() {
 
       {tab === 'resumen' && <ResumenTab user={user} />}
       {tab === 'entrenamientos' && <EntrenamientosTab user={user} />}
+      {tab === 'progresion' && <ProgresionTab user={user} />}
       {tab === 'rm' && <RmTab user={user} />}
       {tab === 'estado' && <EstadoTab user={user} isSelf={isSelf} />}
       {tab === 'suscripcion' && <SuscripcionTab user={user} />}
@@ -1080,6 +1088,152 @@ function EntrenamientosTab({ user }: { user: AdminUser }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+const PROGRESSION_STATUS_LABEL: Record<ProgressionRun['status'], string> = {
+  success: 'OK',
+  partial: 'Parcial',
+  failed: 'Error',
+  skipped: 'Sin cambios',
+};
+
+function fmtKg(v: number | null): string {
+  return v === null ? '—' : `${v} kg`;
+}
+
+// What the automatic weekly progression changed, one run per view: the coach
+// pages sideways to audit each week instead of scrolling a stacked list.
+function ProgresionTab({ user }: { user: AdminUser }) {
+  const q = useProgressionRuns(user.id);
+  const runs = useMemo(() => q.data ?? [], [q.data]);
+  // 0 = most recent (server returns them DESC).
+  const [i, setI] = useState(0);
+  useEffect(() => setI(0), [runs]);
+
+  if (q.isLoading) {
+    return (
+      <div className="rounded-2xl border bg-card p-[18px]">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
+  if (runs.length === 0) {
+    return (
+      <div className="rounded-2xl border bg-card">
+        <div className="border-b border-border p-[18px]">
+          <Eyebrow variant="muted">Progresión</Eyebrow>
+          <div className="mt-1 text-[17px] font-semibold tracking-tight">
+            Actualizaciones automáticas
+          </div>
+        </div>
+        <div className="p-[18px] text-sm text-muted-foreground">
+          Todavía no hubo actualizaciones automáticas para este atleta.
+        </div>
+      </div>
+    );
+  }
+
+  const idx = Math.min(i, runs.length - 1);
+  const run = runs[idx];
+  const advanced = run.to_week > run.from_week;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-[18px] py-3">
+        <button
+          type="button"
+          onClick={() => setI((n) => Math.min(n + 1, runs.length - 1))}
+          disabled={idx >= runs.length - 1}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-background disabled:opacity-30 disabled:hover:bg-transparent"
+          aria-label="Semana anterior"
+        >
+          <ChevronLeft size={16} />
+        </button>
+
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="rounded-md bg-background px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums">
+            {advanced
+              ? `SEM ${run.from_week} → ${run.to_week}`
+              : `SEM ${run.from_week}`}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            {new Date(run.ran_at).toLocaleDateString()} · {idx + 1}/
+            {runs.length}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setI((n) => Math.max(n - 1, 0))}
+          disabled={idx <= 0}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-background disabled:opacity-30 disabled:hover:bg-transparent"
+          aria-label="Semana siguiente"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-[18px] py-2">
+        {run.compliance !== null && (
+          <span className="font-mono text-[11px] text-muted-foreground">
+            Cumplimiento {Math.round(run.compliance * 100)}%
+          </span>
+        )}
+        <span
+          className={cn(
+            'ml-auto rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.14em]',
+            run.status === 'failed'
+              ? 'bg-destructive/15 text-destructive'
+              : run.status === 'skipped'
+                ? 'bg-muted text-muted-foreground'
+                : 'bg-brand/15 text-brand'
+          )}
+        >
+          {PROGRESSION_STATUS_LABEL[run.status]}
+        </span>
+      </div>
+
+      {run.error_message && (
+        <div className="px-[18px] py-3 text-[12px] text-destructive">
+          {run.error_message}
+        </div>
+      )}
+
+      {run.weights_bumped.length > 0 ? (
+        <div className="divide-y divide-border">
+          {run.weights_bumped.map((b) => (
+            <div
+              key={b.exercise_id}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-[18px] py-3"
+            >
+              <span className="text-[13px] font-semibold">
+                {b.exercise_name}
+              </span>
+              {b.from_kg !== b.to_kg ? (
+                <span className="font-mono text-[12px] font-semibold tabular-nums text-brand">
+                  {fmtKg(b.from_kg)} → {fmtKg(b.to_kg)}
+                </span>
+              ) : (
+                <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
+                  {fmtKg(b.to_kg)}
+                </span>
+              )}
+              <span className="font-mono text-[11px] text-muted-foreground">
+                reps {b.reps_from ?? '—'} → {b.reps_to}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        !run.error_message && (
+          <div className="px-[18px] py-3 text-sm text-muted-foreground">
+            No se ajustó ningún ejercicio esta semana.
+          </div>
+        )
+      )}
     </div>
   );
 }
