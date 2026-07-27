@@ -6,10 +6,13 @@ export class EquipmentUnitsError extends Error {
   constructor(public reason: 'invalid_equipment') { super(reason); }
 }
 
-// "ladrillos" = stack-pin plate count on selectorized cable/machine equipment.
+// "ladrillos" = stack-pin plate count on selectorized cable equipment.
+// Machines are plate-loaded in the coach's gyms and carry kg (2026-07-27
+// coach report); a selectorized machine can still be switched per athlete
+// via athlete_equipment_units.
 export const DEFAULT_UNIT_BY_EQUIPMENT: Record<string, Unit> = {
   polea: 'ladrillos',
-  maquina: 'ladrillos',
+  maquina: 'kg',
   barra: 'kg',
   mancuerna: 'kg',
   smith: 'kg',

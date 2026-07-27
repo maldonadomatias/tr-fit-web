@@ -38,7 +38,16 @@ describe('resolveUnit', () => {
     expect(await resolveUnit('a1', 'polea')).toBe('ladrillos');
   });
 
-  it('returns ladrillos default for maquina when no pref', async () => {
+  it('returns kg default for maquina when no pref', async () => {
+    expect(await resolveUnit('a1', 'maquina')).toBe('kg');
+  });
+
+  it('still honors a ladrillos preference on maquina', async () => {
+    handlers.push((sql, params) =>
+      sql.includes('FROM athlete_equipment_units') && params?.[1] === 'maquina'
+        ? { rows: [{ unit: 'ladrillos' }], rowCount: 1 }
+        : null,
+    );
     expect(await resolveUnit('a1', 'maquina')).toBe('ladrillos');
   });
 
@@ -54,7 +63,7 @@ describe('resolveUnit', () => {
 describe('DEFAULT_UNIT_BY_EQUIPMENT', () => {
   it('has expected polea + maquina defaults', () => {
     expect(DEFAULT_UNIT_BY_EQUIPMENT.polea).toBe('ladrillos');
-    expect(DEFAULT_UNIT_BY_EQUIPMENT.maquina).toBe('ladrillos');
+    expect(DEFAULT_UNIT_BY_EQUIPMENT.maquina).toBe('kg');
     expect(DEFAULT_UNIT_BY_EQUIPMENT.barra).toBe('kg');
   });
 });
