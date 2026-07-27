@@ -395,6 +395,7 @@ export function DetailPaneActivas({
             <DayCard
               key={day}
               dayOfWeek={day}
+              daysSpecific={rutina.profile.days_specific}
               focus={dayFocus.get(day) ?? null}
               slots={slotsByDay.get(day) ?? []}
               flaggedExerciseIds={flaggedExerciseIds}

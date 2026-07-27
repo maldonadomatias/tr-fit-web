@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { nextAvailableSlotIndex } from './activas/DayCard';
+import { dayHeading, nextAvailableSlotIndex } from './activas/DayCard';
 import { resolvePrescription } from './TabRutina';
 import { parseRoutineDraft } from './routine-draft';
 import type { RutinaSlot } from '@/types/api';
@@ -20,6 +20,12 @@ const slot = (overrides: Partial<RutinaSlot> = {}): RutinaSlot => ({
 });
 
 describe('routine editor regressions', () => {
+  it('labels session ordinals with the athlete real weekdays', () => {
+    expect(dayHeading(2, ['lun', 'jue', 'vie'])).toBe('Día 2 · Jueves');
+    expect(dayHeading(1, null)).toBe('Día 1');
+    expect(dayHeading(4, ['lun', 'jue', 'vie'])).toBe('Día 4');
+  });
+
   it('uses the first free position when an active day has gaps', () => {
     expect(
       nextAvailableSlotIndex([

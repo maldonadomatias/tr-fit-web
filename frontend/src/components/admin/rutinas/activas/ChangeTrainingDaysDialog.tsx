@@ -45,7 +45,10 @@ export function ChangeTrainingDaysDialog({
     );
   const submit = async () => {
     try {
-      await change.mutateAsync(selected);
+      // Send in weekday order: días_specific[i] is the weekday of session i+1.
+      await change.mutateAsync(
+        DAYS.map(([value]) => value).filter((value) => selected.includes(value))
+      );
       toast.success('Nueva rutina en generación con los días elegidos');
       onOpenChange(false);
     } catch {

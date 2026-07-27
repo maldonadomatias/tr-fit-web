@@ -10,19 +10,33 @@ import { SlotRow } from './SlotRow';
 import type { SlotOverride } from '@/components/admin/rutinas/EditSlotPopover';
 import type { Exercise, RutinaSlot } from '@/types/api';
 
-const DAY_LABEL: Record<number, string> = {
-  1: 'Lunes',
-  2: 'Martes',
-  3: 'Miércoles',
-  4: 'Jueves',
-  5: 'Viernes',
-  6: 'Sábado',
-  7: 'Domingo',
+const DAY_LABEL: Record<string, string> = {
+  lun: 'Lunes',
+  mar: 'Martes',
+  mie: 'Miércoles',
+  jue: 'Jueves',
+  vie: 'Viernes',
+  sab: 'Sábado',
+  dom: 'Domingo',
 };
+
+/**
+ * `day_of_week` in skeletons is the session ordinal (Día 1..N), not a calendar
+ * weekday: the athlete's real weekdays live in `athlete_profiles.days_specific`
+ * in the same order. Label by ordinal and only add the weekday when known.
+ */
+export function dayHeading(
+  dayOfWeek: number,
+  daysSpecific: string[] | null | undefined
+): string {
+  const weekday = DAY_LABEL[daysSpecific?.[dayOfWeek - 1] ?? ''];
+  return weekday ? `Día ${dayOfWeek} · ${weekday}` : `Día ${dayOfWeek}`;
+}
 
 /* eslint-disable no-unused-vars -- callback parameter names document the API */
 interface DayCardProps {
   dayOfWeek: number;
+  daysSpecific: string[] | null;
   focus: string | null;
   slots: RutinaSlot[];
   flaggedExerciseIds: Set<number>;
@@ -35,6 +49,7 @@ interface DayCardProps {
 
 export function DayCard({
   dayOfWeek,
+  daysSpecific,
   focus,
   slots,
   flaggedExerciseIds,
@@ -50,7 +65,7 @@ export function DayCard({
     <section className="rounded-2xl border border-border bg-card">
       <header className="border-b border-border px-4 py-3 sm:px-5">
         <h3 className="text-sm font-semibold">
-          {DAY_LABEL[dayOfWeek] ?? `Día ${dayOfWeek}`}
+          {dayHeading(dayOfWeek, daysSpecific)}
         </h3>
         {focus && <p className="text-xs text-muted-foreground">{focus}</p>}
       </header>
