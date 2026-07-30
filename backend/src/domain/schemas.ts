@@ -382,6 +382,9 @@ export const syncPayload = z.object({
 
 export const finishSessionPayload = z.object({
   fatigue_rating: z.enum(['suave', 'normal', 'exigente']),
+  // Optional free-text note for the coach. Trimmed and capped so a runaway
+  // paste can't bloat the row.
+  note: z.string().trim().max(1000).optional(),
 });
 
 export const alertPayload = z.object({

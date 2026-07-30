@@ -230,6 +230,7 @@ export async function finishSession(
   sessionId: string,
   athleteId: string,
   fatigueRating: 'suave' | 'normal' | 'exigente',
+  note?: string,
 ): Promise<SessionSummary> {
   const client = await pool.connect();
   try {
@@ -323,10 +324,11 @@ export async function finishSession(
              total_sets_completed = $2,
              compliance_pct = $3,
              total_volume_kg = $4,
-             duration_seconds = $5
-       WHERE id = $6`,
+             duration_seconds = $5,
+             note = $6
+       WHERE id = $7`,
       [fatigueRating, setsCompleted, compliancePct, totalVolumeKg,
-       durationSeconds, sessionId],
+       durationSeconds, note?.trim() || null, sessionId],
     );
 
     await client.query('COMMIT');

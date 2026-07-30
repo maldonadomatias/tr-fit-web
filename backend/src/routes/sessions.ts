@@ -54,7 +54,12 @@ router.patch('/:id/finish', async (req: Request, res: Response) => {
   const parsed = finishSessionPayload.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
   try {
-    const summary = await finishSession(req.params.id, req.user!.id, parsed.data.fatigue_rating);
+    const summary = await finishSession(
+      req.params.id,
+      req.user!.id,
+      parsed.data.fatigue_rating,
+      parsed.data.note,
+    );
     return res.status(200).json({ summary });
   } catch (e) {
     if (e instanceof SessionError) {

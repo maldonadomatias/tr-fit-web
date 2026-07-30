@@ -12,6 +12,7 @@ const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/tes
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const { createPendingSkeleton, approveSkeleton } = await import('../../src/services/skeleton.service.js');
 const { signToken } = await import('../../src/middleware/auth.js');
+const { getLoggedSessions } = await import('../../src/services/logged-sessions.service.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const requestMod = await import('supertest');
@@ -101,6 +102,41 @@ it('PATCH /api/sessions/:id/finish returns summary', async () => {
     .send({ fatigue_rating: 'normal' });
   expect(fin.status).toBe(200);
   expect(fin.body.summary.setsCompleted).toBe(1);
+});
+
+it('PATCH /finish stores the athlete note and serves it back to the coach', async () => {
+  const { ath, tok, principalId } = await setup();
+  const sess = await request(app).post('/api/sessions')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ day_of_week: 1, client_id: randomUUID() });
+  await request(app).post(`/api/sessions/${sess.body.sessionId}/sets`)
+    .set('Authorization', `Bearer ${tok}`)
+    .send({
+      exercise_id: principalId, set_index: 1, value: 80, unit: 'kg', reps: 8,
+      completed: true, client_id: randomUUID(),
+      client_ts: new Date().toISOString(),
+    });
+  const fin = await request(app).patch(`/api/sessions/${sess.body.sessionId}/finish`)
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ fatigue_rating: 'normal', note: '  No me animé a tirar el RM  ' });
+  expect(fin.status).toBe(200);
+
+  const logged = await getLoggedSessions(ath, 5);
+  expect(logged[0].note).toBe('No me animé a tirar el RM');
+});
+
+it('PATCH /finish leaves the note null when it is omitted or blank', async () => {
+  const { ath, tok } = await setup();
+  const sess = await request(app).post('/api/sessions')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ day_of_week: 1, client_id: randomUUID() });
+  const fin = await request(app).patch(`/api/sessions/${sess.body.sessionId}/finish`)
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ fatigue_rating: 'suave', note: '   ' });
+  expect(fin.status).toBe(200);
+
+  const logged = await getLoggedSessions(ath, 5);
+  expect(logged[0].note).toBeNull();
 });
 
 it('POST /api/sessions ignores the client day and starts the pending one', async () => {

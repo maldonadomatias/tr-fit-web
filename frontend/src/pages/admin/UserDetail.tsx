@@ -1050,6 +1050,16 @@ function EntrenamientosTab({ user }: { user: AdminUser }) {
               </span>
             )}
           </div>
+          {s.note && (
+            <div className="border-b border-border px-[18px] py-3">
+              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Nota del atleta
+              </div>
+              <div className="mt-1 whitespace-pre-line text-[13px] text-foreground">
+                {s.note}
+              </div>
+            </div>
+          )}
           <div className="divide-y divide-border">
             {s.exercises.map((ex) => (
               <div key={ex.exercise_id} className="px-[18px] py-3">
