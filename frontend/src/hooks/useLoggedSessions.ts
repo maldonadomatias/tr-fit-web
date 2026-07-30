@@ -22,6 +22,7 @@ export interface LoggedSession {
   day_of_week: number;
   finished_at: string | null;
   fatigue_rating: string | null;
+  note: string | null;
   exercises: LoggedExercise[];
 }
 

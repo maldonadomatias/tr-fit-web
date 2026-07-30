@@ -28,6 +28,8 @@ export interface LoggedSession {
   day_of_week: number;
   finished_at: string | null;
   fatigue_rating: string | null;
+  /** Free-text note the athlete left when finishing. */
+  note: string | null;
   exercises: LoggedExercise[];
 }
 
@@ -107,9 +109,10 @@ export async function getLoggedSessions(
     day_of_week: number;
     finished_at: string | null;
     fatigue_rating: string | null;
+    note: string | null;
   }>(
     `SELECT id, program_week, day_of_week,
-            finished_at::text AS finished_at, fatigue_rating
+            finished_at::text AS finished_at, fatigue_rating, note
        FROM session_logs
       WHERE athlete_id = $1 AND finished_at IS NOT NULL
       ORDER BY finished_at DESC
@@ -170,6 +173,7 @@ export async function getLoggedSessions(
       day_of_week: s.day_of_week,
       finished_at: s.finished_at,
       fatigue_rating: s.fatigue_rating,
+      note: s.note,
       exercises,
     };
   });
