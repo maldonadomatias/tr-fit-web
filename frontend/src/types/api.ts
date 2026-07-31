@@ -151,6 +151,7 @@ export interface AdminUser {
   membership_status: MembershipStatus | null;
   // 'infinity'::timestamptz serializes as null-ish JSON — treat as sin vencimiento.
   paid_until: string | null;
+  last_session_at: string | null;
 }
 
 export type MembershipStatus =

@@ -38,6 +38,7 @@ export interface AdminUserRow {
     | null;
   paid_until: string | number | null;
   monthly_fee_ars: number | null;
+  last_session_at: string | null;
 }
 
 export interface ListFilters {
@@ -58,7 +59,11 @@ export function buildListUsersSql(whereSql: string): string {
       s.status AS subscription_status,
       s.current_period_end,
       mem.status AS membership_status,
-      mem.paid_until AS paid_until
+      mem.paid_until AS paid_until,
+      (
+        SELECT MAX(started_at) FROM session_logs
+          WHERE athlete_id = u.id
+      ) AS last_session_at
     FROM users u
     LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
     LEFT JOIN coach_profiles cp ON cp.user_id = u.id
@@ -116,7 +121,11 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        s.status AS subscription_status,
        s.current_period_end,
        mem.status AS membership_status,
-       mem.paid_until AS paid_until
+       mem.paid_until AS paid_until,
+       (
+         SELECT MAX(started_at) FROM session_logs
+           WHERE athlete_id = u.id
+       ) AS last_session_at
      FROM users u
      LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
      LEFT JOIN coach_profiles cp ON cp.user_id = u.id

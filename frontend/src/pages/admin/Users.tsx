@@ -319,8 +319,7 @@ function UserRow({
       </TableCell>
       <TableCell>
         <span className="font-mono tabular-nums text-xs text-muted-foreground">
-          {/* last_session_at not yet exposed on AdminUser */}
-          nunca
+          {user.last_session_at ? fmtShortDate(user.last_session_at) : 'nunca'}
         </span>
       </TableCell>
       <TableCell className="text-right">
