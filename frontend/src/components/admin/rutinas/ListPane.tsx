@@ -73,8 +73,10 @@ export function ListPane({
   const total = items.length;
   const todayCount = items.filter((it) => isToday(it.created_at)).length;
 
+  // min-h-0: sin esto el min-content de la lista estira la fila del grid y
+  // empuja el footer de acciones fuera de pantalla con muchas rutinas.
   return (
-    <aside className="flex max-h-[60vh] flex-col border-b border-border bg-card lg:max-h-none lg:h-full lg:border-b-0 lg:border-r">
+    <aside className="flex max-h-[40vh] min-h-0 flex-col border-b border-border bg-card lg:max-h-none lg:h-full lg:border-b-0 lg:border-r">
       <ListFilters
         query={query}
         onQuery={setQuery}
