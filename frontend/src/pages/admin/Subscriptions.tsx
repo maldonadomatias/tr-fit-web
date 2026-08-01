@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
+import { ChevronRight, ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -40,6 +40,7 @@ export default function Subscriptions() {
   const navigate = useNavigate();
   const [tier, setTier] = useState<TierKey>('all');
   const [status, setStatus] = useState<StatusKey>('all');
+  const [search, setSearch] = useState('');
 
   const usersQ = useAdminUsers({});
   const statsQ = useAdminStats();
@@ -57,20 +58,23 @@ export default function Subscriptions() {
 
   // Soon-to-expire float to the top: expired first, then VENCE HOY / MAÑANA,
   // then by "Vence el" ascending; sin-vencimiento sinks to the bottom.
-  const filtered = useMemo(
-    () =>
-      subs
-        .filter((u) => {
-          if (tier !== 'all' && u.subscription_tier !== tier) return false;
-          if (status !== 'all' && u.subscription_status !== status) return false;
-          return true;
-        })
-        .sort(
-          (a, b) =>
-            expiryInfo(a.paid_until).sortKey - expiryInfo(b.paid_until).sortKey,
-        ),
-    [subs, tier, status],
-  );
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return subs
+      .filter((u) => {
+        if (tier !== 'all' && u.subscription_tier !== tier) return false;
+        if (status !== 'all' && u.subscription_status !== status) return false;
+        if (needle) {
+          const hay = `${u.email} ${u.name ?? ''} ${u.id}`.toLowerCase();
+          if (!hay.includes(needle)) return false;
+        }
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          expiryInfo(a.paid_until).sortKey - expiryInfo(b.paid_until).sortKey,
+      );
+  }, [subs, tier, status, search]);
 
   const activeSubs = subs.filter(
     (u) => u.subscription_status === 'authorized',
@@ -160,6 +164,16 @@ export default function Subscriptions() {
 
       <div className="mb-4 rounded-2xl border bg-card p-3">
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex h-8 w-full items-center gap-2 rounded-md border bg-background px-2.5 text-sm sm:w-72">
+            <Search size={14} className="text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por email, nombre o id…"
+              className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="hidden h-[22px] w-px bg-border sm:block" />
           <Segmented<TierKey>
             value={tier}
             onChange={setTier}
