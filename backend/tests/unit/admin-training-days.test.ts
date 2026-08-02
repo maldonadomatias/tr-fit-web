@@ -25,6 +25,20 @@ it('lets the athlete app submit concrete weekdays atomically', () => {
   ).toBe(false);
 });
 
+it('stores weekdays in weekday order, not tap order', () => {
+  expect(
+    adminTrainingDaysPayload.parse({
+      days_specific: ['lun', 'mar', 'vie', 'jue'],
+    }).days_specific
+  ).toEqual(['lun', 'mar', 'jue', 'vie']);
+  expect(
+    profileUpdatePayload.parse({
+      days_per_week: 4,
+      days_specific: ['vie', 'lun', 'jue', 'mar'],
+    }).days_specific
+  ).toEqual(['lun', 'mar', 'jue', 'vie']);
+});
+
 it('rejects duplicate weekdays', () => {
   expect(
     adminTrainingDaysPayload.safeParse({ days_specific: ['lun', 'lun'] })

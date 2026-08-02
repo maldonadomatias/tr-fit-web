@@ -13,6 +13,20 @@ export const measurementPayload = z.object({
 
 const BIRTH_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// days_specific[i] is the weekday of session i+1, so it has to be stored in
+// weekday order. The app submits it in tap order (lun, mar, vie, jue), which
+// surfaced as "Día 3 · Viernes / Día 4 · Jueves" in the admin: normalize here
+// so every write path lands sorted.
+const WEEKDAYS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'] as const;
+type WeekdayKey = (typeof WEEKDAYS)[number];
+const weekdayEnum = z.enum(WEEKDAYS);
+
+export function sortWeekdays(days: WeekdayKey[]): WeekdayKey[] {
+  return [...days].sort(
+    (a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)
+  );
+}
+
 /**
  * Derives the current age from an ISO YYYY-MM-DD birth date. Returns null for
  * malformed strings or impossible calendar dates (e.g. 2000-02-31). "today" is
@@ -77,9 +91,7 @@ export const onboardingPayload = z
       z.literal(105),
       z.literal(120),
     ]),
-    days_specific: z.array(
-      z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'])
-    ),
+    days_specific: z.array(weekdayEnum).transform(sortWeekdays),
     referral_source: z.enum([
       'instagram',
       'facebook',
@@ -144,9 +156,10 @@ export const profileUpdatePayload = z
     goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
     days_per_week: z.number().int().min(2).max(6),
     days_specific: z
-      .array(z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']))
+      .array(weekdayEnum)
       .min(2)
-      .max(6),
+      .max(6)
+      .transform(sortWeekdays),
     leg_days: z.union([z.literal(1), z.literal(2)]).nullable(),
     // Editable post-onboarding so athletes who signed up before the field
     // existed can set it (enables the birthday celebration in the app). The
@@ -485,10 +498,9 @@ export const adminListAthletesQuery = z.object({
   offset: z.coerce.number().int().min(0).optional(),
 });
 
-const weekdayEnum = z.enum(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom']);
 export const adminTrainingDaysPayload = z
   .object({
-    days_specific: z.array(weekdayEnum).min(2).max(6),
+    days_specific: z.array(weekdayEnum).min(2).max(6).transform(sortWeekdays),
   })
   .refine(
     (value) => new Set(value.days_specific).size === value.days_specific.length,
