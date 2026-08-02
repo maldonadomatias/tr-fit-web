@@ -3,7 +3,7 @@ import { z } from 'zod';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import { findAlternative } from '../services/alternatives.service.js';
+import { findAlternatives } from '../services/alternatives.service.js';
 import { listExercises as listExercisesAdmin } from '../services/admin-exercise.service.js';
 
 const router = Router();
@@ -83,8 +83,9 @@ router.get('/:id/alternatives', async (req: Request, res: Response) => {
     .split(',')
     .map((s) => parseInt(s, 10))
     .filter((n) => Number.isFinite(n) && n > 0);
-  const alt = await findAlternative(id, req.user!.id, excludeIds);
-  return res.status(200).json({ alternative: alt });
+  const alts = await findAlternatives(id, req.user!.id, excludeIds);
+  // `alternative` stays for app builds older than the picker list.
+  return res.status(200).json({ alternative: alts[0] ?? null, alternatives: alts });
 });
 
 export default router;
