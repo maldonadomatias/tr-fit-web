@@ -214,29 +214,30 @@ export default function Subscriptions() {
             Sin suscripciones para esos filtros.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-          <Table>
+          /* table-fixed: every other column is pinned, so Cliente absorbs all
+             the leftover width instead of being squeezed to the minimum. */
+          <Table className="min-w-[1020px] table-fixed">
             <TableHeader>
               <TableRow className="border-b">
                 <TableHead>
                   <ColLabel>Cliente</ColLabel>
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-[84px]">
                   <ColLabel>Plan</ColLabel>
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-[104px]">
                   <ColLabel>Estado</ColLabel>
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-[124px]">
                   <ColLabel>Vence el</ColLabel>
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-[190px]">
                   <ColLabel>Mes = {monthLabel()}</ColLabel>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="w-[112px] text-right">
                   <ColLabel>Valor</ColLabel>
                 </TableHead>
-                <TableHead className="text-right">
+                <TableHead className="w-[216px] text-right">
                   <ColLabel>Renovar</ColLabel>
                 </TableHead>
                 <TableHead className="w-8"></TableHead>
@@ -255,7 +256,7 @@ export default function Subscriptions() {
                     onClick={() => navigate(`/admin/users/${u.id}`)}
                     className="cursor-pointer hover:bg-muted/35"
                   >
-                    <TableCell className="max-w-0">
+                    <TableCell>
                       <div className="flex items-center gap-2.5">
                         <Avatar name={u.name ?? u.email} />
                         <div className="min-w-0">
@@ -314,7 +315,6 @@ export default function Subscriptions() {
               })}
             </TableBody>
           </Table>
-          </div>
         )}
       </div>
     </div>
