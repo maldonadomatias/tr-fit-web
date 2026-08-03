@@ -218,26 +218,28 @@ function UsersTable({
   onOpen: (u: AdminUser) => void;
 }) {
   return (
-    <Table className="min-w-[820px]">
+    /* table-fixed: every other column is pinned, so Usuario absorbs all the
+       leftover width instead of being squeezed to the minimum. */
+    <Table className="min-w-[920px] table-fixed">
       <TableHeader>
         <TableRow className="border-b">
           <TableHead className="w-7"></TableHead>
           <TableHead>
             <ColLabel>Usuario</ColLabel>
           </TableHead>
-          <TableHead>
+          <TableHead className="w-[96px]">
             <ColLabel>Rol</ColLabel>
           </TableHead>
-          <TableHead>
+          <TableHead className="w-[112px]">
             <ColLabel>Estado</ColLabel>
           </TableHead>
-          <TableHead>
+          <TableHead className="w-[200px]">
             <ColLabel>Suscripción</ColLabel>
           </TableHead>
-          <TableHead>
+          <TableHead className="w-[128px]">
             <ColLabel>Última sesión</ColLabel>
           </TableHead>
-          <TableHead className="text-right">
+          <TableHead className="w-[104px] text-right">
             <ColLabel>Alta</ColLabel>
           </TableHead>
         </TableRow>
@@ -283,7 +285,7 @@ function UserRow({
           />
         )}
       </TableCell>
-      <TableCell className="max-w-0">
+      <TableCell>
         <div className="flex items-center gap-2.5">
           <Avatar name={user.name ?? user.email} brand={pending} />
           <div className="min-w-0">

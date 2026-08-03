@@ -146,12 +146,15 @@ async function main(): Promise<void> {
 
   const roster = parseRoster(readFileSync(file, 'utf8'));
 
+  // LEFT JOIN, no JOIN: un alumno que todavía no terminó el onboarding no tiene
+  // athlete_profiles pero igual paga la cuota y necesita su vencimiento. Sin
+  // nombre solo se lo puede matchear por la columna EMAIL del TSV.
   const { rows: athletes } = await pool.query<DbAthlete>(
-    `SELECT u.id, u.email, ap.name,
+    `SELECT u.id, u.email, COALESCE(ap.name, '(sin onboarding)') AS name,
             mem.paid_until,
             COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars)::text AS monthly_fee_ars
        FROM users u
-       JOIN athlete_profiles ap ON ap.user_id = u.id
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
        LEFT JOIN memberships mem ON mem.user_id = u.id
       WHERE u.role = 'athlete'`
   );
