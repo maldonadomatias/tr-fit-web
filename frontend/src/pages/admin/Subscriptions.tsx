@@ -18,6 +18,8 @@ import { TierBadge } from '@/components/admin/TierBadge';
 import { SubStatusBadge } from '@/components/admin/SubStatusBadge';
 import { useAdminUsers, useRegisterPayment } from '@/hooks/useAdminUsers';
 import { useAdminStats } from '@/hooks/useAdminStats';
+import { Pagination } from '@/components/admin/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { fmtARS, fmtShortDate } from '@/lib/format';
 import {
   expiryInfo,
@@ -25,7 +27,11 @@ import {
   monthLabel,
   type ExpiryUrgency,
 } from '@/lib/subscription';
-import type { AdminUser, SubscriptionStatus, SubscriptionTier } from '@/types/api';
+import type {
+  AdminUser,
+  SubscriptionStatus,
+  SubscriptionTier,
+} from '@/types/api';
 
 const TIER_PRICE: Record<SubscriptionTier, number> = {
   basico: 15000,
@@ -53,7 +59,7 @@ export default function Subscriptions() {
 
   const subs = useMemo(
     () => (usersQ.data ?? []).filter((u) => u.subscription_tier !== null),
-    [usersQ.data],
+    [usersQ.data]
   );
 
   // Soon-to-expire float to the top: expired first, then VENCE HOY / MAÑANA,
@@ -72,13 +78,16 @@ export default function Subscriptions() {
       })
       .sort(
         (a, b) =>
-          expiryInfo(a.paid_until).sortKey - expiryInfo(b.paid_until).sortKey,
+          expiryInfo(a.paid_until).sortKey - expiryInfo(b.paid_until).sortKey
       );
   }, [subs, tier, status, search]);
 
-  const activeSubs = subs.filter(
-    (u) => u.subscription_status === 'authorized',
-  );
+  const pager = usePagination(filtered, {
+    pageSize: 25,
+    filterKey: `${tier}|${status}|${search}`,
+  });
+
+  const activeSubs = subs.filter((u) => u.subscription_status === 'authorized');
 
   const renew = (u: AdminUser) => {
     // "Pagado, renovar 30 días": books the payment to today's month (revenue)
@@ -93,13 +102,12 @@ export default function Subscriptions() {
       activeCount: activeSubs.filter((u) => u.subscription_tier === t).length,
       otherCount: subs.filter(
         (u) =>
-          u.subscription_tier === t &&
-          u.subscription_status !== 'authorized',
+          u.subscription_tier === t && u.subscription_status !== 'authorized'
       ).length,
       contribution: activeSubs
         .filter((u) => u.subscription_tier === t)
         .reduce((sum, u) => sum + feeOf(u), 0),
-    }),
+    })
   );
 
   return (
@@ -216,105 +224,118 @@ export default function Subscriptions() {
         ) : (
           /* table-fixed: every other column is pinned, so Cliente absorbs all
              the leftover width instead of being squeezed to the minimum. */
-          <Table className="min-w-[1020px] table-fixed">
-            <TableHeader>
-              <TableRow className="border-b">
-                <TableHead>
-                  <ColLabel>Cliente</ColLabel>
-                </TableHead>
-                <TableHead className="w-[84px]">
-                  <ColLabel>Plan</ColLabel>
-                </TableHead>
-                <TableHead className="w-[104px]">
-                  <ColLabel>Estado</ColLabel>
-                </TableHead>
-                <TableHead className="w-[124px]">
-                  <ColLabel>Vence el</ColLabel>
-                </TableHead>
-                <TableHead className="w-[190px]">
-                  <ColLabel>Mes = {monthLabel()}</ColLabel>
-                </TableHead>
-                <TableHead className="w-[112px] text-right">
-                  <ColLabel>Valor</ColLabel>
-                </TableHead>
-                <TableHead className="w-[216px] text-right">
-                  <ColLabel>Renovar</ColLabel>
-                </TableHead>
-                <TableHead className="w-8"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((u) => {
-                const price = feeOf(u);
-                const info = expiryInfo(u.paid_until);
-                const paid = isPaidThisMonth(u.paid_until);
-                const renewing =
-                  renewM.isPending && renewM.variables?.id === u.id;
-                return (
-                  <TableRow
-                    key={u.id}
-                    onClick={() => navigate(`/admin/users/${u.id}`)}
-                    className="cursor-pointer hover:bg-muted/35"
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={u.name ?? u.email} />
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold">
-                            {u.name ?? u.email.split('@')[0]}
-                          </div>
-                          <div className="truncate font-mono text-xs text-muted-foreground">
-                            {u.email}
+          <>
+            <Table className="min-w-[1020px] table-fixed">
+              <TableHeader>
+                <TableRow className="border-b">
+                  <TableHead>
+                    <ColLabel>Cliente</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-[84px]">
+                    <ColLabel>Plan</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-[104px]">
+                    <ColLabel>Estado</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-[124px]">
+                    <ColLabel>Vence el</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-[190px]">
+                    <ColLabel>Mes = {monthLabel()}</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-[112px] text-right">
+                    <ColLabel>Valor</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-[216px] text-right">
+                    <ColLabel>Renovar</ColLabel>
+                  </TableHead>
+                  <TableHead className="w-8"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pager.pageItems.map((u) => {
+                  const price = feeOf(u);
+                  const info = expiryInfo(u.paid_until);
+                  const paid = isPaidThisMonth(u.paid_until);
+                  const renewing =
+                    renewM.isPending && renewM.variables?.id === u.id;
+                  return (
+                    <TableRow
+                      key={u.id}
+                      onClick={() => navigate(`/admin/users/${u.id}`)}
+                      className="cursor-pointer hover:bg-muted/35"
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={u.name ?? u.email} />
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">
+                              {u.name ?? u.email.split('@')[0]}
+                            </div>
+                            <div className="truncate font-mono text-xs text-muted-foreground">
+                              {u.email}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <TierBadge tier={u.subscription_tier} />
-                    </TableCell>
-                    <TableCell>
-                      <SubStatusBadge status={u.subscription_status} />
-                    </TableCell>
-                    <TableCell>
-                      <VenceCell info={info} paidUntil={u.paid_until} />
-                    </TableCell>
-                    <TableCell>
-                      <MonthPaidBadge paid={paid} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <span className="font-mono tabular-nums font-semibold">
-                        {fmtARS(price)}
-                      </span>
-                    </TableCell>
-                    <TableCell
-                      className="text-right"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button
-                        variant={paid ? 'outline' : 'default'}
-                        size="sm"
-                        disabled={renewing}
-                        onClick={() => renew(u)}
-                        title="Marca pagado y renueva 30 días"
+                      </TableCell>
+                      <TableCell>
+                        <TierBadge tier={u.subscription_tier} />
+                      </TableCell>
+                      <TableCell>
+                        <SubStatusBadge status={u.subscription_status} />
+                      </TableCell>
+                      <TableCell>
+                        <VenceCell info={info} paidUntil={u.paid_until} />
+                      </TableCell>
+                      <TableCell>
+                        <MonthPaidBadge paid={paid} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="font-mono tabular-nums font-semibold">
+                          {fmtARS(price)}
+                        </span>
+                      </TableCell>
+                      <TableCell
+                        className="text-right"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <RefreshCw
-                          data-icon="inline-start"
-                          className={renewing ? 'animate-spin' : undefined}
+                        <Button
+                          variant={paid ? 'outline' : 'default'}
+                          size="sm"
+                          disabled={renewing}
+                          onClick={() => renew(u)}
+                          title="Marca pagado y renueva 30 días"
+                        >
+                          <RefreshCw
+                            data-icon="inline-start"
+                            className={renewing ? 'animate-spin' : undefined}
+                          />
+                          {renewing ? 'Renovando…' : 'Pagado, renovar 30 días'}
+                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <ChevronRight
+                          size={14}
+                          className="text-muted-foreground"
                         />
-                        {renewing ? 'Renovando…' : 'Pagado, renovar 30 días'}
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <ChevronRight
-                        size={14}
-                        className="text-muted-foreground"
-                      />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <Pagination
+              page={pager.page}
+              totalPages={pager.totalPages}
+              from={pager.from}
+              to={pager.to}
+              total={pager.total}
+              pageSize={pager.pageSize}
+              onPage={pager.setPage}
+              onPageSize={pager.setPageSize}
+              noun="suscripciones"
+            />
+          </>
         )}
       </div>
     </div>
