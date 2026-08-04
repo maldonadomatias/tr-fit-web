@@ -33,6 +33,36 @@ const DAY_LABEL: Record<string, string> = {
   dom: 'Dom',
 };
 
+const SPORT_LABEL: Record<string, string> = {
+  futbol: 'Fútbol',
+  running: 'Running',
+  ciclismo: 'Ciclismo',
+  natacion: 'Natación',
+  crossfit: 'Crossfit',
+  calistenia: 'Calistenia',
+  boxeo: 'Boxeo/Artes marciales',
+  tenis: 'Tenis/Pádel',
+  rugby: 'Rugby',
+  basquet: 'Básquet',
+  voley: 'Vóley',
+  escalada: 'Escalada',
+  trekking: 'Trekking/Montañismo',
+  yoga: 'Yoga/Pilates',
+  esqui: 'Esquí/Snowboard',
+};
+
+function formatSports(value: string | null): string {
+  if (!value) return '—';
+
+  const sports = value
+    .split(',')
+    .map((sport) => sport.trim())
+    .filter(Boolean)
+    .map((sport) => SPORT_LABEL[sport] ?? sport);
+
+  return sports.length > 0 ? sports.join(' · ') : '—';
+}
+
 function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -104,6 +134,7 @@ export function TabContexto({ profile }: { profile: RutinaDetail['profile'] }) {
           />
           <Field label="Género" value={profile.gender} />
           <Field label="Tiempo por sesión" value={duration} />
+          <Field label="Deportes" value={formatSports(profile.sport_focus)} />
         </div>
       </section>
 

@@ -100,6 +100,7 @@ export interface RutinaDetail {
     equipment: 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
     injuries: string[];
     exercise_minutes: number | null;
+    sport_focus: string | null;
   };
 }
 
