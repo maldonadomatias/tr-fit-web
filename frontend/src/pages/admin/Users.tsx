@@ -19,6 +19,8 @@ import { StatusBadge } from '@/components/admin/StatusBadge';
 import { TierBadge } from '@/components/admin/TierBadge';
 import { SubStatusBadge } from '@/components/admin/SubStatusBadge';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
+import { Pagination } from '@/components/admin/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { fmtShortDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -44,7 +46,7 @@ export default function Users() {
       approved: users.filter((u) => u.status === 'approved').length,
       rejected: users.filter((u) => u.status === 'rejected').length,
     }),
-    [users],
+    [users]
   );
 
   const filtered = useMemo(() => {
@@ -60,6 +62,11 @@ export default function Users() {
     });
   }, [users, status, role, search]);
 
+  const pager = usePagination(filtered, {
+    pageSize: 25,
+    filterKey: `${status}|${role}|${search}`,
+  });
+
   function clearFilters() {
     setStatus('all');
     setRole('all');
@@ -73,8 +80,7 @@ export default function Users() {
         title="Usuarios"
         sub={
           <>
-            <span className="font-mono tabular-nums">{filtered.length}</span>{' '}
-            de{' '}
+            <span className="font-mono tabular-nums">{filtered.length}</span> de{' '}
             <span className="font-mono tabular-nums">{users.length}</span> ·
             todos los roles y estados
           </>
@@ -116,27 +122,24 @@ export default function Users() {
         ) : filtered.length === 0 ? (
           <EmptyState onClear={clearFilters} />
         ) : (
-          <UsersTable
-            users={filtered}
-            onOpen={(u) => navigate(`/admin/users/${u.id}`)}
-          />
+          <>
+            <UsersTable
+              users={pager.pageItems}
+              onOpen={(u) => navigate(`/admin/users/${u.id}`)}
+            />
+            <Pagination
+              page={pager.page}
+              totalPages={pager.totalPages}
+              from={pager.from}
+              to={pager.to}
+              total={pager.total}
+              pageSize={pager.pageSize}
+              onPage={pager.setPage}
+              onPageSize={pager.setPageSize}
+              noun="usuarios"
+            />
+          </>
         )}
-      </div>
-
-      <div className="mt-3 flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">
-          Mostrando{' '}
-          <span className="font-mono tabular-nums">{filtered.length}</span>{' '}
-          usuarios
-        </div>
-        <div className="flex gap-1">
-          <Button variant="outline" size="sm" disabled>
-            Anterior
-          </Button>
-          <Button variant="outline" size="sm" disabled>
-            Siguiente
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -197,12 +200,7 @@ function FilterBar({
             { key: 'superadmin', label: 'Superadmins' },
           ]}
         />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto"
-          onClick={onClear}
-        >
+        <Button variant="ghost" size="sm" className="ml-auto" onClick={onClear}>
           Limpiar
         </Button>
       </div>
@@ -261,20 +259,14 @@ function ColLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function UserRow({
-  user,
-  onOpen,
-}: {
-  user: AdminUser;
-  onOpen: () => void;
-}) {
+function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
   const pending = user.status === 'pending';
   return (
     <TableRow
       onClick={onOpen}
       className={cn(
         'group cursor-pointer',
-        pending ? 'bg-brand/4 hover:bg-brand/8' : 'hover:bg-muted/35',
+        pending ? 'bg-brand/4 hover:bg-brand/8' : 'hover:bg-muted/35'
       )}
     >
       <TableCell>
