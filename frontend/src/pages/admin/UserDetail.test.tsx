@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
     email_verified_at: '2026-07-21T00:00:00.000Z',
     created_at: '2026-07-21T00:00:00.000Z',
     name: null,
-    phone: null,
+    phone: '+5493815551234',
     subscription_tier: null,
     subscription_status: null,
     current_period_end: null,
@@ -100,5 +100,15 @@ describe('user detail monthly fee', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
     expect(mocks.setFee).toHaveBeenCalledWith(0);
+  });
+});
+
+describe('user detail contact', () => {
+  it('shows the athlete phone as a callable link', () => {
+    renderUserDetail();
+
+    expect(
+      screen.getByRole('link', { name: '+5493815551234' })
+    ).toHaveAttribute('href', 'tel:+5493815551234');
   });
 });

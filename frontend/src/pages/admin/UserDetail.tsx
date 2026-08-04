@@ -359,6 +359,21 @@ function ResumenTab({ user }: { user: AdminUser }) {
           <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-[18px] text-sm sm:grid-cols-[160px_1fr]">
             <Kv label="Nombre" value={user.name ?? '—'} />
             <Kv label="Email" value={user.email} mono />
+            <Kv
+              label="Celular"
+              value={
+                user.phone ? (
+                  <a
+                    href={`tel:${user.phone}`}
+                    className="font-mono text-primary hover:underline"
+                  >
+                    {user.phone}
+                  </a>
+                ) : (
+                  '—'
+                )
+              }
+            />
             <Kv label="Rol" value={<RoleBadge role={user.role} />} />
             <Kv label="Estado" value={<StatusBadge status={user.status} />} />
             <Kv
