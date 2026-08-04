@@ -23,7 +23,8 @@ const openaiMod = (await import('openai')) as unknown as {
   __mockParse: jest.Mock<() => Promise<unknown>>;
   __mockCtor: jest.Mock;
 };
-const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
+const { resetDatabase, ensureMigrated, closePool } =
+  await import('./helpers/test-db.js');
 const { createAdmin } = await import('./helpers/fixtures.js');
 const { signToken } = await import('../../src/middleware/auth.js');
 const { selectTemplate, buildSkeletonFromTemplate } =
@@ -45,29 +46,43 @@ async function seedOwnerAdmin() {
      VALUES ($1, $2, 'admin', TRUE)
      ON CONFLICT (email) DO UPDATE SET role = 'admin'
      RETURNING id`,
-    ['owner-test@example.local', hash],
+    ['owner-test@example.local', hash]
   );
   const ownerId = userRes.rows[0].id;
   await pool.query(
     `INSERT INTO coach_profiles (user_id, name) VALUES ($1, $2) ON CONFLICT (user_id) DO NOTHING`,
-    [ownerId, 'Owner Admin'],
+    [ownerId, 'Owner Admin']
   );
   ownerCoachId = ownerId;
 }
 
-beforeAll(async () => { await ensureMigrated(); });
+beforeAll(async () => {
+  await ensureMigrated();
+});
 beforeEach(async () => {
   await resetDatabase();
   await seedOwnerAdmin();
   openaiMod.__mockParse.mockReset();
 });
-afterAll(async () => { await closePool(); });
+afterAll(async () => {
+  await closePool();
+});
 
-async function makeAthleteUser() {
+async function makeAthleteUser(contact?: {
+  firstName: string;
+  lastName: string;
+  phone: string;
+}) {
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO users (email, password_hash, role)
-     VALUES ($1, 'x', 'athlete') RETURNING id`,
-    [`a-${Date.now()}-${Math.random()}@t.local`],
+    `INSERT INTO users
+       (email, password_hash, role, first_name, last_name, phone)
+     VALUES ($1, 'x', 'athlete', $2, $3, $4) RETURNING id`,
+    [
+      `a-${Date.now()}-${Math.random()}@t.local`,
+      contact?.firstName ?? null,
+      contact?.lastName ?? null,
+      contact?.phone ?? null,
+    ]
   );
   return rows[0].id;
 }
@@ -75,18 +90,30 @@ async function makeAthleteUser() {
 // Clean profile: gym_completo + 60 min + 4 days inside the coach matrix →
 // the coach template is used verbatim and OpenAI is never called.
 const validPayload = {
-  name: 'Mati', gender: 'male', age: 30, height_cm: 175, weight_kg: 75,
-  level: 'medio', goal: 'hipertrofia', days_per_week: 4,
-  equipment: 'gym_completo', injuries: [],
-  phone: '+5491111111111', plan_interest: 'full',
-  training_mode: 'gym', commitment: 'normal', exercise_minutes: 60,
+  name: 'Mati',
+  gender: 'male',
+  age: 30,
+  height_cm: 175,
+  weight_kg: 75,
+  level: 'medio',
+  goal: 'hipertrofia',
+  days_per_week: 4,
+  equipment: 'gym_completo',
+  injuries: [],
+  phone: '+5491111111111',
+  plan_interest: 'full',
+  training_mode: 'gym',
+  commitment: 'normal',
+  exercise_minutes: 60,
   days_specific: ['lun', 'mar', 'jue', 'sab'],
   referral_source: 'google',
 };
 
 function expectedTemplateSkeleton() {
   const { template, exactMatch } = selectTemplate({
-    gender: 'male', days_per_week: 4, leg_days: null,
+    gender: 'male',
+    days_per_week: 4,
+    leg_days: null,
     days_specific: ['lun', 'mar', 'jue', 'sab'],
   });
   expect(exactMatch).toBe(true);
@@ -94,7 +121,9 @@ function expectedTemplateSkeleton() {
 }
 
 it('rejects unauthenticated', async () => {
-  const r = await request(app).post('/api/onboarding/complete').send(validPayload);
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .send(validPayload);
   expect(r.status).toBe(401);
 });
 
@@ -108,9 +137,38 @@ it('rejects payload validation errors', async () => {
   expect(r.status).toBe(400);
 });
 
+it('uses signup name and phone when onboarding omits them', async () => {
+  const u = await makeAthleteUser({
+    firstName: 'Ana María',
+    lastName: 'Pérez',
+    phone: '+5493815551234',
+  });
+  const tok = signToken({ id: u, role: 'athlete' });
+  const {
+    name: _legacyName,
+    phone: _legacyPhone,
+    ...newPayload
+  } = validPayload;
+
+  const r = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send(newPayload);
+
+  expect(r.status).toBe(202);
+  const profile = await pool.query<{ name: string; phone: string }>(
+    `SELECT name, phone FROM athlete_profiles WHERE user_id = $1`,
+    [u]
+  );
+  expect(profile.rows[0]).toEqual({
+    name: 'Ana María Pérez',
+    phone: '+5493815551234',
+  });
+});
+
 it('configures the OpenAI client with an explicit timeout', async () => {
   expect(openaiMod.__mockCtor).toHaveBeenCalledWith(
-    expect.objectContaining({ timeout: expect.any(Number) }),
+    expect.objectContaining({ timeout: expect.any(Number) })
   );
 });
 
@@ -127,11 +185,13 @@ it('clean profile: 202 + queued job, worker then builds template skeleton verbat
 
   // Generation is async: no skeleton yet, one queued job.
   const preSk = await pool.query(
-    `SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1`, [u],
+    `SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1`,
+    [u]
   );
   expect(preSk.rowCount).toBe(0);
   const job = await pool.query<{ status: string }>(
-    `SELECT status FROM skeleton_regen_jobs WHERE athlete_id = $1`, [u],
+    `SELECT status FROM skeleton_regen_jobs WHERE athlete_id = $1`,
+    [u]
   );
   expect(job.rows.map((x) => x.status)).toEqual(['queued']);
 
@@ -141,30 +201,40 @@ it('clean profile: 202 + queued job, worker then builds template skeleton verbat
   // Skeleton rows must be the selected coach template, slot by slot.
   const expected = expectedTemplateSkeleton();
   const slots = await pool.query<{
-    day_of_week: number; slot_index: number; exercise_id: number;
-    role: string; series: number | null; reps: string | null;
+    day_of_week: number;
+    slot_index: number;
+    exercise_id: number;
+    role: string;
+    series: number | null;
+    reps: string | null;
     descanso: string | null;
   }>(
     `SELECT day_of_week, slot_index, exercise_id, role, series, reps, descanso
        FROM skeleton_slots
-      ORDER BY day_of_week, slot_index`,
+      ORDER BY day_of_week, slot_index`
   );
   const expectedRows = expected.days.flatMap((d) =>
     d.slots.map((s) => ({
-      day_of_week: d.day_index, slot_index: s.slot_index,
-      exercise_id: s.exercise_id, role: s.role,
-      series: s.series, reps: s.reps, descanso: s.descanso,
-    })),
+      day_of_week: d.day_index,
+      slot_index: s.slot_index,
+      exercise_id: s.exercise_id,
+      role: s.role,
+      series: s.series,
+      reps: s.reps,
+      descanso: s.descanso,
+    }))
   );
   expect(slots.rows).toEqual(expectedRows);
 
   const sk = await pool.query<{ generation_rationale: string }>(
-    `SELECT generation_rationale FROM athlete_skeletons WHERE athlete_id = $1`, [u],
+    `SELECT generation_rationale FROM athlete_skeletons WHERE athlete_id = $1`,
+    [u]
   );
   expect(sk.rows[0].generation_rationale).toBe(expected.rationale);
 
   const prof = await pool.query<{ coach_id: string | null }>(
-    `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`, [u],
+    `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`,
+    [u]
   );
   expect(prof.rows[0].coach_id).toBe(ownerCoachId);
 });
@@ -172,8 +242,10 @@ it('clean profile: 202 + queued job, worker then builds template skeleton verbat
 it('onboarded athlete is visible in the owner coach pending inbox after worker runs', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  const onboardR = await request(app).post('/api/onboarding/complete')
-    .set('Authorization', `Bearer ${tok}`).send(validPayload);
+  const onboardR = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send(validPayload);
   expect(onboardR.status).toBe(202);
   await regenTick();
 
@@ -191,10 +263,14 @@ it('onboarded athlete is visible in the owner coach pending inbox after worker r
 it('returns 409 on duplicate onboarding', async () => {
   const u = await makeAthleteUser();
   const tok = signToken({ id: u, role: 'athlete' });
-  await request(app).post('/api/onboarding/complete')
-    .set('Authorization', `Bearer ${tok}`).send(validPayload);
-  const r2 = await request(app).post('/api/onboarding/complete')
-    .set('Authorization', `Bearer ${tok}`).send(validPayload);
+  await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send(validPayload);
+  const r2 = await request(app)
+    .post('/api/onboarding/complete')
+    .set('Authorization', `Bearer ${tok}`)
+    .send(validPayload);
   expect(r2.status).toBe(409);
 });
 
@@ -204,10 +280,13 @@ it('AI failure: onboarding still succeeds, profile persists, job stays queued fo
   // 2 days/week is outside the coach matrix (3-5) → template can't be used
   // verbatim → adjustSkeleton calls OpenAI, which we make blow up.
   openaiMod.__mockParse.mockRejectedValue(new Error('openai down'));
-  const r = await request(app).post('/api/onboarding/complete')
+  const r = await request(app)
+    .post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)
     .send({
-      ...validPayload, days_per_week: 2, days_specific: ['lun', 'jue'],
+      ...validPayload,
+      days_per_week: 2,
+      days_specific: ['lun', 'jue'],
       measurements: { chest_cm: 100 },
     });
   // Enqueue-only: the request never touches OpenAI and cannot 502 on it.
@@ -220,22 +299,29 @@ it('AI failure: onboarding still succeeds, profile persists, job stays queued fo
   // Profile and measurements survive the failure; the job is requeued
   // with backoff instead of orphaning the athlete.
   const prof = await pool.query(
-    `SELECT 1 FROM athlete_profiles WHERE user_id = $1`, [u],
+    `SELECT 1 FROM athlete_profiles WHERE user_id = $1`,
+    [u]
   );
   expect(prof.rowCount).toBe(1);
   const m = await pool.query(
-    `SELECT 1 FROM athlete_measurements WHERE athlete_id = $1`, [u],
+    `SELECT 1 FROM athlete_measurements WHERE athlete_id = $1`,
+    [u]
   );
   expect(m.rowCount).toBe(1);
-  const job = await pool.query<{ status: string; attempts: number; last_error: string }>(
+  const job = await pool.query<{
+    status: string;
+    attempts: number;
+    last_error: string;
+  }>(
     `SELECT status, attempts, last_error FROM skeleton_regen_jobs WHERE athlete_id = $1`,
-    [u],
+    [u]
   );
   expect(job.rows[0].status).toBe('queued');
   expect(job.rows[0].attempts).toBe(1);
   expect(job.rows[0].last_error).toContain('openai down');
   const sk = await pool.query(
-    `SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1`, [u],
+    `SELECT 1 FROM athlete_skeletons WHERE athlete_id = $1`,
+    [u]
   );
   expect(sk.rowCount).toBe(0);
 });
@@ -247,19 +333,24 @@ it('persists new fields and measurements', async () => {
   const r = await request(app)
     .post('/api/onboarding/complete')
     .set('Authorization', `Bearer ${tok}`)
-    .send({ ...validPayload, sport_focus: 'futbol',
-            measurements: { chest_cm: 100, waist_cm: 80 } });
+    .send({
+      ...validPayload,
+      sport_focus: 'futbol',
+      measurements: { chest_cm: 100, waist_cm: 80 },
+    });
   expect(r.status).toBe(202);
   const prof = await pool.query(
     `SELECT phone, plan_interest, days_specific, sport_focus
-       FROM athlete_profiles WHERE user_id=$1`, [u],
+       FROM athlete_profiles WHERE user_id=$1`,
+    [u]
   );
   expect(prof.rows[0].phone).toBe('+5491111111111');
-  expect(prof.rows[0].days_specific).toEqual(['lun','mar','jue','sab']);
+  expect(prof.rows[0].days_specific).toEqual(['lun', 'mar', 'jue', 'sab']);
   expect(prof.rows[0].sport_focus).toBe('futbol');
   const m = await pool.query(
     `SELECT chest_cm, waist_cm, source
-       FROM athlete_measurements WHERE athlete_id=$1`, [u],
+       FROM athlete_measurements WHERE athlete_id=$1`,
+    [u]
   );
   expect(m.rowCount).toBe(1);
   expect(Number(m.rows[0].chest_cm)).toBe(100);
@@ -293,7 +384,8 @@ it('accepts birth_date, persists it, and GET /athlete/me returns plain YYYY-MM-D
   expect(r.status).toBe(202);
 
   const prof = await pool.query<{ birth_date: string }>(
-    `SELECT birth_date::text FROM athlete_profiles WHERE user_id = $1`, [u],
+    `SELECT birth_date::text FROM athlete_profiles WHERE user_id = $1`,
+    [u]
   );
   expect(prof.rows[0].birth_date).toBe(birthDate);
 
@@ -315,7 +407,8 @@ it('onboarding without birth_date keeps working and leaves the column null', asy
     .send(validPayload);
   expect(r.status).toBe(202);
   const prof = await pool.query<{ birth_date: string | null }>(
-    `SELECT birth_date FROM athlete_profiles WHERE user_id = $1`, [u],
+    `SELECT birth_date FROM athlete_profiles WHERE user_id = $1`,
+    [u]
   );
   expect(prof.rows[0].birth_date).toBeNull();
 
@@ -390,7 +483,8 @@ it('skips measurements INSERT when all values null', async () => {
     .send(validPayload);
   expect(r.status).toBe(202);
   const m = await pool.query(
-    `SELECT 1 FROM athlete_measurements WHERE athlete_id=$1`, [u],
+    `SELECT 1 FROM athlete_measurements WHERE athlete_id=$1`,
+    [u]
   );
   expect(m.rowCount).toBe(0);
 });

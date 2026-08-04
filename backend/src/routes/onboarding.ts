@@ -9,94 +9,165 @@ import { env } from '../config/env.js';
 
 const router = Router();
 
-router.post('/complete', requireAuth, requireRole('athlete'), async (req, res) => {
-  const parsed = onboardingPayload.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'invalid_payload', issues: parsed.error.issues });
-  }
-  const userId = req.user!.id;
-  const p = parsed.data;
+router.post(
+  '/complete',
+  requireAuth,
+  requireRole('athlete'),
+  async (req, res) => {
+    const parsed = onboardingPayload.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: 'invalid_payload', issues: parsed.error.issues });
+    }
+    const userId = req.user!.id;
+    const p = parsed.data;
 
-  const exists = await pool.query(
-    `SELECT 1 FROM athlete_profiles WHERE user_id = $1`, [userId],
-  );
-  if (exists.rowCount && exists.rowCount > 0) {
-    return res.status(409).json({ error: 'profile_already_exists' });
-  }
+    const contactR = await pool.query<{
+      first_name: string | null;
+      last_name: string | null;
+      phone: string | null;
+    }>(`SELECT first_name, last_name, phone FROM users WHERE id = $1`, [
+      userId,
+    ]);
+    const contact = contactR.rows[0];
+    const signupName = [contact?.first_name, contact?.last_name]
+      .filter((part): part is string => Boolean(part))
+      .join(' ');
+    const name = signupName || p.name;
+    const phone = contact?.phone ?? p.phone;
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'registration_contact_missing' });
+    }
 
-  // Single-admin owner model: route to the configured OWNER_COACH_EMAIL.
-  const coachR = await pool.query<{ id: string }>(
-    `SELECT id FROM users WHERE email = $1 AND role IN ('admin', 'superadmin')`,
-    [env.OWNER_COACH_EMAIL],
-  );
-  const coachId = coachR.rows[0]?.id;
-  if (!coachId) {
-    logger.error(
-      { ownerEmail: env.OWNER_COACH_EMAIL },
-      'owner admin missing — run src/scripts/create-admin.ts <email> <password>',
+    // When an older app supplies the fields during onboarding, preserve them on
+    // the account too so every subsequent flow has the same registration data.
+    if (!contact?.first_name && p.name && p.phone) {
+      await pool.query(
+        `UPDATE users SET first_name = $1, phone = $2 WHERE id = $3`,
+        [p.name, p.phone, userId]
+      );
+    }
+
+    const exists = await pool.query(
+      `SELECT 1 FROM athlete_profiles WHERE user_id = $1`,
+      [userId]
     );
-    return res.status(500).json({ error: 'owner_coach_missing' });
-  }
+    if (exists.rowCount && exists.rowCount > 0) {
+      return res.status(409).json({ error: 'profile_already_exists' });
+    }
 
-  await pool.query(
-    `INSERT INTO athlete_profiles
+    // Single-admin owner model: route to the configured OWNER_COACH_EMAIL.
+    const coachR = await pool.query<{ id: string }>(
+      `SELECT id FROM users WHERE email = $1 AND role IN ('admin', 'superadmin')`,
+      [env.OWNER_COACH_EMAIL]
+    );
+    const coachId = coachR.rows[0]?.id;
+    if (!coachId) {
+      logger.error(
+        { ownerEmail: env.OWNER_COACH_EMAIL },
+        'owner admin missing — run src/scripts/create-admin.ts <email> <password>'
+      );
+      return res.status(500).json({ error: 'owner_coach_missing' });
+    }
+
+    await pool.query(
+      `INSERT INTO athlete_profiles
        (user_id, name, gender, age, birth_date, height_cm, weight_kg, level, goal,
         days_per_week, leg_days, equipment, injuries, coach_id,
         phone, plan_interest, training_mode, commitment, exercise_minutes,
         days_specific, referral_source, sport_focus)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
              $14,$15,$16,$17,$18,$19,$20,$21,$22)`,
-    [userId, p.name, p.gender, p.age, p.birth_date ?? null, p.height_cm, p.weight_kg,
-     p.level, p.goal, p.days_per_week, p.leg_days ?? null, p.equipment,
-     p.injuries, coachId,
-     p.phone, p.plan_interest, p.training_mode, p.commitment, p.exercise_minutes,
-     p.days_specific, p.referral_source, p.sport_focus ?? null],
-  );
+      [
+        userId,
+        name,
+        p.gender,
+        p.age,
+        p.birth_date ?? null,
+        p.height_cm,
+        p.weight_kg,
+        p.level,
+        p.goal,
+        p.days_per_week,
+        p.leg_days ?? null,
+        p.equipment,
+        p.injuries,
+        coachId,
+        phone,
+        p.plan_interest,
+        p.training_mode,
+        p.commitment,
+        p.exercise_minutes,
+        p.days_specific,
+        p.referral_source,
+        p.sport_focus ?? null,
+      ]
+    );
 
-  // Insert measurements if any non-null value provided
-  if (p.measurements) {
-    const m = p.measurements;
-    const hasAny = m.chest_cm != null || m.waist_cm != null || m.hip_cm != null
-      || m.thigh_cm != null || m.calf_cm != null || m.bicep_cm != null
-      || m.body_weight_kg != null;
-    if (hasAny) {
-      await pool.query(
-        `INSERT INTO athlete_measurements
+    // Insert measurements if any non-null value provided
+    if (p.measurements) {
+      const m = p.measurements;
+      const hasAny =
+        m.chest_cm != null ||
+        m.waist_cm != null ||
+        m.hip_cm != null ||
+        m.thigh_cm != null ||
+        m.calf_cm != null ||
+        m.bicep_cm != null ||
+        m.body_weight_kg != null;
+      if (hasAny) {
+        await pool.query(
+          `INSERT INTO athlete_measurements
            (athlete_id, chest_cm, waist_cm, hip_cm, thigh_cm, calf_cm, bicep_cm,
             body_weight_kg, source)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'onboarding')`,
-        [userId, m.chest_cm ?? null, m.waist_cm ?? null, m.hip_cm ?? null,
-         m.thigh_cm ?? null, m.calf_cm ?? null, m.bicep_cm ?? null,
-         m.body_weight_kg ?? null],
-      );
+          [
+            userId,
+            m.chest_cm ?? null,
+            m.waist_cm ?? null,
+            m.hip_cm ?? null,
+            m.thigh_cm ?? null,
+            m.calf_cm ?? null,
+            m.bicep_cm ?? null,
+            m.body_weight_kg ?? null,
+          ]
+        );
+      }
+    }
+
+    // Generation is asynchronous: enqueue a regen job and let the worker
+    // (with retries + stuck-job reaper) build the skeleton. A synchronous
+    // OpenAI call here left orphaned profiles when the process died
+    // mid-request (deploy/restart) before the skeleton insert.
+    try {
+      const { jobId } = await enqueueRegenJob(userId);
+      return res.status(202).json({ jobId, status: 'queued' });
+    } catch (e) {
+      logger.error({ err: e, athleteId: userId }, 'onboarding enqueue failed');
+      // Rollback: delete measurements (FK is on users, not profile) + profile, allow retry
+      await pool
+        .query(
+          `DELETE FROM athlete_measurements WHERE athlete_id = $1 AND source = 'onboarding'`,
+          [userId]
+        )
+        .catch((delErr) =>
+          logger.error(
+            { err: delErr, athleteId: userId },
+            'measurements rollback failed'
+          )
+        );
+      await pool
+        .query(`DELETE FROM athlete_profiles WHERE user_id = $1`, [userId])
+        .catch((delErr) =>
+          logger.error(
+            { err: delErr, athleteId: userId },
+            'profile rollback failed'
+          )
+        );
+      return res.status(502).json({ error: 'skeleton_generation_failed' });
     }
   }
-
-  // Generation is asynchronous: enqueue a regen job and let the worker
-  // (with retries + stuck-job reaper) build the skeleton. A synchronous
-  // OpenAI call here left orphaned profiles when the process died
-  // mid-request (deploy/restart) before the skeleton insert.
-  try {
-    const { jobId } = await enqueueRegenJob(userId);
-    return res.status(202).json({ jobId, status: 'queued' });
-  } catch (e) {
-    logger.error({ err: e, athleteId: userId }, 'onboarding enqueue failed');
-    // Rollback: delete measurements (FK is on users, not profile) + profile, allow retry
-    await pool
-      .query(
-        `DELETE FROM athlete_measurements WHERE athlete_id = $1 AND source = 'onboarding'`,
-        [userId],
-      )
-      .catch((delErr) =>
-        logger.error({ err: delErr, athleteId: userId }, 'measurements rollback failed'),
-      );
-    await pool
-      .query(`DELETE FROM athlete_profiles WHERE user_id = $1`, [userId])
-      .catch((delErr) =>
-        logger.error({ err: delErr, athleteId: userId }, 'profile rollback failed'),
-      );
-    return res.status(502).json({ error: 'skeleton_generation_failed' });
-  }
-});
+);
 
 export default router;

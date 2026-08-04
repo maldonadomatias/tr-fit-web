@@ -52,8 +52,12 @@ export function buildListUsersSql(whereSql: string): string {
     SELECT
       u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
       u.created_at,
-      COALESCE(ap.name, cp.name) AS name,
-      ap.phone,
+      COALESCE(
+        ap.name,
+        cp.name,
+        NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), '')
+      ) AS name,
+      COALESCE(ap.phone, u.phone) AS phone,
       COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars) AS monthly_fee_ars,
       s.tier AS subscription_tier,
       s.status AS subscription_status,
@@ -114,8 +118,12 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
     `SELECT
        u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
        u.created_at,
-       COALESCE(ap.name, cp.name) AS name,
-       ap.phone,
+       COALESCE(
+         ap.name,
+         cp.name,
+         NULLIF(CONCAT_WS(' ', u.first_name, u.last_name), '')
+       ) AS name,
+       COALESCE(ap.phone, u.phone) AS phone,
        COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars) AS monthly_fee_ars,
        s.tier AS subscription_tier,
        s.status AS subscription_status,
@@ -417,10 +425,10 @@ export async function setAthleteMonthlyFee(
   );
   if (!prev.rows[0]) throw new Error('athlete_not_found');
   const from = Number(prev.rows[0].monthly_fee_ars);
-  await pool.query(
-    `UPDATE users SET monthly_fee_ars = $1 WHERE id = $2`,
-    [feeArs, athleteId]
-  );
+  await pool.query(`UPDATE users SET monthly_fee_ars = $1 WHERE id = $2`, [
+    feeArs,
+    athleteId,
+  ]);
   await logAudit({
     type: 'athlete_fee_changed',
     actor,

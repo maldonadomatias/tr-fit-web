@@ -14,10 +14,7 @@ import {
   RESET_TOKEN_TTL_MS,
   REFRESH_TOKEN_TTL_MS,
 } from './verification.service.js';
-import {
-  sendVerifyEmail,
-  sendPasswordResetEmail,
-} from './email.service.js';
+import { sendVerifyEmail, sendPasswordResetEmail } from './email.service.js';
 import { logAudit } from './admin.service.js';
 import { getStorageBucket } from '../config/firebase.js';
 
@@ -27,7 +24,10 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_COST);
 }
 
-export async function comparePassword(plain: string, hash: string): Promise<boolean> {
+export async function comparePassword(
+  plain: string,
+  hash: string
+): Promise<boolean> {
   return bcrypt.compare(plain, hash);
 }
 
@@ -38,11 +38,20 @@ export interface SignupResult {
   emailSendFailed: boolean;
 }
 
+export interface SignupContact {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+}
+
 export async function signup(
   email: string,
   password: string,
+  contact: SignupContact = {}
 ): Promise<SignupResult> {
-  const exists = await pool.query(`SELECT 1 FROM users WHERE email = $1`, [email]);
+  const exists = await pool.query(`SELECT 1 FROM users WHERE email = $1`, [
+    email,
+  ]);
   if (exists.rowCount && exists.rowCount > 0) {
     const err = new Error('email_already_registered');
     (err as Error & { code?: string }).code = 'EMAIL_TAKEN';
@@ -58,9 +67,18 @@ export async function signup(
     // confirmed (subscriptions are handled outside the app). The login gate
     // returns 403 not_approved until then.
     const ins = await client.query<{ id: string }>(
-      `INSERT INTO users (email, password_hash, role, email_verified, status)
-       VALUES ($1, $2, 'athlete', FALSE, 'pending') RETURNING id`,
-      [email, passwordHash],
+      `INSERT INTO users
+         (email, password_hash, role, email_verified, status,
+          first_name, last_name, phone)
+       VALUES ($1, $2, 'athlete', FALSE, 'pending', $3, $4, $5)
+       RETURNING id`,
+      [
+        email,
+        passwordHash,
+        contact.firstName ?? null,
+        contact.lastName ?? null,
+        contact.phone ?? null,
+      ]
     );
     const userId = ins.rows[0].id;
 
@@ -69,7 +87,7 @@ export async function signup(
     await client.query(
       `INSERT INTO email_verifications (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3)`,
-      [userId, tokenHash, expiresIn(VERIFY_TOKEN_TTL_MS)],
+      [userId, tokenHash, expiresIn(VERIFY_TOKEN_TTL_MS)]
     );
     await client.query('COMMIT');
 
@@ -99,7 +117,7 @@ export class LoginError extends Error {
       | 'not_approved'
       | 'rejected'
       | 'payment_required'
-      | 'membership_paused',
+      | 'membership_paused'
   ) {
     super(reason);
   }
@@ -113,11 +131,14 @@ export interface LoginContext {
 export async function login(
   email: string,
   password: string,
-  ctx: LoginContext = {},
+  ctx: LoginContext = {}
 ): Promise<AuthLoginResult> {
   const r = await pool.query<{
-    id: string; password_hash: string; role: 'athlete'|'admin'|'superadmin';
-    email: string; email_verified: boolean;
+    id: string;
+    password_hash: string;
+    role: 'athlete' | 'admin' | 'superadmin';
+    email: string;
+    email_verified: boolean;
     status: 'pending' | 'approved' | 'rejected';
     membership_active: boolean;
     membership_status: string | null;
@@ -128,13 +149,16 @@ export async function login(
        FROM users u
        LEFT JOIN memberships m ON m.user_id = u.id
       WHERE u.email = $1`,
-    [email],
+    [email]
   );
   const user = r.rows[0];
   if (!user) {
     // Run a dummy compare so non-existent users take same time as wrong-password users
     // (timing-attack mitigation against email enumeration)
-    await comparePassword(password, '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalid');
+    await comparePassword(
+      password,
+      '$2b$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalid'
+    );
     throw new LoginError('invalid_credentials');
   }
   const ok = await comparePassword(password, user.password_hash);
@@ -166,14 +190,20 @@ export async function login(
     `INSERT INTO refresh_tokens
        (user_id, family_id, token_hash, expires_at, user_agent, ip_address)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [user.id, familyId, refreshHash, expiresIn(REFRESH_TOKEN_TTL_MS),
-     ctx.userAgent ?? null, ctx.ipAddress ?? null],
+    [
+      user.id,
+      familyId,
+      refreshHash,
+      expiresIn(REFRESH_TOKEN_TTL_MS),
+      ctx.userAgent ?? null,
+      ctx.ipAddress ?? null,
+    ]
   );
 
   const accessToken = jwt.sign(
     { id: user.id, role: user.role },
     env.JWT_SECRET as jwt.Secret,
-    { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions,
+    { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions
   );
 
   return {
@@ -192,7 +222,7 @@ export class RefreshError extends Error {
 
 export async function refresh(
   refreshToken: string,
-  ctx: LoginContext = {},
+  ctx: LoginContext = {}
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const tokenHash = hashToken(refreshToken);
 
@@ -201,12 +231,15 @@ export async function refresh(
     await client.query('BEGIN');
 
     const r = await client.query<{
-      id: string; user_id: string; family_id: string;
-      expires_at: string; revoked_at: string | null;
+      id: string;
+      user_id: string;
+      family_id: string;
+      expires_at: string;
+      revoked_at: string | null;
     }>(
       `SELECT id, user_id, family_id, expires_at, revoked_at
          FROM refresh_tokens WHERE token_hash = $1 FOR UPDATE`,
-      [tokenHash],
+      [tokenHash]
     );
     const row = r.rows[0];
     if (!row) {
@@ -219,10 +252,13 @@ export async function refresh(
       await client.query(
         `UPDATE refresh_tokens SET revoked_at = NOW()
           WHERE family_id = $1 AND revoked_at IS NULL`,
-        [row.family_id],
+        [row.family_id]
       );
       await client.query('COMMIT');
-      logger.warn({ userId: row.user_id, familyId: row.family_id }, 'refresh token reuse detected');
+      logger.warn(
+        { userId: row.user_id, familyId: row.family_id },
+        'refresh token reuse detected'
+      );
       throw new RefreshError('reuse_detected');
     }
 
@@ -233,24 +269,28 @@ export async function refresh(
 
     // Re-check access on refresh so a lapsed athlete can't keep minting tokens.
     const u = await client.query<{
-      role: 'athlete'|'admin'|'superadmin'; status: string; membership_active: boolean;
+      role: 'athlete' | 'admin' | 'superadmin';
+      status: string;
+      membership_active: boolean;
       membership_status: string | null;
     }>(
       `SELECT u.role, u.status, COALESCE(m.paid_until + interval '48 hours' > now(), false) AS membership_active,
               m.status AS membership_status
          FROM users u LEFT JOIN memberships m ON m.user_id = u.id
         WHERE u.id = $1`,
-      [row.user_id],
+      [row.user_id]
     );
     const acct = u.rows[0];
-    const athleteBlocked = acct.role === 'athlete'
-      && (acct.status !== 'approved' || !acct.membership_active
-          || acct.membership_status === 'paused');
+    const athleteBlocked =
+      acct.role === 'athlete' &&
+      (acct.status !== 'approved' ||
+        !acct.membership_active ||
+        acct.membership_status === 'paused');
     if (acct.status === 'rejected' || athleteBlocked) {
       // Revoke the family and force re-login (which surfaces the gate message).
       await client.query(
         `UPDATE refresh_tokens SET revoked_at = NOW() WHERE family_id = $1 AND revoked_at IS NULL`,
-        [row.family_id],
+        [row.family_id]
       );
       await client.query('COMMIT');
       throw new RefreshError('invalid');
@@ -263,12 +303,18 @@ export async function refresh(
       `INSERT INTO refresh_tokens
          (user_id, family_id, token_hash, expires_at, user_agent, ip_address)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [row.user_id, row.family_id, newHash, expiresIn(REFRESH_TOKEN_TTL_MS),
-       ctx.userAgent ?? null, ctx.ipAddress ?? null],
+      [
+        row.user_id,
+        row.family_id,
+        newHash,
+        expiresIn(REFRESH_TOKEN_TTL_MS),
+        ctx.userAgent ?? null,
+        ctx.ipAddress ?? null,
+      ]
     );
     await client.query(
       `UPDATE refresh_tokens SET revoked_at = NOW(), replaced_by = $1 WHERE id = $2`,
-      [newR.rows[0].id, row.id],
+      [newR.rows[0].id, row.id]
     );
 
     await client.query('COMMIT');
@@ -276,7 +322,7 @@ export async function refresh(
     const accessToken = jwt.sign(
       { id: row.user_id, role: u.rows[0].role },
       env.JWT_SECRET as jwt.Secret,
-      { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions,
+      { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions
     );
 
     return { accessToken, refreshToken: newRefresh };
@@ -294,7 +340,7 @@ export async function logout(refreshToken: string): Promise<void> {
   await pool.query(
     `UPDATE refresh_tokens SET revoked_at = NOW()
       WHERE token_hash = $1 AND revoked_at IS NULL`,
-    [tokenHash],
+    [tokenHash]
   );
 }
 
@@ -304,7 +350,7 @@ export async function forceLogout(userId: string): Promise<void> {
   await pool.query(
     `UPDATE refresh_tokens SET revoked_at = NOW()
       WHERE user_id = $1 AND revoked_at IS NULL`,
-    [userId],
+    [userId]
   );
 }
 
@@ -321,11 +367,14 @@ export async function verifyEmail(token: string): Promise<{ userId: string }> {
   try {
     await client.query('BEGIN');
     const r = await client.query<{
-      id: string; user_id: string; expires_at: string; used_at: string | null;
+      id: string;
+      user_id: string;
+      expires_at: string;
+      used_at: string | null;
     }>(
       `SELECT id, user_id, expires_at, used_at
          FROM email_verifications WHERE token_hash = $1 FOR UPDATE`,
-      [tokenHash],
+      [tokenHash]
     );
     const row = r.rows[0];
     if (!row) throw new VerifyError('invalid');
@@ -334,13 +383,13 @@ export async function verifyEmail(token: string): Promise<{ userId: string }> {
 
     await client.query(
       `UPDATE email_verifications SET used_at = NOW() WHERE id = $1`,
-      [row.id],
+      [row.id]
     );
     await client.query(
       `UPDATE users
           SET email_verified = TRUE, email_verified_at = NOW()
         WHERE id = $1`,
-      [row.user_id],
+      [row.user_id]
     );
     await client.query('COMMIT');
     return { userId: row.user_id };
@@ -357,11 +406,13 @@ export async function resendVerification(userId: string): Promise<{
   alreadyVerified?: boolean;
 }> {
   const u = await pool.query<{ email: string; email_verified: boolean }>(
-    `SELECT email, email_verified FROM users WHERE id = $1`, [userId],
+    `SELECT email, email_verified FROM users WHERE id = $1`,
+    [userId]
   );
   const user = u.rows[0];
   if (!user) throw new VerifyError('invalid');
-  if (user.email_verified) return { emailSendFailed: false, alreadyVerified: true };
+  if (user.email_verified)
+    return { emailSendFailed: false, alreadyVerified: true };
 
   const client = await pool.connect();
   try {
@@ -370,13 +421,13 @@ export async function resendVerification(userId: string): Promise<{
     await client.query(
       `UPDATE email_verifications SET used_at = NOW()
         WHERE user_id = $1 AND used_at IS NULL`,
-      [userId],
+      [userId]
     );
     const token = generateToken();
     await client.query(
       `INSERT INTO email_verifications (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3)`,
-      [userId, hashToken(token), expiresIn(VERIFY_TOKEN_TTL_MS)],
+      [userId, hashToken(token), expiresIn(VERIFY_TOKEN_TTL_MS)]
     );
     await client.query('COMMIT');
 
@@ -409,10 +460,11 @@ export function generateSixDigitCode(): string {
 
 export async function forgotPassword(
   email: string,
-  requestedIp: string | null = null,
+  requestedIp: string | null = null
 ): Promise<void> {
   const r = await pool.query<{ id: string }>(
-    `SELECT id FROM users WHERE email = $1`, [email],
+    `SELECT id FROM users WHERE email = $1`,
+    [email]
   );
   const user = r.rows[0];
   if (!user) return; // Silently return — anti-enumeration
@@ -423,12 +475,12 @@ export async function forgotPassword(
   await pool.query(
     `UPDATE password_resets SET used_at = NOW()
        WHERE user_id = $1 AND used_at IS NULL`,
-    [user.id],
+    [user.id]
   );
   await pool.query(
     `INSERT INTO password_resets (user_id, code_hash, expires_at, requested_ip)
      VALUES ($1, $2, $3, $4)`,
-    [user.id, codeHash, expiresIn(RESET_TOKEN_TTL_MS), requestedIp],
+    [user.id, codeHash, expiresIn(RESET_TOKEN_TTL_MS), requestedIp]
   );
   // Best-effort email (anti-enumeration: caller still gets 200)
   try {
@@ -441,8 +493,12 @@ export async function forgotPassword(
 export class ResetError extends Error {
   public attemptsLeft?: number;
   constructor(
-    public reason: 'invalid_code' | 'code_expired' | 'weak_password' | 'not_athlete',
-    attemptsLeft?: number,
+    public reason:
+      | 'invalid_code'
+      | 'code_expired'
+      | 'weak_password'
+      | 'not_athlete',
+    attemptsLeft?: number
   ) {
     super(reason);
     this.attemptsLeft = attemptsLeft;
@@ -453,30 +509,37 @@ async function findAndValidateCode(
   client: import('pg').PoolClient,
   email: string,
   code: string,
-  consume: boolean,
+  consume: boolean
 ): Promise<{ rowId: string; userId: string }> {
   const userR = await client.query<{ id: string }>(
-    `SELECT id FROM users WHERE email = $1`, [email],
+    `SELECT id FROM users WHERE email = $1`,
+    [email]
   );
   const user = userR.rows[0];
   // Anti-enumeration: if no user, throw code_expired (mimicking "row not found")
   if (!user) throw new ResetError('code_expired');
 
   const r = await client.query<{
-    id: string; code_hash: string; expires_at: string;
-    used_at: string | null; attempts: number;
+    id: string;
+    code_hash: string;
+    expires_at: string;
+    used_at: string | null;
+    attempts: number;
   }>(
     `SELECT id, code_hash, expires_at, used_at, attempts
        FROM password_resets
        WHERE user_id = $1 AND used_at IS NULL
        ORDER BY created_at DESC LIMIT 1
        FOR UPDATE`,
-    [user.id],
+    [user.id]
   );
   const row = r.rows[0];
   if (!row) throw new ResetError('code_expired');
   if (isExpired(row.expires_at)) {
-    await client.query(`UPDATE password_resets SET used_at = NOW() WHERE id = $1`, [row.id]);
+    await client.query(
+      `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
+      [row.id]
+    );
     throw new ResetError('code_expired');
   }
 
@@ -486,13 +549,13 @@ async function findAndValidateCode(
     if (newAttempts >= MAX_ATTEMPTS) {
       await client.query(
         `UPDATE password_resets SET attempts = $1, used_at = NOW() WHERE id = $2`,
-        [newAttempts, row.id],
+        [newAttempts, row.id]
       );
       throw new ResetError('code_expired');
     }
     await client.query(
       `UPDATE password_resets SET attempts = $1 WHERE id = $2`,
-      [newAttempts, row.id],
+      [newAttempts, row.id]
     );
     throw new ResetError('invalid_code', MAX_ATTEMPTS - newAttempts);
   }
@@ -500,13 +563,16 @@ async function findAndValidateCode(
   if (consume) {
     await client.query(
       `UPDATE password_resets SET used_at = NOW() WHERE id = $1`,
-      [row.id],
+      [row.id]
     );
   }
   return { rowId: row.id, userId: user.id };
 }
 
-export async function verifyResetCode(email: string, code: string): Promise<void> {
+export async function verifyResetCode(
+  email: string,
+  code: string
+): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -528,35 +594,40 @@ export async function verifyResetCode(email: string, code: string): Promise<void
 export async function resetPassword(
   email: string,
   code: string,
-  newPassword: string,
+  newPassword: string
 ): Promise<AuthLoginResult> {
   if (newPassword.length < 8) throw new ResetError('weak_password');
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { userId } = await findAndValidateCode(client, email, code, /* consume */ true);
+    const { userId } = await findAndValidateCode(
+      client,
+      email,
+      code,
+      /* consume */ true
+    );
 
     // Role gate — mobile is athletes-only
     const u = await client.query<{
-      id: string; email: string; role: 'athlete' | 'admin' | 'superadmin';
-    }>(
-      `SELECT id, email, role FROM users WHERE id = $1`, [userId],
-    );
+      id: string;
+      email: string;
+      role: 'athlete' | 'admin' | 'superadmin';
+    }>(`SELECT id, email, role FROM users WHERE id = $1`, [userId]);
     const user = u.rows[0];
     if (user.role !== 'athlete') throw new ResetError('not_athlete');
 
     const newHash = await hashPassword(newPassword);
-    await client.query(
-      `UPDATE users SET password_hash = $1 WHERE id = $2`,
-      [newHash, userId],
-    );
+    await client.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [
+      newHash,
+      userId,
+    ]);
 
     // Revoke all active refresh tokens (anti-takeover)
     await client.query(
       `UPDATE refresh_tokens SET revoked_at = NOW()
         WHERE user_id = $1 AND revoked_at IS NULL`,
-      [userId],
+      [userId]
     );
 
     // Issue new access + refresh tokens (same flow as login)
@@ -567,13 +638,13 @@ export async function resetPassword(
       `INSERT INTO refresh_tokens
          (user_id, family_id, token_hash, expires_at)
        VALUES ($1, $2, $3, $4)`,
-      [userId, familyId, refreshHash, expiresIn(REFRESH_TOKEN_TTL_MS)],
+      [userId, familyId, refreshHash, expiresIn(REFRESH_TOKEN_TTL_MS)]
     );
 
     const accessToken = jwt.sign(
       { id: user.id, role: user.role },
       env.JWT_SECRET as jwt.Secret,
-      { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions,
+      { expiresIn: env.JWT_EXPIRES_IN } as jwt.SignOptions
     );
 
     await client.query('COMMIT');
@@ -584,7 +655,12 @@ export async function resetPassword(
       user: { id: user.id, email: user.email, role: user.role },
     };
   } catch (e) {
-    if (e instanceof ResetError && (e.reason === 'invalid_code' || e.reason === 'code_expired' || e.reason === 'not_athlete')) {
+    if (
+      e instanceof ResetError &&
+      (e.reason === 'invalid_code' ||
+        e.reason === 'code_expired' ||
+        e.reason === 'not_athlete')
+    ) {
       // Commit so attempt increments, row invalidations, and code consumption persist
       await client.query('COMMIT').catch(() => {});
     } else {
@@ -598,12 +674,17 @@ export async function resetPassword(
 
 // ─── Self-service account deletion (App Store 5.1.1(v)) ─────────────
 export class DeleteAccountError extends Error {
-  constructor(public reason: 'invalid_credentials' | 'not_found' | 'not_athlete') {
+  constructor(
+    public reason: 'invalid_credentials' | 'not_found' | 'not_athlete'
+  ) {
     super(reason);
   }
 }
 
-export async function deleteAccount(userId: string, password: string): Promise<void> {
+export async function deleteAccount(
+  userId: string,
+  password: string
+): Promise<void> {
   const r = await pool.query<{
     email: string;
     password_hash: string;
@@ -614,7 +695,7 @@ export async function deleteAccount(userId: string, password: string): Promise<v
        FROM users u
        LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
       WHERE u.id = $1`,
-    [userId],
+    [userId]
   );
   const user = r.rows[0];
   if (!user) throw new DeleteAccountError('not_found');
