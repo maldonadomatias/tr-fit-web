@@ -22,9 +22,7 @@ type WeekdayKey = (typeof WEEKDAYS)[number];
 const weekdayEnum = z.enum(WEEKDAYS);
 
 export function sortWeekdays(days: WeekdayKey[]): WeekdayKey[] {
-  return [...days].sort(
-    (a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b)
-  );
+  return [...days].sort((a, b) => WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b));
 }
 
 /**
@@ -56,7 +54,9 @@ export function ageFromBirthDate(
 
 export const onboardingPayload = z
   .object({
-    name: z.string().min(1).max(100),
+    // Legacy clients still send these fields. New clients capture them during
+    // signup and the onboarding route reads them from users.
+    name: z.string().min(1).max(100).optional(),
     gender: z.enum(['male', 'female', 'other']),
     age: z.number().int().min(12).max(100),
     // New apps send the birth date and derive `age` from it (age alone goes
@@ -72,7 +72,10 @@ export const onboardingPayload = z
     leg_days: z.union([z.literal(1), z.literal(2)]).nullish(),
     equipment: z.enum(['gym_completo', 'gym_basico', 'casa_basica', 'solo_bw']),
     injuries: z.array(z.string()).default([]),
-    phone: z.string().regex(/^\+\d{10,15}$/),
+    phone: z
+      .string()
+      .regex(/^\+\d{10,15}$/)
+      .optional(),
     // Legacy field — subscriptions are now handled outside the app and the backend
     // no longer gates on tier. The app always sends 'full'; accept it for backward
     // compatibility but tolerate omission (defaults to 'full') so a future app
@@ -155,11 +158,7 @@ export const profileUpdatePayload = z
     weight_kg: z.number().min(30).max(250),
     goal: z.enum(['hipertrofia', 'fuerza', 'recomp', 'perdida_grasa']),
     days_per_week: z.number().int().min(2).max(6),
-    days_specific: z
-      .array(weekdayEnum)
-      .min(2)
-      .max(6)
-      .transform(sortWeekdays),
+    days_specific: z.array(weekdayEnum).min(2).max(6).transform(sortWeekdays),
     leg_days: z.union([z.literal(1), z.literal(2)]).nullable(),
     // Editable post-onboarding so athletes who signed up before the field
     // existed can set it (enables the birthday celebration in the app). The
@@ -322,10 +321,28 @@ export type AiSkeletonOutput = z.infer<typeof aiSkeletonOutput>;
 export type OnboardingPayload = z.infer<typeof onboardingPayload>;
 export type RmPayload = z.infer<typeof rmPayload>;
 
-export const signupPayload = z.object({
-  email: z.string().email().toLowerCase(),
-  password: z.string().min(8).max(200),
-});
+export const signupPayload = z
+  .object({
+    email: z.string().email().toLowerCase(),
+    password: z.string().min(8).max(200),
+    // Optional as a group so already-released app builds can keep signing up.
+    firstName: z.string().trim().min(1).max(100).optional(),
+    lastName: z.string().trim().min(1).max(100).optional(),
+    phone: z
+      .string()
+      .regex(/^\+\d{10,15}$/)
+      .optional(),
+  })
+  .refine(
+    (data) => {
+      const contact = [data.firstName, data.lastName, data.phone];
+      return (
+        contact.every((value) => value == null) ||
+        contact.every((value) => value != null)
+      );
+    },
+    { message: 'signup contact fields must be provided together' }
+  );
 
 export const loginPayload = z.object({
   email: z.string().email().toLowerCase(),
