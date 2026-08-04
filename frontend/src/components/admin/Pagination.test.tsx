@@ -18,7 +18,14 @@ const base = {
 describe('Pagination', () => {
   it('no renderiza nada si todo entra en una página', () => {
     const { container } = render(
-      <Pagination {...base} page={1} totalPages={1} from={1} to={10} total={10} />
+      <Pagination
+        {...base}
+        page={1}
+        totalPages={1}
+        from={1}
+        to={10}
+        total={10}
+      />
     );
     expect(container).toBeEmptyDOMElement();
   });
