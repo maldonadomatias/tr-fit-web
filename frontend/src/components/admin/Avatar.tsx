@@ -36,10 +36,8 @@ export function Avatar({
       className={cn(
         'inline-grid place-items-center font-bold select-none',
         sizeMap[size],
-        brand
-          ? 'bg-brand/15 text-brand'
-          : 'bg-muted text-foreground',
-        className,
+        brand ? 'bg-brand/15 text-brand' : 'bg-muted text-foreground',
+        className
       )}
       aria-hidden
     >

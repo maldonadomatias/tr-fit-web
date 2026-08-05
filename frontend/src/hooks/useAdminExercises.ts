@@ -19,7 +19,7 @@ export function useAdminExercises(filters: AdminExercisesFilters) {
     queryFn: async () => {
       const r = await api.get<{ items: Exercise[]; total: number }>(
         '/admin/exercises',
-        { params: filters },
+        { params: filters }
       );
       return r.data;
     },
@@ -32,7 +32,10 @@ export interface ExercisesSearchOptions {
   muscle_group?: string;
 }
 
-export function useExercisesSearch(q: string, opts: ExercisesSearchOptions = {}) {
+export function useExercisesSearch(
+  q: string,
+  opts: ExercisesSearchOptions = {}
+) {
   const { enabled = true, limit = 8, muscle_group } = opts;
   return useQuery({
     queryKey: ['exercises', 'search', q, limit, muscle_group],
@@ -57,7 +60,10 @@ export function useCreateExercise() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateExerciseInput) => {
-      const r = await api.post<{ exercise: Exercise }>('/admin/exercises', input);
+      const r = await api.post<{ exercise: Exercise }>(
+        '/admin/exercises',
+        input
+      );
       return r.data.exercise;
     },
     onSuccess: () => {
@@ -73,7 +79,7 @@ export function useUpdateExercise(id: number) {
     mutationFn: async (patch: UpdateExerciseInput) => {
       const r = await api.patch<{ exercise: Exercise }>(
         `/admin/exercises/${id}`,
-        patch,
+        patch
       );
       return r.data.exercise;
     },
@@ -93,7 +99,7 @@ export function useUploadExerciseVideo(id: number) {
       // axios sets the multipart boundary from the FormData automatically.
       const r = await api.post<{ video_url: string }>(
         `/admin/exercises/${id}/video`,
-        fd,
+        fd
       );
       return r.data.video_url;
     },
@@ -122,7 +128,7 @@ export function useRestoreExercise() {
   return useMutation({
     mutationFn: async (id: number) => {
       const r = await api.post<{ exercise: Exercise }>(
-        `/admin/exercises/${id}/restore`,
+        `/admin/exercises/${id}/restore`
       );
       return r.data.exercise;
     },

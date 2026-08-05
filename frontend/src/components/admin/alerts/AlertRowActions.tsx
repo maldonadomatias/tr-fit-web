@@ -1,7 +1,11 @@
 // frontend/src/components/admin/alerts/AlertRowActions.tsx
 import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import type { CoachAlert, AlertResolutionAction } from '@/types/api';
 import { useMarkAlertRead, useMarkAlertResolved } from '@/hooks/useAlerts';
@@ -16,15 +20,20 @@ import { ContactNoteDialog } from './dialogs/ContactNoteDialog';
 import { AcknowledgeDialog } from './dialogs/AcknowledgeDialog';
 
 const MATRIX: Record<CoachAlert['type'], AlertResolutionAction[]> = {
-  sos_pain:              ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
-  sos_machine:           ['approve_switch', 'revert_switch', 'swap_exercise', 'note_only'],
-  rpe_flag:              ['reduce_intensity', 'skip_week', 'note_only'],
-  rm_skipped:            ['reschedule_rm', 'skip_rm_block', 'note_only'],
-  rm_week_starting:      ['acknowledge', 'note_only'],
-  membership_expiring:   ['acknowledge', 'note_only'],
-  membership_overdue:    ['acknowledge', 'note_only'],
-  sos_no_machine:        ['note_only'],
-  program_reset:         ['note_only'],
+  sos_pain: ['swap_exercise', 'skip_week', 'regen_skeleton', 'note_only'],
+  sos_machine: [
+    'approve_switch',
+    'revert_switch',
+    'swap_exercise',
+    'note_only',
+  ],
+  rpe_flag: ['reduce_intensity', 'skip_week', 'note_only'],
+  rm_skipped: ['reschedule_rm', 'skip_rm_block', 'note_only'],
+  rm_week_starting: ['acknowledge', 'note_only'],
+  membership_expiring: ['acknowledge', 'note_only'],
+  membership_overdue: ['acknowledge', 'note_only'],
+  sos_no_machine: ['note_only'],
+  program_reset: ['note_only'],
 };
 
 const ITEM_LABEL: Record<AlertResolutionAction, string> = {
@@ -49,7 +58,10 @@ export function AlertRowActions({ alert }: { alert: CoachAlert }) {
   // .map of undefined when the backend adds a new type).
   const actions = MATRIX[alert.type] ?? ['note_only'];
 
-  const choose = (a: AlertResolutionAction) => { setActive(a); setOpen(false); };
+  const choose = (a: AlertResolutionAction) => {
+    setActive(a);
+    setOpen(false);
+  };
 
   return (
     <>
@@ -83,7 +95,10 @@ export function AlertRowActions({ alert }: { alert: CoachAlert }) {
           </button>
           {!alert.read_at && (
             <button
-              onClick={() => { markRead.mutate(alert.id); setOpen(false); }}
+              onClick={() => {
+                markRead.mutate(alert.id);
+                setOpen(false);
+              }}
               className="block w-full rounded px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
             >
               👁 Marcar leída

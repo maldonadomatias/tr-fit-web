@@ -22,7 +22,7 @@ export function AdminTabs<K extends string>({
       role="tablist"
       className={cn(
         'mb-5 flex items-center gap-3 overflow-x-auto border-b border-border sm:gap-6',
-        className,
+        className
       )}
     >
       {tabs.map((t) => {
@@ -38,7 +38,7 @@ export function AdminTabs<K extends string>({
               'relative -mb-px flex items-center gap-1.5 px-[14px] py-2.5 text-[13px] font-medium transition-colors',
               active
                 ? 'text-foreground'
-                : 'text-muted-foreground hover:text-foreground',
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <span>{t.label}</span>
@@ -48,7 +48,7 @@ export function AdminTabs<K extends string>({
                   'rounded-full px-1.5 py-0.5 font-mono tabular-nums text-[10px] font-semibold',
                   active
                     ? 'bg-brand/15 text-brand'
-                    : 'bg-muted text-muted-foreground',
+                    : 'bg-muted text-muted-foreground'
                 )}
               >
                 {t.count}
@@ -58,7 +58,7 @@ export function AdminTabs<K extends string>({
               aria-hidden
               className={cn(
                 'absolute inset-x-[14px] -bottom-px h-[2px] rounded-full transition-opacity',
-                active ? 'bg-brand opacity-100' : 'opacity-0',
+                active ? 'bg-brand opacity-100' : 'opacity-0'
               )}
             />
           </button>

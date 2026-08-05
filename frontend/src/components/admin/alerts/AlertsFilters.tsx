@@ -8,7 +8,16 @@ interface Props {
   onChange: (next: AlertsListFilters) => void;
 }
 
-const TYPES = ['', 'sos_pain', 'sos_machine', 'rpe_flag', 'rm_skipped', 'rm_week_starting', 'membership_expiring', 'membership_overdue'] as const;
+const TYPES = [
+  '',
+  'sos_pain',
+  'sos_machine',
+  'rpe_flag',
+  'rm_skipped',
+  'rm_week_starting',
+  'membership_expiring',
+  'membership_overdue',
+] as const;
 const TYPE_LABEL: Record<string, string> = {
   '': 'Todos',
   sos_pain: 'SOS dolor',
@@ -25,7 +34,9 @@ export function AlertsFilters({ value, onChange }: Props) {
     <div className="flex flex-wrap items-center gap-3">
       <Tabs
         value={value.status ?? 'open'}
-        onValueChange={(s) => onChange({ ...value, status: s as 'open' | 'resolved' | 'all' })}
+        onValueChange={(s) =>
+          onChange({ ...value, status: s as 'open' | 'resolved' | 'all' })
+        }
         className="w-full sm:w-auto"
       >
         <TabsList>
@@ -42,7 +53,9 @@ export function AlertsFilters({ value, onChange }: Props) {
         <div className="overflow-x-auto">
           <TabsList>
             {TYPES.map((t) => (
-              <TabsTrigger key={t} value={t}>{TYPE_LABEL[t]}</TabsTrigger>
+              <TabsTrigger key={t} value={t}>
+                {TYPE_LABEL[t]}
+              </TabsTrigger>
             ))}
           </TabsList>
         </div>
@@ -50,7 +63,9 @@ export function AlertsFilters({ value, onChange }: Props) {
       <Input
         placeholder="ID atleta (UUID)"
         value={value.athleteId ?? ''}
-        onChange={(e) => onChange({ ...value, athleteId: e.target.value || undefined })}
+        onChange={(e) =>
+          onChange({ ...value, athleteId: e.target.value || undefined })
+        }
         className="w-full max-w-[260px] sm:w-auto"
       />
     </div>

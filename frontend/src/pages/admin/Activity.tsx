@@ -6,10 +6,7 @@ import { PageHeader } from '@/components/admin/PageHeader';
 import { Eyebrow } from '@/components/admin/Eyebrow';
 import { Segmented } from '@/components/admin/Segmented';
 import { Timeline, type TimelineEntry } from '@/components/admin/Timeline';
-import {
-  useActivityLog,
-  type ActivityCategory,
-} from '@/hooks/useActivityLog';
+import { useActivityLog, type ActivityCategory } from '@/hooks/useActivityLog';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { fmtTimeAgo } from '@/lib/format';
 import type { ActivityEvent } from '@/types/api';
@@ -40,7 +37,7 @@ export default function Activity() {
     const lines = filtered
       .map(
         (e) =>
-          `${e.created_at},${e.type},${csv(e.actor)},${csv(e.target ?? '')},${e.severity ?? ''}`,
+          `${e.created_at},${e.type},${csv(e.actor)},${csv(e.target ?? '')},${e.severity ?? ''}`
       )
       .join('\n');
     const blob = new Blob([header + lines], { type: 'text/csv;charset=utf-8' });

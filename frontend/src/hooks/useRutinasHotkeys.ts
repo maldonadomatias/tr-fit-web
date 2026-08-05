@@ -20,7 +20,7 @@ function isTypingTarget(t: EventTarget | null): boolean {
 
 export function useRutinasHotkeys(
   handlers: Handlers,
-  { enabled = true }: { enabled?: boolean } = {},
+  { enabled = true }: { enabled?: boolean } = {}
 ) {
   useEffect(() => {
     if (!enabled) return;

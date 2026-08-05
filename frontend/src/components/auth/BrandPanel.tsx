@@ -32,7 +32,9 @@ export function BrandPanel() {
           <Dumbbell size={20} strokeWidth={2.5} />
         </div>
         <div>
-          <div className="text-base font-extrabold tracking-[0.2em]">TR-Fit</div>
+          <div className="text-base font-extrabold tracking-[0.2em]">
+            TR-Fit
+          </div>
           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-brand">
             Strength · ARG
           </div>

@@ -6,7 +6,8 @@ export function TabDiff() {
       </span>
       <p className="max-w-sm text-[13px] text-muted-foreground">
         Comparación visual contra la rutina anterior del atleta. Requiere
-        endpoint <code className="font-mono text-[12px]">/api/rutinas/:id/diff</code>.
+        endpoint{' '}
+        <code className="font-mono text-[12px]">/api/rutinas/:id/diff</code>.
       </p>
     </div>
   );

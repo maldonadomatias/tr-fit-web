@@ -33,15 +33,23 @@ function startOfDay(t: number): number {
  */
 export function expiryInfo(
   paidUntil: string | null | undefined,
-  now: number = Date.now(),
+  now: number = Date.now()
 ): ExpiryInfo {
   if (paidUntil == null) {
     // infinity or no membership: never urgent, always sorts to the bottom.
-    return { urgency: 'infinity', daysLeft: null, sortKey: Number.MAX_SAFE_INTEGER };
+    return {
+      urgency: 'infinity',
+      daysLeft: null,
+      sortKey: Number.MAX_SAFE_INTEGER,
+    };
   }
   const due = new Date(paidUntil).getTime();
   if (Number.isNaN(due)) {
-    return { urgency: 'infinity', daysLeft: null, sortKey: Number.MAX_SAFE_INTEGER };
+    return {
+      urgency: 'infinity',
+      daysLeft: null,
+      sortKey: Number.MAX_SAFE_INTEGER,
+    };
   }
   // Compare on calendar-day boundaries so "VENCE HOY" is date-based, not exact time.
   const daysLeft = Math.round((startOfDay(due) - startOfDay(now)) / DAY_MS);
@@ -68,13 +76,17 @@ export function expiryInfo(
  */
 export function isPaidThisMonth(
   paidUntil: string | null | undefined,
-  now: number = Date.now(),
+  now: number = Date.now()
 ): boolean {
   if (paidUntil == null) return true; // infinity / sin vencimiento
   const due = new Date(paidUntil).getTime();
   if (Number.isNaN(due)) return true;
   const n = new Date(now);
-  const startNextMonth = new Date(n.getFullYear(), n.getMonth() + 1, 1).getTime();
+  const startNextMonth = new Date(
+    n.getFullYear(),
+    n.getMonth() + 1,
+    1
+  ).getTime();
   return due >= startNextMonth;
 }
 

@@ -18,7 +18,7 @@ export function Eyebrow({
         variant === 'brand' && 'text-brand',
         variant === 'muted' && 'text-muted-foreground',
         variant === 'destructive' && 'text-destructive',
-        className,
+        className
       )}
     >
       {children}

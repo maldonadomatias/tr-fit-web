@@ -12,16 +12,16 @@ export const handlers = [
         user: { id: 'u1', email: body.email, role: 'admin' },
       });
     }
-    if (body.email === 'athlete@test.local' && body.password === 'goodpass1234') {
+    if (
+      body.email === 'athlete@test.local' &&
+      body.password === 'goodpass1234'
+    ) {
       return HttpResponse.json({
         accessToken: 'access-1',
         refreshToken: 'refresh-1',
         user: { id: 'u2', email: body.email, role: 'athlete' },
       });
     }
-    return HttpResponse.json(
-      { error: 'invalid_credentials' },
-      { status: 401 },
-    );
+    return HttpResponse.json({ error: 'invalid_credentials' }, { status: 401 });
   }),
 ];

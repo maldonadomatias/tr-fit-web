@@ -40,7 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string): Promise<StoredUser> {
-    const res = await api.post<AuthLoginResult>('/auth/login', { email, password });
+    const res = await api.post<AuthLoginResult>('/auth/login', {
+      email,
+      password,
+    });
     setTokens(res.data.accessToken, res.data.refreshToken);
     persistUser(res.data.user);
     setUserState(res.data.user);

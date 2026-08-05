@@ -5,14 +5,22 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import {
   useAdminExercises,
@@ -27,10 +35,26 @@ import { ExerciseSwapDialog } from '@/components/admin/rutinas/activas/ExerciseS
 import type { Exercise } from '@/types/api';
 
 const EQUIPMENT = [
-  'barra', 'mancuerna', 'maquina', 'polea', 'smith', 'bw', 'pesa_rusa', 'elastico', 'disco',
+  'barra',
+  'mancuerna',
+  'maquina',
+  'polea',
+  'smith',
+  'bw',
+  'pesa_rusa',
+  'elastico',
+  'disco',
 ] as const;
 const PATTERNS = [
-  'squat', 'hinge', 'push_h', 'push_v', 'pull_h', 'pull_v', 'isolation', 'core', 'cardio',
+  'squat',
+  'hinge',
+  'push_h',
+  'push_v',
+  'pull_h',
+  'pull_v',
+  'isolation',
+  'core',
+  'cardio',
 ] as const;
 const LEVELS = ['principiante', 'intermedio', 'avanzado'] as const;
 const MODALITIES = ['reps', 'tiempo', 'distancia'] as const;
@@ -58,19 +82,31 @@ type FormValues = z.infer<typeof schema>;
 function exerciseToForm(e: Exercise | null): FormValues {
   if (!e) {
     return {
-      name: '', muscle_group: '',
-      equipment: 'barra', movement_pattern: 'isolation', level_min: 'principiante',
-      is_principal: false, is_unilateral: false,
-      contraindicated_for: '', default_increment_kg: 2.5,
-      alternatives_ids: [], video_url: '', illustration_url: '',
-      modality: 'reps', default_target: '',
+      name: '',
+      muscle_group: '',
+      equipment: 'barra',
+      movement_pattern: 'isolation',
+      level_min: 'principiante',
+      is_principal: false,
+      is_unilateral: false,
+      contraindicated_for: '',
+      default_increment_kg: 2.5,
+      alternatives_ids: [],
+      video_url: '',
+      illustration_url: '',
+      modality: 'reps',
+      default_target: '',
       rep_cycle_threshold: 12,
     };
   }
   return {
-    name: e.name, muscle_group: e.muscle_group,
-    equipment: e.equipment, movement_pattern: e.movement_pattern, level_min: e.level_min,
-    is_principal: e.is_principal, is_unilateral: e.is_unilateral,
+    name: e.name,
+    muscle_group: e.muscle_group,
+    equipment: e.equipment,
+    movement_pattern: e.movement_pattern,
+    level_min: e.level_min,
+    is_principal: e.is_principal,
+    is_unilateral: e.is_unilateral,
     contraindicated_for: e.contraindicated_for.join(', '),
     default_increment_kg: e.default_increment_kg,
     alternatives_ids: e.alternatives_ids,
@@ -92,13 +128,19 @@ function formToPayload(v: FormValues): CreateExerciseInput {
     is_unilateral: v.is_unilateral,
     level_min: v.level_min,
     contraindicated_for: v.contraindicated_for
-      .split(',').map((s) => s.trim()).filter(Boolean),
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     default_increment_kg: Number(v.default_increment_kg),
     alternatives_ids: v.alternatives_ids,
     video_url: v.video_url && v.video_url !== '' ? v.video_url : null,
-    illustration_url: v.illustration_url && v.illustration_url !== '' ? v.illustration_url : null,
+    illustration_url:
+      v.illustration_url && v.illustration_url !== ''
+        ? v.illustration_url
+        : null,
     modality: v.modality,
-    default_target: v.default_target.trim() === '' ? null : v.default_target.trim(),
+    default_target:
+      v.default_target.trim() === '' ? null : v.default_target.trim(),
     rep_cycle_threshold: Number(v.rep_cycle_threshold),
   };
 }
@@ -130,7 +172,10 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
   const [altPickerOpen, setAltPickerOpen] = useState(false);
 
   // Catalog for resolving alternative ids → names (≈180 exercises, cap 200).
-  const { data: allExercises } = useAdminExercises({ archived: 'all', limit: 200 });
+  const { data: allExercises } = useAdminExercises({
+    archived: 'all',
+    limit: 200,
+  });
   const nameById = useMemo(() => {
     const m = new Map<number, string>();
     for (const ex of allExercises?.items ?? []) m.set(ex.id, ex.name);
@@ -147,7 +192,7 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
     form.setValue(
       'alternatives_ids',
       altIds.filter((x) => x !== id),
-      { shouldDirty: true },
+      { shouldDirty: true }
     );
   }
 
@@ -178,9 +223,12 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
       }
       onOpenChange(false);
     } catch (err: unknown) {
-      const code = (err as { response?: { data?: { error?: string } } }).response?.data?.error;
+      const code = (err as { response?: { data?: { error?: string } } })
+        .response?.data?.error;
       if (code === 'name_taken') {
-        form.setError('name', { message: 'Ya existe un ejercicio con ese nombre' });
+        form.setError('name', {
+          message: 'Ya existe un ejercicio con ese nombre',
+        });
       } else {
         toast.error('No se pudo guardar');
       }
@@ -207,17 +255,24 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="w-[calc(100vw-2rem)] max-w-6xl! max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{isEdit ? 'Editar ejercicio' : 'Nuevo ejercicio'}</DialogTitle>
+            <DialogTitle>
+              {isEdit ? 'Editar ejercicio' : 'Nuevo ejercicio'}
+            </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid gap-x-6 gap-y-4 md:grid-cols-2"
+          >
             {/* Column 1 */}
             <div className="flex flex-col gap-3">
               <div>
                 <Label htmlFor="name">Nombre</Label>
                 <Input id="name" {...form.register('name')} />
                 {form.formState.errors.name && (
-                  <p className="mt-1 text-xs text-destructive">{form.formState.errors.name.message}</p>
+                  <p className="mt-1 text-xs text-destructive">
+                    {form.formState.errors.name.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -228,11 +283,19 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                 <Label>Equipo</Label>
                 <Select
                   value={form.watch('equipment')}
-                  onValueChange={(v) => form.setValue('equipment', v as FormValues['equipment'])}
+                  onValueChange={(v) =>
+                    form.setValue('equipment', v as FormValues['equipment'])
+                  }
                 >
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {EQUIPMENT.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                    {EQUIPMENT.map((e) => (
+                      <SelectItem key={e} value={e}>
+                        {e}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -240,11 +303,22 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                 <Label>Patrón</Label>
                 <Select
                   value={form.watch('movement_pattern')}
-                  onValueChange={(v) => form.setValue('movement_pattern', v as FormValues['movement_pattern'])}
+                  onValueChange={(v) =>
+                    form.setValue(
+                      'movement_pattern',
+                      v as FormValues['movement_pattern']
+                    )
+                  }
                 >
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {PATTERNS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    {PATTERNS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -252,30 +326,47 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                 <Label>Nivel mínimo</Label>
                 <Select
                   value={form.watch('level_min')}
-                  onValueChange={(v) => form.setValue('level_min', v as FormValues['level_min'])}
+                  onValueChange={(v) =>
+                    form.setValue('level_min', v as FormValues['level_min'])
+                  }
                 >
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {LEVELS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                    {LEVELS.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="inc">Incremento por defecto (kg)</Label>
-                <Input id="inc" type="number" step="0.5" {...form.register('default_increment_kg')} />
+                <Input
+                  id="inc"
+                  type="number"
+                  step="0.5"
+                  {...form.register('default_increment_kg')}
+                />
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={form.watch('is_principal')}
-                    onCheckedChange={(c) => form.setValue('is_principal', c === true)}
+                    onCheckedChange={(c) =>
+                      form.setValue('is_principal', c === true)
+                    }
                   />
                   Principal
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={form.watch('is_unilateral')}
-                    onCheckedChange={(c) => form.setValue('is_unilateral', c === true)}
+                    onCheckedChange={(c) =>
+                      form.setValue('is_unilateral', c === true)
+                    }
                   />
                   Unilateral
                 </label>
@@ -285,8 +376,14 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
             {/* Column 2 */}
             <div className="flex flex-col gap-3">
               <div>
-                <Label htmlFor="contra">Contraindicaciones (separadas por coma)</Label>
-                <Input id="contra" {...form.register('contraindicated_for')} placeholder="lumbar, rodilla" />
+                <Label htmlFor="contra">
+                  Contraindicaciones (separadas por coma)
+                </Label>
+                <Input
+                  id="contra"
+                  {...form.register('contraindicated_for')}
+                  placeholder="lumbar, rodilla"
+                />
               </div>
               <div>
                 <Label>Ejercicios alternativos</Label>
@@ -305,7 +402,9 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                       key={id}
                       className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
                     >
-                      <span className="text-xs text-muted-foreground">{i + 1})</span>
+                      <span className="text-xs text-muted-foreground">
+                        {i + 1})
+                      </span>
                       <span className="flex-1 font-medium">
                         {nameById.get(id) ?? `Ejercicio #${id}`}
                       </span>
@@ -326,7 +425,8 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                     className="w-fit"
                     onClick={() => setAltPickerOpen(true)}
                   >
-                    <Plus size={14} className="mr-1" /> Añadir ejercicio alternativo
+                    <Plus size={14} className="mr-1" /> Añadir ejercicio
+                    alternativo
                   </Button>
                 </div>
               </div>
@@ -334,20 +434,34 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                 <Label>Modalidad</Label>
                 <Select
                   value={form.watch('modality')}
-                  onValueChange={(v) => form.setValue('modality', v as FormValues['modality'])}
+                  onValueChange={(v) =>
+                    form.setValue('modality', v as FormValues['modality'])
+                  }
                 >
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {MODALITIES.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    {MODALITIES.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="default_target">Objetivo por defecto</Label>
-                <Input id="default_target" {...form.register('default_target')} placeholder="ej. 5 min, 2 km, 10" />
+                <Input
+                  id="default_target"
+                  {...form.register('default_target')}
+                  placeholder="ej. 5 min, 2 km, 10"
+                />
               </div>
               <div>
-                <Label htmlFor="rep_cycle_threshold">Tope de repes (ciclo)</Label>
+                <Label htmlFor="rep_cycle_threshold">
+                  Tope de repes (ciclo)
+                </Label>
                 <Input
                   id="rep_cycle_threshold"
                   type="number"
@@ -357,7 +471,8 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                   {...form.register('rep_cycle_threshold')}
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Al llegar a estas repes sube la carga y baja a 4 (mujer) o 6 (varón).
+                  Al llegar a estas repes sube la carga y baja a 4 (mujer) o 6
+                  (varón).
                 </p>
               </div>
               <div>
@@ -366,7 +481,9 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                 {isEdit ? (
                   <div className="mt-2 flex flex-col gap-1.5">
                     <label className="inline-flex w-fit cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm hover:bg-accent">
-                      {uploadVideo.isPending ? 'Subiendo…' : 'Subir video (mp4)'}
+                      {uploadVideo.isPending
+                        ? 'Subiendo…'
+                        : 'Subir video (mp4)'}
                       <input
                         type="file"
                         accept="video/mp4,video/quicktime"
@@ -376,7 +493,8 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                       />
                     </label>
                     <p className="text-xs text-muted-foreground">
-                      Subí el archivo mp4. Los links de YouTube no se reproducen en la app.
+                      Subí el archivo mp4. Los links de YouTube no se reproducen
+                      en la app.
                     </p>
                     {form.watch('video_url') ? (
                       <video
@@ -394,24 +512,39 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
               </div>
               <div>
                 <Label htmlFor="ill">Ilustración URL</Label>
-                <Input id="ill" type="url" {...form.register('illustration_url')} />
+                <Input
+                  id="ill"
+                  type="url"
+                  {...form.register('illustration_url')}
+                />
                 {form.watch('illustration_url') && (
                   <img
                     src={form.watch('illustration_url') ?? ''}
                     alt=""
                     className="mt-2 h-24 w-24 rounded-md border object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        'none';
+                    }}
                   />
                 )}
               </div>
             </div>
 
             <DialogFooter className="md:col-span-2">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               {isEdit && !isArchived && (
-                <Button type="button" variant="outline" onClick={() => setArchiveConfirm(true)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setArchiveConfirm(true)}
+                >
                   Archivar
                 </Button>
               )}
@@ -420,7 +553,10 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                   Restaurar
                 </Button>
               )}
-              <Button type="submit" disabled={create.isPending || update.isPending}>
+              <Button
+                type="submit"
+                disabled={create.isPending || update.isPending}
+              >
                 {isEdit ? 'Guardar' : 'Crear'}
               </Button>
             </DialogFooter>
@@ -444,8 +580,12 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
             Se ocultará del catálogo. El historial queda intacto. ¿Confirmar?
           </p>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setArchiveConfirm(false)}>Cancelar</Button>
-            <Button variant="destructive" onClick={handleArchive}>Archivar</Button>
+            <Button variant="ghost" onClick={() => setArchiveConfirm(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleArchive}>
+              Archivar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

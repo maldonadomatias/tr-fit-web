@@ -23,7 +23,8 @@ export function authErrorMessage(err: unknown): { message: string } {
       }
       if (body.reason === 'membership_paused') {
         return {
-          message: 'Tu membresía está pausada. Hablá con tu coach para reactivarla',
+          message:
+            'Tu membresía está pausada. Hablá con tu coach para reactivarla',
         };
       }
       return { message: 'Tu cuenta no puede iniciar sesión' };

@@ -47,10 +47,10 @@ describe('expiryInfo', () => {
 
   it('classifies within-a-week as soon, beyond as later', () => {
     expect(expiryInfo(new Date(2026, 6, 12).toISOString(), NOW).urgency).toBe(
-      'soon',
+      'soon'
     );
     expect(expiryInfo(new Date(2026, 6, 30).toISOString(), NOW).urgency).toBe(
-      'later',
+      'later'
     );
   });
 });
@@ -63,7 +63,7 @@ describe('isPaidThisMonth', () => {
   it('is NOT paid when coverage ends mid-current-month', () => {
     // due 2026-07-20: expires this month → still owes July renewal.
     expect(isPaidThisMonth(new Date(2026, 6, 20).toISOString(), NOW)).toBe(
-      false,
+      false
     );
   });
 

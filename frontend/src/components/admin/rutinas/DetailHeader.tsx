@@ -52,7 +52,13 @@ export function DetailHeader({ data }: { data: RutinaDetail }) {
           <div className="flex flex-wrap items-center gap-x-2 font-mono text-[12px] tabular-nums text-muted-foreground">
             <span>{profile.age}a</span>
             <span className="text-border">·</span>
-            <span>{profile.gender === 'female' ? 'F' : profile.gender === 'male' ? 'M' : 'X'}</span>
+            <span>
+              {profile.gender === 'female'
+                ? 'F'
+                : profile.gender === 'male'
+                  ? 'M'
+                  : 'X'}
+            </span>
             <span className="text-border">·</span>
             <span>{LEVEL_LABEL[profile.level]}</span>
             <span className="text-border">·</span>

@@ -23,7 +23,7 @@ export function Sparkline({
   const step = width / (data.length - 1);
   const points = data.map(
     (v, i) =>
-      [i * step, height - ((v - min) / range) * (height - 2) - 1] as const,
+      [i * step, height - ((v - min) / range) * (height - 2) - 1] as const
   );
   const path = points
     .map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`))

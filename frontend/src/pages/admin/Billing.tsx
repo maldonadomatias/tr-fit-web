@@ -3,7 +3,11 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/admin/PageHeader';
-import { useBillingInfo, useUpdateBilling, type BillingInfo } from '@/hooks/useBilling';
+import {
+  useBillingInfo,
+  useUpdateBilling,
+  type BillingInfo,
+} from '@/hooks/useBilling';
 
 export default function Billing() {
   const { data, isLoading, isError } = useBillingInfo();
@@ -41,8 +45,14 @@ export default function Billing() {
     }
   }
 
-  if (isLoading) return <div className="text-sm text-muted-foreground">Cargando...</div>;
-  if (isError) return <div className="text-sm text-destructive">No se pudieron cargar los datos de pago. Reintentá más tarde.</div>;
+  if (isLoading)
+    return <div className="text-sm text-muted-foreground">Cargando...</div>;
+  if (isError)
+    return (
+      <div className="text-sm text-destructive">
+        No se pudieron cargar los datos de pago. Reintentá más tarde.
+      </div>
+    );
 
   return (
     <div className="max-w-lg space-y-4">
@@ -78,7 +88,9 @@ export default function Billing() {
           type="number"
           min={0}
           value={form.amount ?? ''}
-          onChange={(e) => set('amount', e.target.value === '' ? null : Number(e.target.value))}
+          onChange={(e) =>
+            set('amount', e.target.value === '' ? null : Number(e.target.value))
+          }
         />
       </label>
       <label className="block text-sm">

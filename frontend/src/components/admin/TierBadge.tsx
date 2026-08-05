@@ -23,7 +23,7 @@ export function TierBadge({
         'inline-flex items-center rounded-full border bg-background px-2 py-0.5',
         'font-mono text-[10px] font-bold uppercase tracking-[0.1em]',
         TIER_CLS[tier],
-        className,
+        className
       )}
     >
       {tier}

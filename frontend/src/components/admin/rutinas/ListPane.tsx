@@ -37,7 +37,7 @@ export function ListPane({
         else p.delete('q');
         return p;
       },
-      { replace: true },
+      { replace: true }
     );
   }
 
@@ -48,7 +48,7 @@ export function ListPane({
         else p.set('order', v);
         return p;
       },
-      { replace: true },
+      { replace: true }
     );
   }
 
@@ -62,7 +62,7 @@ export function ListPane({
     if (order === 'age') {
       arr.sort(
         (a, b) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     } else if (order === 'name') {
       arr.sort((a, b) => a.athlete_name.localeCompare(b.athlete_name));

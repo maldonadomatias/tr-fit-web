@@ -33,7 +33,7 @@ export function useLoggedSessions(userId: string | undefined) {
     enabled: !!userId,
     queryFn: async (): Promise<LoggedSession[]> => {
       const r = await api.get<LoggedSession[]>(
-        `/admin/users/${userId}/sessions`,
+        `/admin/users/${userId}/sessions`
       );
       return r.data;
     },

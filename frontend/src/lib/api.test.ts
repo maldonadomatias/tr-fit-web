@@ -33,7 +33,9 @@ describe('shouldHandleAuthExpiry', () => {
   it('ignores non-401 statuses', () => {
     expect(shouldHandleAuthExpiry(403, '/platform-fee', false)).toBe(false);
     expect(shouldHandleAuthExpiry(500, '/platform-fee', false)).toBe(false);
-    expect(shouldHandleAuthExpiry(undefined, '/platform-fee', false)).toBe(false);
+    expect(shouldHandleAuthExpiry(undefined, '/platform-fee', false)).toBe(
+      false
+    );
   });
 
   it('does not retry a request already retried once', () => {

@@ -18,7 +18,9 @@ async function tryRefresh(): Promise<boolean> {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
     try {
-      const res = await axios.post(`${BASE_URL}/auth/refresh`, { refreshToken });
+      const res = await axios.post(`${BASE_URL}/auth/refresh`, {
+        refreshToken,
+      });
       setTokens(res.data.accessToken, res.data.refreshToken);
       return true;
     } catch {
@@ -63,13 +65,18 @@ export function shouldHandleAuthExpiry(
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
-    const cfg = error.config as (AxiosRequestConfig & { _retried?: boolean }) | undefined;
-    if (cfg && shouldHandleAuthExpiry(error.response?.status, cfg.url, cfg._retried)) {
+    const cfg = error.config as
+      | (AxiosRequestConfig & { _retried?: boolean })
+      | undefined;
+    if (
+      cfg &&
+      shouldHandleAuthExpiry(error.response?.status, cfg.url, cfg._retried)
+    ) {
       cfg._retried = true;
       const ok = await tryRefresh();
       if (ok) return api(cfg);
       if (typeof window !== 'undefined') window.location.href = '/login';
     }
     return Promise.reject(error);
-  },
+  }
 );

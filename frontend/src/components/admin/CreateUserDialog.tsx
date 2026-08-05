@@ -24,7 +24,11 @@ interface Props {
   trigger?: React.ReactNode;
 }
 
-export function CreateUserDialog({ open: openProp, onOpenChange, trigger }: Props = {}) {
+export function CreateUserDialog({
+  open: openProp,
+  onOpenChange,
+  trigger,
+}: Props = {}) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = openProp ?? internalOpen;
   const setOpen = (v: boolean) => {
@@ -70,7 +74,7 @@ export function CreateUserDialog({ open: openProp, onOpenChange, trigger }: Prop
             toast.error('No se pudo crear el usuario');
           }
         },
-      },
+      }
     );
   }
 

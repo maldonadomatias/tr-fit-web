@@ -32,7 +32,8 @@ export function ListRow({
     const er = el.getBoundingClientRect();
     const pr = parent.getBoundingClientRect();
     if (er.top < pr.top) parent.scrollTop += er.top - pr.top - 8;
-    else if (er.bottom > pr.bottom) parent.scrollTop += er.bottom - pr.bottom + 8;
+    else if (er.bottom > pr.bottom)
+      parent.scrollTop += er.bottom - pr.bottom + 8;
   }, [isActive]);
 
   return (
@@ -43,18 +44,14 @@ export function ListRow({
       aria-current={isActive}
       className={cn(
         'group flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-3 text-left transition',
-        isActive
-          ? 'border-border bg-muted/60'
-          : 'hover:bg-muted/40',
+        isActive ? 'border-border bg-muted/60' : 'hover:bg-muted/40'
       )}
     >
       <span
         aria-hidden
         className={cn(
           'mt-0.5 size-2.5 shrink-0 rounded-full',
-          isActive
-            ? 'bg-brand'
-            : 'border-[1.5px] border-brand',
+          isActive ? 'bg-brand' : 'border-[1.5px] border-brand'
         )}
       />
       <span className="min-w-0 flex-1">

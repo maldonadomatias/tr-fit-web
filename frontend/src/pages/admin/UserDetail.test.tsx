@@ -37,7 +37,11 @@ vi.mock('@/hooks/useAuth', () => ({
 }));
 
 vi.mock('@/hooks/useAdminUsers', () => ({
-  useAdminUser: () => ({ data: mocks.newAthlete, isLoading: false, error: null }),
+  useAdminUser: () => ({
+    data: mocks.newAthlete,
+    isLoading: false,
+    error: null,
+  }),
   useCancelSubscription: mocks.idleMutation,
   useDeleteUser: mocks.idleMutation,
   useForceLogout: mocks.idleMutation,

@@ -104,10 +104,7 @@ export function RejectDialog({
 
         <div className="space-y-3">
           {TAG_GROUPS.map((g) => (
-            <div
-              key={g.label}
-              className="flex flex-wrap items-center gap-2"
-            >
+            <div key={g.label} className="flex flex-wrap items-center gap-2">
               <span className="w-24 shrink-0 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                 {g.label}
               </span>
@@ -124,7 +121,7 @@ export function RejectDialog({
                         'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] transition',
                         active
                           ? 'border-brand/40 bg-brand/15 text-brand'
-                          : 'border-border bg-background text-foreground hover:bg-muted',
+                          : 'border-border bg-background text-foreground hover:bg-muted'
                       )}
                     >
                       {active && <Check size={11} />}

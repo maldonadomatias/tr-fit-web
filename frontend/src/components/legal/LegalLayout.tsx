@@ -32,7 +32,9 @@ export function LegalLayout({
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-12">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          {title}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Última actualización: {updated}
         </p>

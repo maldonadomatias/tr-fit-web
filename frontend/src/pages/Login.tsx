@@ -30,7 +30,10 @@ export default function Login() {
   async function onSubmit(values: LoginValues) {
     setError(null);
     try {
-      const user = await login(values.email.trim().toLowerCase(), values.password);
+      const user = await login(
+        values.email.trim().toLowerCase(),
+        values.password
+      );
       if (user.role === 'admin' || user.role === 'superadmin') {
         navigate('/admin');
       } else {

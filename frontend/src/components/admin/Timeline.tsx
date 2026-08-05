@@ -21,7 +21,7 @@ export function Timeline({
     <ul
       className={cn(
         'relative pl-[22px] before:absolute before:left-[6px] before:top-[6px] before:bottom-[6px] before:w-px before:bg-border',
-        className,
+        className
       )}
     >
       {items.map((it) => (
@@ -42,7 +42,7 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
           sev === 'brand' && 'border-brand',
           sev === 'warning' && 'border-amber-500',
           sev === 'destructive' && 'border-destructive',
-          !sev && 'border-border',
+          !sev && 'border-border'
         )}
       />
       <div className="text-[13px] font-medium leading-snug">{entry.title}</div>

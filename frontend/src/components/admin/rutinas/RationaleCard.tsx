@@ -22,7 +22,7 @@ export function RationaleCard({ rationale }: { rationale: string | null }) {
           size={14}
           className={cn(
             'ml-auto text-muted-foreground transition-transform',
-            open && 'rotate-180',
+            open && 'rotate-180'
           )}
         />
       </button>

@@ -28,8 +28,7 @@ export function AuthAlert({
         'mb-4 flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-[13px] leading-[1.45]',
         variant === 'destructive' &&
           'border-destructive/20 bg-destructive/10 text-destructive',
-        variant === 'info' &&
-          'border-brand/20 bg-brand/10 text-brand',
+        variant === 'info' && 'border-brand/20 bg-brand/10 text-brand',
         variant === 'warn' &&
           'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-400',
         className

@@ -25,10 +25,7 @@ import { TierBadge } from '@/components/admin/TierBadge';
 import { Timeline, type TimelineEntry } from '@/components/admin/Timeline';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { useAdminStats } from '@/hooks/useAdminStats';
-import {
-  useAdminUsers,
-  useUpdateAdminUser,
-} from '@/hooks/useAdminUsers';
+import { useAdminUsers, useUpdateAdminUser } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { useAlerts } from '@/hooks/useAlerts';
 import { activityLabel, activitySub } from '@/lib/activity';
@@ -79,19 +76,20 @@ export default function Dashboard() {
         }
       />
 
-      <KpiRow stats={stats.data} loading={stats.isLoading} totalAthletes={
-        usersQ.data?.filter((u) => u.role === 'athlete').length ?? null
-      } />
+      <KpiRow
+        stats={stats.data}
+        loading={stats.isLoading}
+        totalAthletes={
+          usersQ.data?.filter((u) => u.role === 'athlete').length ?? null
+        }
+      />
 
       <CuotasRow expiringCount={expiringCount} overdueCount={overdueCount} />
 
       <SecondaryRow stats={stats.data} users={usersQ.data} />
 
       <div className="grid grid-cols-1 gap-[22px] lg:grid-cols-[1fr_320px]">
-        <PendingPanel
-          users={pendingQ.data}
-          loading={pendingQ.isLoading}
-        />
+        <PendingPanel users={pendingQ.data} loading={pendingQ.isLoading} />
         <ActivityPanel onAll={() => navigate('/admin/activity')} />
       </div>
 
@@ -195,8 +193,7 @@ function KpiRow({
         sub={
           totalAthletes != null && (
             <>
-              de{' '}
-              <span className="font-mono tabular-nums">{totalAthletes}</span>{' '}
+              de <span className="font-mono tabular-nums">{totalAthletes}</span>{' '}
               atletas
             </>
           )
@@ -303,7 +300,7 @@ function BarChartCard({ trend, total }: { trend: number[]; total: number }) {
               key={i}
               className={cn(
                 'flex-1 rounded-sm',
-                isLast ? 'bg-brand' : 'bg-muted',
+                isLast ? 'bg-brand' : 'bg-muted'
               )}
               style={{ height: `${Math.max(h, 3)}%` }}
               title={`Día ${i + 1}: ${v}`}
@@ -325,7 +322,7 @@ function TierDistCard({
   const breakdown = useMemo(() => {
     const tiers: SubscriptionTier[] = ['premium', 'full', 'basico'];
     const active = (users ?? []).filter(
-      (u) => u.subscription_status === 'authorized',
+      (u) => u.subscription_status === 'authorized'
     );
     return tiers.map((t) => ({
       tier: t,
@@ -351,7 +348,7 @@ function TierDistCard({
                 className={cn(
                   'h-full',
                   b.tier === 'premium' ? 'bg-brand' : 'bg-primary',
-                  b.tier === 'basico' && 'opacity-50',
+                  b.tier === 'basico' && 'opacity-50'
                 )}
                 style={{ width: `${(b.count / max) * 100}%` }}
               />
@@ -371,7 +368,7 @@ function TierDistCard({
           <span
             className={cn(
               'font-mono tabular-nums',
-              stats.churn_delta_pp <= 0 ? 'text-brand' : 'text-destructive',
+              stats.churn_delta_pp <= 0 ? 'text-brand' : 'text-destructive'
             )}
           >
             {fmtDelta(stats.churn_delta_pp, { suffix: 'pp' })}
@@ -441,13 +438,7 @@ function PendingPanel({
   );
 }
 
-function PendingRow({
-  user,
-  onOpen,
-}: {
-  user: AdminUser;
-  onOpen: () => void;
-}) {
+function PendingRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
   const mut = useUpdateAdminUser(user.id);
   const approve = () =>
     mut.mutate(
@@ -456,7 +447,7 @@ function PendingRow({
         onSuccess: () => toast.success('Usuario aprobado'),
         onError: (e) =>
           toast.error(`No se pudo aprobar: ${(e as Error).message}`),
-      },
+      }
     );
   const reject = () =>
     mut.mutate(
@@ -465,7 +456,7 @@ function PendingRow({
         onSuccess: () => toast.success('Usuario rechazado'),
         onError: (e) =>
           toast.error(`No se pudo rechazar: ${(e as Error).message}`),
-      },
+      }
     );
 
   return (

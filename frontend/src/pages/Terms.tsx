@@ -2,10 +2,7 @@ import { LegalLayout } from '@/components/legal/LegalLayout';
 
 export default function Terms() {
   return (
-    <LegalLayout
-      title="Términos y Condiciones"
-      updated="29 de junio de 2026"
-    >
+    <LegalLayout title="Términos y Condiciones" updated="29 de junio de 2026">
       <p>
         Estos Términos regulan el uso de la aplicación móvil y del sitio web
         TR-Fit (en adelante, el "Servicio"). Al crear una cuenta o utilizar el
@@ -17,15 +14,14 @@ export default function Terms() {
       <p>
         El Servicio es operado por Santiago Guillermo Robles Avalos ("TR-Fit",
         "nosotros"). Para contacto:{' '}
-        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>
-        .
+        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>.
       </p>
 
       <h2>2. Descripción del servicio</h2>
       <p>
         TR-Fit es una plataforma de entrenamiento personalizado que genera
-        rutinas adaptadas a tu perfil, te permite registrar tus entrenamientos
-        y mantener contacto con un coach. El acceso completo requiere una
+        rutinas adaptadas a tu perfil, te permite registrar tus entrenamientos y
+        mantener contacto con un coach. El acceso completo requiere una
         membresía activa.
       </p>
 
@@ -49,8 +45,7 @@ export default function Terms() {
         </li>
         <li>
           Podés cerrar tu cuenta en cualquier momento siguiendo las
-          instrucciones de la página{' '}
-          <a href="/support">Soporte</a>.
+          instrucciones de la página <a href="/support">Soporte</a>.
         </li>
       </ul>
 
@@ -62,9 +57,9 @@ export default function Terms() {
       </p>
       <ul>
         <li>
-          Si tu membresía se encuentra inactiva, vencida o suspendida, el
-          acceso a esas funciones queda limitado, sin que ello implique la
-          eliminación automática de tus datos.
+          Si tu membresía se encuentra inactiva, vencida o suspendida, el acceso
+          a esas funciones queda limitado, sin que ello implique la eliminación
+          automática de tus datos.
         </li>
         <li>
           La aplicación móvil no procesa pagos ni habilita la compra,
@@ -72,10 +67,7 @@ export default function Terms() {
         </li>
         <li>
           Para cualquier consulta relacionada con tu membresía, escribinos a{' '}
-          <a href="mailto:tatoroblesfit@gmail.com">
-            tatoroblesfit@gmail.com
-          </a>
-          .
+          <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>.
         </li>
       </ul>
 
@@ -107,8 +99,8 @@ export default function Terms() {
       <p>
         <strong>
           TR-Fit no es un servicio médico. La información, rutinas y
-          recomendaciones generadas no constituyen consejo médico,
-          diagnóstico ni tratamiento.
+          recomendaciones generadas no constituyen consejo médico, diagnóstico
+          ni tratamiento.
         </strong>{' '}
         Antes de iniciar cualquier programa de ejercicio consultá con un
         profesional de la salud, especialmente si tenés condiciones médicas,
@@ -119,8 +111,8 @@ export default function Terms() {
 
       <h2>7. Contenido generado por inteligencia artificial</h2>
       <p>
-        Las rutinas se generan utilizando modelos de inteligencia artificial
-        que pueden producir resultados inexactos o inadecuados para tu caso
+        Las rutinas se generan utilizando modelos de inteligencia artificial que
+        pueden producir resultados inexactos o inadecuados para tu caso
         particular. El criterio final sobre la idoneidad de un entrenamiento
         siempre corresponde a vos y a tu coach.
       </p>
@@ -129,37 +121,36 @@ export default function Terms() {
       <p>
         Todo el software, contenido, marca, logos y materiales del Servicio son
         propiedad de TR-Fit o sus licenciantes. Te otorgamos una licencia
-        limitada, no exclusiva, intransferible y revocable para usar el
-        Servicio conforme a estos Términos. Los datos que vos cargás siguen
-        siendo de tu propiedad; nos otorgás una licencia para procesarlos con
-        el único fin de prestarte el Servicio.
+        limitada, no exclusiva, intransferible y revocable para usar el Servicio
+        conforme a estos Términos. Los datos que vos cargás siguen siendo de tu
+        propiedad; nos otorgás una licencia para procesarlos con el único fin de
+        prestarte el Servicio.
       </p>
 
       <h2>9. Suspensión y cancelación</h2>
       <p>
-        Podemos suspender o cancelar tu cuenta, con o sin aviso, si
-        incumplís estos Términos, si tu uso pone en riesgo a otros usuarios o
-        al Servicio, o si la membresía no se encuentra al día. En caso de
-        suspensión podés solicitar la portabilidad de tus datos durante los 30
-        días posteriores.
+        Podemos suspender o cancelar tu cuenta, con o sin aviso, si incumplís
+        estos Términos, si tu uso pone en riesgo a otros usuarios o al Servicio,
+        o si la membresía no se encuentra al día. En caso de suspensión podés
+        solicitar la portabilidad de tus datos durante los 30 días posteriores.
       </p>
 
       <h2>10. Disponibilidad del servicio</h2>
       <p>
         Nos esforzamos por mantener el Servicio disponible 24/7, pero no
-        garantizamos disponibilidad ininterrumpida ni libre de errores.
-        Podemos realizar mantenimientos programados, actualizaciones o
-        modificar funciones sin aviso previo.
+        garantizamos disponibilidad ininterrumpida ni libre de errores. Podemos
+        realizar mantenimientos programados, actualizaciones o modificar
+        funciones sin aviso previo.
       </p>
 
       <h2>11. Limitación de responsabilidad</h2>
       <p>
-        En la máxima medida permitida por la ley, TR-Fit no será responsable
-        por daños indirectos, lucro cesante, pérdida de datos o daños
-        consecuentes derivados del uso o la imposibilidad de uso del Servicio.
-        Nuestra responsabilidad máxima frente a vos por cualquier reclamo no
-        excederá el monto efectivamente abonado por vos en los 12 meses
-        anteriores al hecho que origine el reclamo.
+        En la máxima medida permitida por la ley, TR-Fit no será responsable por
+        daños indirectos, lucro cesante, pérdida de datos o daños consecuentes
+        derivados del uso o la imposibilidad de uso del Servicio. Nuestra
+        responsabilidad máxima frente a vos por cualquier reclamo no excederá el
+        monto efectivamente abonado por vos en los 12 meses anteriores al hecho
+        que origine el reclamo.
       </p>
 
       <h2>12. Modificaciones</h2>
@@ -181,8 +172,7 @@ export default function Terms() {
       <h2>14. Contacto</h2>
       <p>
         Para cualquier consulta sobre estos Términos escribinos a{' '}
-        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>
-        .
+        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>.
       </p>
     </LegalLayout>
   );

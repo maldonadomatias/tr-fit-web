@@ -38,7 +38,7 @@ export function fmtTimeAgo(value: string | Date | null | undefined): string {
 
 export function fmtDelta(
   value: number,
-  opts: { suffix?: string; digits?: number } = {},
+  opts: { suffix?: string; digits?: number } = {}
 ): string {
   const { suffix = '', digits = 1 } = opts;
   const sign = value > 0 ? '+' : '';

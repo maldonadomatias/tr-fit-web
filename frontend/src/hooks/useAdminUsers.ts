@@ -169,7 +169,10 @@ export function useUpsertSubscription(id: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: UpsertSubInput): Promise<AdminUser> => {
-      const r = await api.put<AdminUser>(`/admin/users/${id}/subscription`, input);
+      const r = await api.put<AdminUser>(
+        `/admin/users/${id}/subscription`,
+        input
+      );
       return r.data;
     },
     onSuccess: (fresh) => {

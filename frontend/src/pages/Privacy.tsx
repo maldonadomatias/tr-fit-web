@@ -16,8 +16,7 @@ export default function Privacy() {
         aplicación móvil y el sitio web{' '}
         <a href="https://app.tatoroblesfit.com">app.tatoroblesfit.com</a>.
         Cualquier consulta podés enviarla a{' '}
-        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>
-        .
+        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>.
       </p>
 
       <h2>2. Datos que recopilamos</h2>
@@ -32,24 +31,22 @@ export default function Privacy() {
 
       <h3>2.2 Datos de salud y entrenamiento</h3>
       <ul>
+        <li>Datos físicos: peso corporal, altura, edad y sexo.</li>
         <li>
-          Datos físicos: peso corporal, altura, edad y sexo.
-        </li>
-        <li>
-          Mediciones corporales que decidas registrar: circunferencias
-          (cintura, cadera, pecho, brazo, pierna, cuello), porcentaje de grasa
-          corporal estimado, masa muscular, pliegues cutáneos y cualquier
-          otra métrica antropométrica que ingreses, junto con la fecha de cada
-          medición para construir tu historial.
+          Mediciones corporales que decidas registrar: circunferencias (cintura,
+          cadera, pecho, brazo, pierna, cuello), porcentaje de grasa corporal
+          estimado, masa muscular, pliegues cutáneos y cualquier otra métrica
+          antropométrica que ingreses, junto con la fecha de cada medición para
+          construir tu historial.
         </li>
         <li>
           Información de salud autoreportada: lesiones, zonas de dolor o
           molestia, restricciones físicas, objetivos.
         </li>
         <li>
-          Historial de entrenamientos: ejercicios realizados, series, repeticiones,
-          pesos levantados, tiempos de descanso, percepción de esfuerzo (RIR
-          o similar), adherencia y tests de fuerza.
+          Historial de entrenamientos: ejercicios realizados, series,
+          repeticiones, pesos levantados, tiempos de descanso, percepción de
+          esfuerzo (RIR o similar), adherencia y tests de fuerza.
         </li>
         <li>Disponibilidad de equipamiento y preferencias de entrenamiento.</li>
       </ul>
@@ -57,8 +54,8 @@ export default function Privacy() {
       <h3>2.3 Datos técnicos</h3>
       <ul>
         <li>
-          Token de notificaciones push del dispositivo, plataforma (iOS / Android)
-          y versión de la aplicación.
+          Token de notificaciones push del dispositivo, plataforma (iOS /
+          Android) y versión de la aplicación.
         </li>
         <li>
           Registros del servidor: dirección IP, fecha y hora de cada solicitud,
@@ -79,7 +76,8 @@ export default function Privacy() {
         </li>
         <li>
           Validar tu identidad, controlar el acceso y proteger la aplicación de
-          usos indebidos.</li>
+          usos indebidos.
+        </li>
         <li>Cumplir obligaciones legales y resolver disputas.</li>
       </ul>
 
@@ -143,10 +141,8 @@ export default function Privacy() {
       </p>
       <p>
         En Argentina, la autoridad de aplicación es la{' '}
-        <strong>
-          Agencia de Acceso a la Información Pública (AAIP)
-        </strong>{' '}
-        (Ley 25.326).
+        <strong>Agencia de Acceso a la Información Pública (AAIP)</strong> (Ley
+        25.326).
       </p>
 
       <h2>7. Seguridad</h2>
@@ -174,17 +170,16 @@ export default function Privacy() {
 
       <h2>10. Cambios a esta política</h2>
       <p>
-        Podemos actualizar esta Política. Cuando los cambios sean
-        sustanciales te notificaremos por email o dentro de la aplicación con
-        al menos 15 días de anticipación. La versión vigente está siempre
-        publicada en esta página, junto con la fecha de última actualización.
+        Podemos actualizar esta Política. Cuando los cambios sean sustanciales
+        te notificaremos por email o dentro de la aplicación con al menos 15
+        días de anticipación. La versión vigente está siempre publicada en esta
+        página, junto con la fecha de última actualización.
       </p>
 
       <h2>11. Contacto</h2>
       <p>
         Para consultas sobre privacidad escribinos a{' '}
-        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>
-        .
+        <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>.
       </p>
     </LegalLayout>
   );

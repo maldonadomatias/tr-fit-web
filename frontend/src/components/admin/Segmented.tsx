@@ -24,7 +24,7 @@ export function Segmented<T extends string>({
       role="tablist"
       className={cn(
         'inline-flex items-center rounded-md bg-muted p-0.5',
-        className,
+        className
       )}
     >
       {options.map((o) => {
@@ -38,12 +38,10 @@ export function Segmented<T extends string>({
             onClick={() => onChange(o.key)}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-[6px] transition-colors',
-              size === 'sm'
-                ? 'h-6 px-2 text-[12px]'
-                : 'h-7 px-2.5 text-[13px]',
+              size === 'sm' ? 'h-6 px-2 text-[12px]' : 'h-7 px-2.5 text-[13px]',
               active
                 ? 'bg-card text-foreground shadow-sm font-semibold'
-                : 'text-muted-foreground hover:text-foreground',
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {o.label}

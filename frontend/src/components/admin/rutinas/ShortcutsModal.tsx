@@ -24,13 +24,7 @@ function Row({ keys, label }: { keys: string[]; label: string }) {
   );
 }
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
       <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">

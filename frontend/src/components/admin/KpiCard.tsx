@@ -28,7 +28,7 @@ export function KpiCard({
       className={cn(
         'relative flex h-full flex-col gap-2 rounded-2xl border bg-card p-[18px]',
         highlighted && 'border-brand/40 bg-brand/4',
-        className,
+        className
       )}
     >
       <div className="flex items-center justify-between">
@@ -49,7 +49,7 @@ export function KpiCard({
               'font-mono tabular-nums font-semibold',
               deltaTone === 'up' && 'text-brand',
               deltaTone === 'down' && 'text-destructive',
-              (!deltaTone || deltaTone === 'neutral') && 'text-muted-foreground',
+              (!deltaTone || deltaTone === 'neutral') && 'text-muted-foreground'
             )}
           >
             {delta}
