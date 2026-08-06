@@ -54,6 +54,13 @@ export async function resetDatabase(): Promise<void> {
       phase = EXCLUDED.phase,
       updated_at = now();
   `);
+  // The exercises catalog is seeded, not truncated, so a suite that hand-picks
+  // alternatives_ids (admin CRUD, alternatives tests) leaks them into every
+  // later suite — and curated ids now decide the whole alternatives list.
+  // Restore the seeded default.
+  await pool.query(
+    `UPDATE exercises SET alternatives_ids = '{}' WHERE alternatives_ids <> '{}'`
+  );
 }
 
 export async function ensureMigrated(): Promise<void> {

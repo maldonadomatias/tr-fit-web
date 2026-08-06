@@ -22,8 +22,11 @@ it('returns an alternative same muscle_group, different id, compatible equipment
   const coach = await createAdmin();
   const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
   const r = await pool.query<{ id: number; muscle_group: string }>(
+    // ORDER BY: without it the row is arbitrary, and the assertion below only
+    // holds for the automatic path (a curated pick may be another group).
     `SELECT id, muscle_group FROM exercises
-       WHERE is_principal = FALSE AND muscle_group = 'Pecho - Mayor' LIMIT 1`,
+       WHERE is_principal = FALSE AND muscle_group = 'Pecho - Mayor'
+       ORDER BY id LIMIT 1`,
   );
   if (r.rows.length === 0) return;
   const alt = await findAlternative(r.rows[0].id, ath);
@@ -38,7 +41,8 @@ it('excludes ids passed in excludeIds', async () => {
   const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
   const r = await pool.query<{ id: number; muscle_group: string }>(
     `SELECT id, muscle_group FROM exercises
-       WHERE is_principal = FALSE AND muscle_group = 'Pecho - Mayor' LIMIT 2`,
+       WHERE is_principal = FALSE AND muscle_group = 'Pecho - Mayor'
+       ORDER BY id LIMIT 2`,
   );
   if (r.rows.length < 2) return;
   const [target, other] = r.rows;
