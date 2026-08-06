@@ -16,11 +16,18 @@ const equipmentMatrix: Record<AthleteProfile['equipment'], string[]> = {
 };
 
 /**
- * Every alternative the athlete may swap to, best first: the exercise's
- * curated `alternatives_ids` (hand-picked in admin) ahead of the automatic
- * same-muscle-group matches. Curated ones skip the equipment/level filter —
- * an admin already vouched for them — but NOTHING skips the injury guard or
- * the caller's exclude list.
+ * Every alternative the athlete may swap to, best first.
+ *
+ * The exercise's curated `alternatives_ids` (hand-picked in admin) win
+ * OUTRIGHT: when the admin listed alternatives for this exercise, the athlete
+ * sees only those, in the admin's order. Padding the picker with the automatic
+ * same-muscle-group sweep made the list read as "every exercise of the muscle
+ * group" and buried the curated picks (coach report 2026-08-06).
+ *
+ * The automatic same-muscle-group query is only the fallback: no curated ids,
+ * or every curated one knocked out by the injury guard / exclude list.
+ * Curated ones skip the equipment/level filter — an admin already vouched for
+ * them — but NOTHING skips the injury guard or the caller's exclude list.
  */
 export async function findAlternatives(
   exerciseId: number,
@@ -40,35 +47,43 @@ export async function findAlternatives(
   const profile = profR.rows[0];
   if (!profile) return [];
 
+  const curatedIds = orig.alternatives_ids ?? [];
+  if (curatedIds.length) {
+    const c = await pool.query<Exercise>(
+      `SELECT * FROM exercises
+         WHERE id != $1
+           AND id <> ALL($2::int[])
+           AND NOT (contraindicated_for && $3::text[])
+           AND id = ANY($4::int[])
+         ORDER BY array_position($4::int[], id)
+         LIMIT $5`,
+      [exerciseId, excludeIds, profile.injuries, curatedIds, limit],
+    );
+    if (c.rows.length) return c.rows;
+  }
+
   const allowedEquipment = equipmentMatrix[profile.equipment];
   const athleteLevelOrd = athleteLevelRank(profile.level);
-  const curatedIds = orig.alternatives_ids ?? [];
 
   const r = await pool.query<Exercise>(
     `SELECT * FROM exercises
        WHERE id != $1
          AND id <> ALL($7::int[])
          AND NOT (contraindicated_for && $5::text[])
-         AND (
-           id = ANY($8::int[])
-           OR (
-             muscle_group = $2
-             AND equipment = ANY($3::text[])
-             AND CASE level_min
-                   WHEN 'principiante' THEN 1
-                   WHEN 'intermedio' THEN 2
-                   WHEN 'avanzado' THEN 3
-                 END <= $4
-           )
-         )
+         AND muscle_group = $2
+         AND equipment = ANY($3::text[])
+         AND CASE level_min
+               WHEN 'principiante' THEN 1
+               WHEN 'intermedio' THEN 2
+               WHEN 'avanzado' THEN 3
+             END <= $4
        ORDER BY
-         CASE WHEN id = ANY($8::int[]) THEN 0 ELSE 1 END,
          CASE WHEN equipment = $6 THEN 0 ELSE 1 END,
          id
-       LIMIT $9`,
+       LIMIT $8`,
     [exerciseId, orig.muscle_group, allowedEquipment,
      athleteLevelOrd, profile.injuries, orig.equipment, excludeIds,
-     curatedIds, limit],
+     limit],
   );
   return r.rows;
 }

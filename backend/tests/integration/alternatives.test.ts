@@ -49,10 +49,10 @@ it('excludes ids passed in excludeIds', async () => {
   }
 });
 
-// The athlete picks from a LIST now, and the exercise's curated
-// alternatives_ids (hand-picked in admin) must head it — even when the
-// curated pick is a different muscle group the automatic query would skip.
-it('lists curated alternatives_ids first', async () => {
+// The athlete picks from a LIST now, and when the exercise has curated
+// alternatives_ids (hand-picked in admin) the list is ONLY those — even when
+// the curated pick is a different muscle group the automatic query would skip.
+it('lists only the curated alternatives_ids', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
   const r = await pool.query<{ id: number }>(
@@ -67,12 +67,15 @@ it('lists curated alternatives_ids first', async () => {
     [r.rows[0].id, [other.rows[0].id]]);
 
   const alts = await findAlternatives(r.rows[0].id, ath);
-  expect(alts.length).toBeGreaterThan(1);
-  expect(alts[0].id).toBe(other.rows[0].id);
-  expect(alts.map((a) => a.id)).not.toContain(r.rows[0].id);
+  expect(alts.map((a) => a.id)).toEqual([other.rows[0].id]);
   // findAlternative stays the head of the same list.
   const one = await findAlternative(r.rows[0].id, ath);
   expect(one?.id).toBe(other.rows[0].id);
+
+  // Every curated pick knocked out by the exclude list → automatic sweep.
+  const fallback = await findAlternatives(r.rows[0].id, ath, [other.rows[0].id]);
+  expect(fallback.map((a) => a.id)).not.toContain(other.rows[0].id);
+  for (const a of fallback) expect(a.muscle_group).toBe('Pecho - Mayor');
 });
 
 it('skips contraindicated exercises', async () => {

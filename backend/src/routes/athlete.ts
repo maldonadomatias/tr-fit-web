@@ -37,6 +37,7 @@ import {
   listExclusions,
 } from '../services/exclusions.service.js';
 import { resetProgramForGymChange } from '../services/program-reset.service.js';
+import { resolveUnit } from '../services/equipment-units.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -311,6 +312,8 @@ router.post('/exclusions', async (req, res) => {
           name: replacement.name,
           muscle_group: replacement.muscle_group,
           equipment: replacement.equipment,
+          // The replacement logs in its own unit, not the excluded exercise's.
+          unit: await resolveUnit(req.user!.id, replacement.equipment),
         }
       : null,
   });
