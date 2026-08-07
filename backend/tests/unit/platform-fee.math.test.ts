@@ -5,6 +5,7 @@ import {
   addMonthsISO,
   isAdjustmentDue,
   previousMonthPeriod,
+  currentMonthPeriod,
   paymentDueDate,
   isPaymentOverdue,
 } from '../../src/services/platform-fee.math.js';
@@ -65,21 +66,22 @@ describe('isAdjustmentDue', () => {
   });
 });
 
-describe('previousMonthPeriod', () => {
-  it('returns the first of the prior month', () => {
+describe('previousMonthPeriod / currentMonthPeriod', () => {
+  it('returns first-of-month anchors', () => {
     expect(previousMonthPeriod('2026-07-01')).toBe('2026-06-01');
     expect(previousMonthPeriod('2026-01-15')).toBe('2025-12-01');
+    expect(currentMonthPeriod('2026-08-07')).toBe('2026-08-01');
   });
 });
 
 describe('paymentDueDate / isPaymentOverdue', () => {
-  it('due date is the 10th of the current month', () => {
-    expect(paymentDueDate('2026-03-05')).toBe('2026-03-10');
-    expect(paymentDueDate('2026-03-10')).toBe('2026-03-10');
+  it('due date is the 10th of the invoice (current) month', () => {
+    expect(paymentDueDate('2026-08-05')).toBe('2026-08-10');
+    expect(paymentDueDate('2026-08-10')).toBe('2026-08-10');
   });
   it('the 10th is still on time; the 11th is overdue', () => {
-    expect(isPaymentOverdue('2026-03-10', false)).toBe(false);
-    expect(isPaymentOverdue('2026-03-11', false)).toBe(true);
-    expect(isPaymentOverdue('2026-03-11', true)).toBe(false);
+    expect(isPaymentOverdue('2026-08-10', false)).toBe(false);
+    expect(isPaymentOverdue('2026-08-11', false)).toBe(true);
+    expect(isPaymentOverdue('2026-08-11', true)).toBe(false);
   });
 });

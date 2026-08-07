@@ -34,6 +34,7 @@ vi.mock('@/hooks/usePlatformFee', () => ({
         revenue_share_pct: 0,
         revenue_share_ars: 0,
         total_ars: 52500,
+        invoice_period: '2026-07-01',
         revenue_period: '2026-06-01',
         due_date: '2026-07-10',
         overdue: false,
@@ -76,18 +77,19 @@ describe('platform fee payment status', () => {
     mocks.markPaid.mockReset();
   });
 
-  it('shows previous-month invoice and current-month collection', () => {
+  it('shows invoice for current month due on the 10th', () => {
     render(<PlatformFee />);
 
-    expect(screen.getByText(/A pagar · facturación de/i)).toBeInTheDocument();
-    expect(screen.getByText(/Cobro de/i)).toBeInTheDocument();
-    expect(screen.getByText('cobrado vs estimado')).toBeInTheDocument();
-    expect(screen.getByText('Estimado')).toBeInTheDocument();
-    expect(screen.getByText('Real cobrado')).toBeInTheDocument();
-    expect(screen.getByText('Pendiente')).toBeInTheDocument();
+    // invoice_period July, due 10 July; 4% from June real
+    expect(screen.getByText(/Vence el 10 de/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/no entra en la factura de ahora/i)
+      screen.getByText(/Pagá en .+ hasta el día 10 inclusive/i)
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Facturación real en curso/i)
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/No se pierde nada/i).length).toBeGreaterThan(0);
+    expect(screen.getByText('cobrado vs estimado')).toBeInTheDocument();
   });
 
   it('shows the recorded payment for the invoice', () => {
@@ -109,7 +111,9 @@ describe('platform fee payment status', () => {
   it('lets a superadmin mark the invoice as paid', () => {
     render(<PlatformFee />);
 
-    expect(screen.getByText('Pago pendiente')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Pago pendiente · hasta el 10/i)
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Marcar como pagado' })
     ).toBeInTheDocument();
@@ -131,7 +135,9 @@ describe('platform fee payment status', () => {
 
     render(<PlatformFee />);
 
-    expect(screen.getByText('Pago pendiente')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Pago pendiente · hasta el 10/i)
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Marcar como pagado' })
     ).not.toBeInTheDocument();
@@ -157,6 +163,6 @@ describe('platform fee payment status', () => {
 
     render(<PlatformFee />);
 
-    expect(screen.getByText('Pagado')).toBeInTheDocument();
+    expect(screen.getAllByText('Pagado').length).toBeGreaterThanOrEqual(1);
   });
 });

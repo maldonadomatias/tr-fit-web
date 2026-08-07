@@ -64,9 +64,15 @@ export function previousMonthPeriod(todayISO: string): string {
   return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
 }
 
+/** First day of the current calendar month (invoice / payment period). */
+export function currentMonthPeriod(todayISO: string): string {
+  return `${todayISO.slice(0, 7)}-01`;
+}
+
 /**
- * Payment is due on the 10th of the current calendar month
- * (settles the previous month's real collections).
+ * Payment is due on the 10th of the current calendar month.
+ * Invoice = current-month base fee + 4% of previous month's full real
+ * (closed month so no collections are lost).
  */
 export function paymentDueDate(todayISO: string): string {
   return `${todayISO.slice(0, 7)}-10`;

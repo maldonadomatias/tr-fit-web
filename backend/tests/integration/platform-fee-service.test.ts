@@ -64,31 +64,32 @@ describe('platform fee service', () => {
     expect(rev.grossArs).toBe(50000);
   });
 
-  it('invoice bills previous month real; collection tracks current month', async () => {
+  it('August invoice = base + 4% of July real; due 10 August', async () => {
     const coach = await createAdmin();
-    // Paid for June only (covers into July, not full July → not July real)
-    const juneOnly = await createAthlete(coach);
-    await setMembership(juneOnly, '2026-07-15T00:00:00.000Z', 'active');
-    // Paid through August → real for both June and July
-    const both = await createAthlete(coach);
-    await setMembership(both, '2026-08-15T00:00:00.000Z', 'active');
+    // Ends mid-July → not real for July or August
+    const midJuly = await createAthlete(coach);
+    await setMembership(midJuly, '2026-07-15T00:00:00.000Z', 'active');
+    // Covers past end of August → real for July and August
+    const paid = await createAthlete(coach);
+    await setMembership(paid, '2026-09-15T00:00:00.000Z', 'active');
     // Unpaid / expired — estimated only
     const expired = await createAthlete(coach);
     await setMembership(expired, '2026-06-01T00:00:00.000Z', 'expired');
     const cancelled = await createAthlete(coach);
     await setMembership(cancelled, '2026-05-01T00:00:00.000Z', 'cancelled');
 
-    // 5 July: invoice settles June (due 10 July); collection is July progress.
-    const s = await computeCurrent('2026-07-05');
-    expect(s.revenue_period).toBe('2026-06-01');
-    expect(s.due_date).toBe('2026-07-10');
+    // 5 August: pay August (due 10 Aug); 4% from July real; collection is Aug progress.
+    const s = await computeCurrent('2026-08-05');
+    expect(s.invoice_period).toBe('2026-08-01');
+    expect(s.revenue_period).toBe('2026-07-01');
+    expect(s.due_date).toBe('2026-08-10');
     expect(s.overdue).toBe(false);
-    // June real: juneOnly + both
-    expect(s.active_athletes).toBe(2);
-    expect(s.gross_revenue_ars).toBe(50000);
-    expect(s.revenue_share_ars).toBe(2000);
-    expect(s.total_ars).toBe(107000);
-    // July collection: only `both` is real; 3 in estimated pool
+    // July real: only `paid` (paid_until Sep 15)
+    expect(s.active_athletes).toBe(1);
+    expect(s.gross_revenue_ars).toBe(25000);
+    expect(s.revenue_share_ars).toBe(1000);
+    expect(s.total_ars).toBe(106000);
+    // August collection: only `paid` is real
     expect(s.estimated_athletes).toBe(3);
     expect(s.gross_estimated_ars).toBe(75000);
     expect(s.current_real_athletes).toBe(1);
@@ -96,18 +97,20 @@ describe('platform fee service', () => {
     expect(s.collection_pct).toBe(33.3);
   });
 
-  it('invoice is overdue after the 10th if unpaid', async () => {
-    const s = await computeCurrent('2026-07-11');
-    expect(s.due_date).toBe('2026-07-10');
+  it('invoice is overdue after the 10th of the invoice month if unpaid', async () => {
+    const s = await computeCurrent('2026-08-11');
+    expect(s.invoice_period).toBe('2026-08-01');
+    expect(s.due_date).toBe('2026-08-10');
     expect(s.overdue).toBe(true);
   });
 
-  it('computeCurrent applies base + 4% on previous month real', async () => {
+  it('computeCurrent applies current base + 4% on previous month real', async () => {
     const coach = await createAdmin();
     await createAthlete(coach);
     await createAthlete(coach);
     const s = await computeCurrent('2026-06-24');
-    // infinity memberships count as real for May (previous) and June (current)
+    // Invoice June (pay by 10 Jun); 4% from May real; infinity counts both months
+    expect(s.invoice_period).toBe('2026-06-01');
     expect(s.revenue_period).toBe('2026-05-01');
     expect(s.active_athletes).toBe(2);
     expect(s.gross_revenue_ars).toBe(50000);
@@ -132,13 +135,14 @@ describe('platform fee service', () => {
     expect(s.total_ars).toBe(107040);
   });
 
-  it('prefers frozen history snapshot for the previous-month invoice', async () => {
+  it('freezes previous-month real from history for the 4%', async () => {
     const coach = await createAdmin();
     await createAthlete(coach);
     await snapshotMonth('2026-05-01');
-    // Add another athlete after snapshot — must not change May invoice
+    // Add another athlete after snapshot — must not change May real used in June invoice
     await createAthlete(coach);
     const s = await computeCurrent('2026-06-15');
+    expect(s.invoice_period).toBe('2026-06-01');
     expect(s.revenue_period).toBe('2026-05-01');
     expect(s.active_athletes).toBe(1);
     expect(s.gross_revenue_ars).toBe(25000);
@@ -201,23 +205,25 @@ describe('platform fee service', () => {
     expect(h[0].total_ars).toBe(106000);
   });
 
-  it('records payment against the previous-month revenue period', async () => {
+  it('records payment against the invoice (current) month', async () => {
     const coach = await createAdmin();
+    await createAthlete(coach);
     await snapshotMonth('2026-05-01');
-    // Paying on 5 June settles May (due 10 June)
+    // Paying on 5 June = June invoice (due 10 June); 4% from May
     const pay = await recordCurrentPayment(coach, '2026-06-05');
-    expect(pay?.period).toBe('2026-05-01');
+    expect(pay?.period).toBe('2026-06-01');
+    expect(pay?.total_ars).toBe(106000);
 
+    // History May shows paid via join to June payment
     const h = await getHistory();
     expect(h[0]).toMatchObject({
       period: '2026-05-01',
-      paid_total_ars: 105000,
+      paid_total_ars: 106000,
       paid_at: expect.any(String),
     });
 
     const s = await computeCurrent('2026-06-05');
     expect(s.overdue).toBe(false);
-    // After payment, still not overdue even past the 10th
     const late = await computeCurrent('2026-06-15');
     expect(late.overdue).toBe(false);
   });

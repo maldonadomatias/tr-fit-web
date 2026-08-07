@@ -9,10 +9,10 @@ export interface PlatformFeeSummary {
   active_athletes: number;
   /** Previous-month real gross (4% applied on this). */
   gross_revenue_ars: number;
-  /** Current-month estimated gross (next invoice preview). */
+  /** Current-month estimated gross (next invoice's 4% preview). */
   gross_estimated_ars: number;
   estimated_athletes: number;
-  /** Current-month real gross (next invoice preview). */
+  /** Current-month real gross (next invoice's 4% preview). */
   current_real_ars: number;
   current_real_athletes: number;
   /** current real / current estimated × 100. */
@@ -20,9 +20,11 @@ export interface PlatformFeeSummary {
   revenue_share_pct: number;
   revenue_share_ars: number;
   total_ars: number;
-  /** YYYY-MM-01 of the month being billed. */
+  /** YYYY-MM-01 — invoice month (paid this month by the 10th). */
+  invoice_period: string;
+  /** YYYY-MM-01 — closed month whose real drives the 4%. */
   revenue_period: string;
-  /** YYYY-MM-10 payment deadline. */
+  /** YYYY-MM-10 payment deadline within the invoice month. */
   due_date: string;
   overdue: boolean;
   next_adjustment_date: string;
