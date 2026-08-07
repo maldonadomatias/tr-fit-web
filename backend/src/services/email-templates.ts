@@ -80,7 +80,9 @@ export function painAlertTemplate(opts: {
 }
 
 export function membershipExpiringTemplate(opts: {
-  name: string; paidUntil: string; daysLeft: number;
+  name: string;
+  paidUntil: string;
+  daysLeft: number;
 }): string {
   return layout(`
   <h2 style="margin:0 0 16px 0">Tu plan vence pronto</h2>
@@ -95,4 +97,12 @@ export function membershipExpiredTemplate(opts: { name: string }): string {
   <h2 style="margin:0 0 16px 0">Tu plan venció</h2>
   <p style="line-height:1.6">Hola ${opts.name}, tu acceso a ${brandName} venció.
     Para renovarlo y volver a entrenar, coordiná el pago con tu coach.</p>`);
+}
+
+export function accountApprovedTemplate(opts: { name: string }): string {
+  return layout(`
+  <h2 style="margin:0 0 16px 0">Tu cuenta ya está activa</h2>
+  <p style="line-height:1.6">Hola ${opts.name}, tu cuenta de ${brandName} fue
+    aprobada. Ya podés entrar a la app y empezar a entrenar.</p>
+  <p style="line-height:1.6">Si tenés alguna duda, escribile a tu coach.</p>`);
 }

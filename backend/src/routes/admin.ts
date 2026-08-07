@@ -28,6 +28,8 @@ import {
   AdminError,
 } from '../services/admin.service.js';
 import { getLoggedSessions } from '../services/logged-sessions.service.js';
+import { sendAccountApprovedEmail } from '../services/email.service.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -39,6 +41,60 @@ async function actorEmail(req: Request): Promise<string> {
     [req.user.id]
   );
   return r.rows[0]?.email ?? `admin:${req.user.id.slice(0, 8)}`;
+}
+
+// Mirrors the login gate in auth.service.ts: an athlete needs BOTH an approved
+// status and a live membership. Mailing on the status flip alone promises access
+// the login gate still denies.
+function canLogIn(
+  u: {
+    role: string;
+    status: string;
+    membership_status: string | null;
+    paid_until: string | number | null;
+  } | null
+): boolean {
+  if (!u || u.status !== 'approved') return false;
+  if (u.role !== 'athlete') return true;
+  if (u.membership_status === 'paused') return false;
+  const p = u.paid_until;
+  if (p == null) return false;
+  if (p === Infinity || p === 'infinity') return true; // sentinel used by fixtures + manual grants
+  const t = new Date(p).getTime();
+  return Number.isFinite(t) && t + 48 * 3_600_000 > Date.now(); // 48h grace, same as the SQL gate
+}
+
+// Only mail when the account *became* usable (before: no login, after: can login).
+// A re-save, renewal, or bare status approve without membership never re-sends.
+// A dead mailer must not fail the request.
+async function notifyApproved(
+  before: {
+    role: string;
+    status: string;
+    membership_status: string | null;
+    paid_until: string | number | null;
+  } | null,
+  after: {
+    email: string;
+    name: string | null;
+    role: string;
+    status: string;
+    membership_status: string | null;
+    paid_until: string | number | null;
+  } | null
+): Promise<void> {
+  if (!after || canLogIn(before) || !canLogIn(after)) return;
+  try {
+    await sendAccountApprovedEmail({
+      email: after.email,
+      name: after.name ?? 'atleta',
+    });
+  } catch (e) {
+    logger.error(
+      { err: e, email: after.email },
+      'account approved email failed'
+    );
+  }
 }
 
 router.get('/stats', async (_req: Request, res: Response) => {
@@ -278,6 +334,7 @@ router.patch('/users/:id', async (req: Request, res: Response) => {
     });
   }
 
+  await notifyApproved(before, fresh);
   res.json(fresh);
 });
 
@@ -357,9 +414,7 @@ router.delete(
 );
 
 const monthlyFeeBody = z.object({
-  monthly_fee_ars: z
-    .number()
-    .nonnegative({ message: 'out_of_range' }),
+  monthly_fee_ars: z.number().nonnegative({ message: 'out_of_range' }),
 });
 
 router.put('/users/:id/monthly-fee', async (req, res) => {
@@ -468,6 +523,9 @@ router.post('/users/:id/payments', async (req: Request, res: Response) => {
       paid_until: membership.paid_until,
     },
   });
+
+  const after = await getUser(req.params.id);
+  await notifyApproved(before, after);
 
   res.status(201).json({ membership });
 });
