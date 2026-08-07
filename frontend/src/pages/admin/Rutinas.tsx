@@ -6,7 +6,7 @@ import { ListPane } from '@/components/admin/rutinas/ListPane';
 import { DetailPane } from '@/components/admin/rutinas/DetailPane';
 import { RutinasTabs } from '@/components/admin/rutinas/RutinasTabs';
 import { ActivasPane } from '@/components/admin/rutinas/activas/ActivasPane';
-import { usePendingRutinas } from '@/hooks/usePendingRutinas';
+import { usePendingRutinas, useStuckGenerations } from '@/hooks/usePendingRutinas';
 
 export default function Rutinas() {
   const loc = useLocation();
@@ -27,6 +27,7 @@ function ColaPane() {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: queue = [] } = usePendingRutinas();
+  const { data: stuck = [] } = useStuckGenerations();
 
   const activeIndex = useMemo(
     () => queue.findIndex((r) => r.id === id),
@@ -91,22 +92,37 @@ function ColaPane() {
   const empty = !id && queue.length === 0;
 
   return (
-    <div className="grid h-full grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
-      <ListPane activeId={id} onSelect={goToId} />
-      <div className="flex min-h-0 flex-col lg:overflow-hidden">
-        {id ? (
-          <DetailPane
-            id={id}
-            onSkip={skip}
-            onAdvance={advance}
-            onNext={goNext}
-            onPrev={goPrev}
-          />
-        ) : empty ? (
-          <EmptyAllDone />
-        ) : null}
+    <>
+      {stuck.length > 0 && (
+        <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+          <span className="font-semibold">
+            {stuck.length === 1
+              ? '1 atleta sin rutina generada'
+              : `${stuck.length} atletas sin rutina generada`}
+          </span>
+          {': '}
+          {stuck.map((s) => s.athlete_name).join(', ')}
+          {'. '}
+          Se reintenta solo cada 30 min; si persiste, revisá los logs de generación.
+        </div>
+      )}
+      <div className="grid h-full grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
+        <ListPane activeId={id} onSelect={goToId} />
+        <div className="flex min-h-0 flex-col lg:overflow-hidden">
+          {id ? (
+            <DetailPane
+              id={id}
+              onSkip={skip}
+              onAdvance={advance}
+              onNext={goNext}
+              onPrev={goPrev}
+            />
+          ) : empty ? (
+            <EmptyAllDone />
+          ) : null}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

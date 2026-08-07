@@ -2,10 +2,16 @@
 //
 // The coach's Excel templates are the literal base of every routine. A
 // profile that fits a template cleanly gets it verbatim — no OpenAI call.
-// The AI is only invoked as an ADJUSTER when something in the profile
-// prevents using the template as-is: unavailable exercises (injury /
-// equipment / level / exclusions), shorter sessions, a day count outside the
-// coach matrix, gender without its own matrix, or coach rejection feedback.
+//
+// Exercises the athlete cannot do (equipment / level / injury / exclusions)
+// are swapped out DETERMINISTICALLY (exercise-substitution.service): that is
+// a mechanical same-muscle-group decision, and routing it through the model
+// meant a request large enough to blow the client timeout for home athletes.
+//
+// The AI is only invoked as an ADJUSTER for what is genuinely structural:
+// shorter sessions, a day count outside the coach matrix, a gender without
+// its own matrix, coach rejection feedback, or a slot with no viable
+// substitute in the catalog.
 
 import type { AiSkeletonOutput } from '../domain/schemas.js';
 import type { AthleteProfile, Exercise } from '../domain/types.js';
@@ -15,6 +21,7 @@ import {
   selectTemplate,
   type RoutineTemplate,
 } from './template.service.js';
+import { substituteUnavailableSlots } from './exercise-substitution.service.js';
 import { seriesRangeFor } from './series-budget.js';
 
 export interface GenerateRoutineInput {
@@ -23,35 +30,31 @@ export interface GenerateRoutineInput {
    *  injury-contraindicated, incompatible-equipment, above-level and
    *  coach-excluded exercises. */
   exercises: Exercise[];
+  /** Full catalog (listExercises), needed to look up template exercises that
+   *  the athlete filter removed. */
+  catalog: Exercise[];
   rejectionFeedback?: string;
 }
 
 export interface GenerateRoutineResult {
   skeleton: AiSkeletonOutput;
-  source: 'template' | 'template+ai';
+  source: 'template' | 'template+swap' | 'template+ai';
   templateSource: string;
   reasons: string[];
+  substituted: { from: string; to: string }[];
 }
 
 function adjustmentReasons(
   profile: AthleteProfile,
   template: RoutineTemplate,
-  allowedIds: Set<number>,
+  unresolved: string[],
   rejectionFeedback?: string,
 ): string[] {
   const reasons: string[] = [];
 
-  const unavailable = [
-    ...new Map(
-      template.days_detail
-        .flatMap((d) => d.slots)
-        .filter((s) => !allowedIds.has(s.exercise_id))
-        .map((s) => [s.exercise_id, s.exercise_name]),
-    ).values(),
-  ];
-  if (unavailable.length > 0) {
+  if (unresolved.length > 0) {
     reasons.push(
-      `Ejercicios de la rutina base NO disponibles para este atleta (lesión, equipamiento, nivel o exclusiones): ${unavailable.join(', ')}. Reemplazá cada uno por un equivalente del catálogo provisto que trabaje el mismo grupo muscular con un estímulo similar.`,
+      `Ejercicios de la rutina base NO disponibles para este atleta (lesión, equipamiento, nivel o exclusiones) y sin reemplazo automático posible: ${unresolved.join(', ')}. Reemplazá cada uno por un equivalente del catálogo provisto que trabaje el mismo grupo muscular con un estímulo similar.`,
     );
   }
 
@@ -87,19 +90,24 @@ function adjustmentReasons(
 export async function generateRoutine(
   input: GenerateRoutineInput,
 ): Promise<GenerateRoutineResult> {
-  const { profile, exercises, rejectionFeedback } = input;
-  const { template } = selectTemplate(profile);
-  const allowedIds = new Set(exercises.map((e) => e.id));
+  const { profile, exercises, catalog, rejectionFeedback } = input;
+  const { template: base } = selectTemplate(profile);
+
+  // Swap first: it shrinks (and usually eliminates) the AI ask.
+  const swap = substituteUnavailableSlots(base, exercises, catalog);
+  const template = swap.template;
+
   const reasons = adjustmentReasons(
-    profile, template, allowedIds, rejectionFeedback,
+    profile, template, swap.unresolved, rejectionFeedback,
   );
 
   if (reasons.length === 0) {
     return {
       skeleton: buildSkeletonFromTemplate(template),
-      source: 'template',
+      source: swap.substituted.length > 0 ? 'template+swap' : 'template',
       templateSource: template.source,
       reasons,
+      substituted: swap.substituted,
     };
   }
 
@@ -114,5 +122,6 @@ export async function generateRoutine(
     source: 'template+ai',
     templateSource: template.source,
     reasons,
+    substituted: swap.substituted,
   };
 }

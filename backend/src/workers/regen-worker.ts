@@ -6,12 +6,22 @@ export const MAX_JOB_ATTEMPTS = 3;
 export const STUCK_RUNNING_MS = 300000;
 export const RETRY_BACKOFF_MS = 30000;
 export const WORKER_TICK_MS = 5000;
+export const SWEEP_EVERY_MS = 600_000;
 
 let interval: ReturnType<typeof setInterval> | null = null;
+let lastSweepAt = 0;
 
 // One reaper + claim + run cycle. Never throws (logs and swallows).
 export async function regenTick(): Promise<void> {
   try {
+    if (Date.now() - lastSweepAt >= SWEEP_EVERY_MS) {
+      lastSweepAt = Date.now();
+      const { enqueued } = await sweepOrphanProfiles();
+      if (enqueued > 0) {
+        logger.warn({ enqueued }, 'regen sweep: enqueued jobs for orphan profiles');
+      }
+    }
+
     // Reaper: a running job older than STUCK_RUNNING_MS is treated as crashed.
     await pool.query(
       `UPDATE skeleton_regen_jobs
@@ -55,7 +65,7 @@ export async function regenTick(): Promise<void> {
             WHERE id = $1`,
           [job.id, msg, RETRY_BACKOFF_MS],
         );
-        logger.warn({ jobId: job.id, attempts: job.attempts }, 'regen job retry');
+        logger.warn({ jobId: job.id, attempts: job.attempts, err: msg }, 'regen job retry');
       } else {
         await pool.query(
           `UPDATE skeleton_regen_jobs
@@ -63,7 +73,7 @@ export async function regenTick(): Promise<void> {
             WHERE id = $1`,
           [job.id, msg],
         );
-        logger.error({ jobId: job.id }, 'regen job failed permanently');
+        logger.error({ jobId: job.id, err: msg }, 'regen job failed permanently');
       }
     }
   } catch (e) {
@@ -73,13 +83,6 @@ export async function regenTick(): Promise<void> {
 
 export function startRegenWorker(): void {
   if (interval) return;
-  void sweepOrphanProfiles()
-    .then(({ enqueued }) => {
-      if (enqueued > 0) {
-        logger.warn({ enqueued }, 'regen sweep: enqueued jobs for orphan profiles');
-      }
-    })
-    .catch((e) => logger.error({ err: e }, 'regen sweep failed'));
   interval = setInterval(() => { void regenTick(); }, WORKER_TICK_MS);
   logger.info('regen worker started');
 }

@@ -174,4 +174,31 @@ describe('sweepOrphanProfiles', () => {
     );
     expect(jobs.rowCount).toBe(1);
   });
+
+  it('sweep skips an athlete whose job is inside the cooldown window', async () => {
+    const athleteId = await createAthlete(await createAdmin());
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, finished_at)
+       VALUES ($1, 'failed', now())`,
+      [athleteId],
+    );
+    const { enqueued } = await sweepOrphanProfiles();
+    expect(enqueued).toBe(0);
+  });
+
+  it('sweep re-enqueues an athlete whose failed job is older than the cooldown', async () => {
+    const athleteId = await createAthlete(await createAdmin());
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, created_at, finished_at)
+       VALUES ($1, 'failed', now() - interval '2 hours', now() - interval '2 hours')`,
+      [athleteId],
+    );
+    const { enqueued } = await sweepOrphanProfiles();
+    expect(enqueued).toBe(1);
+    const q = await pool.query(
+      `SELECT 1 FROM skeleton_regen_jobs WHERE athlete_id = $1 AND status = 'queued'`,
+      [athleteId],
+    );
+    expect(q.rowCount).toBe(1);
+  });
 });

@@ -12,3 +12,22 @@ export function usePendingRutinas() {
     refetchInterval: 60_000,
   });
 }
+
+export interface StuckGeneration {
+  athlete_id: string;
+  athlete_name: string;
+  status: 'failed' | 'stalled';
+  last_error: string | null;
+  since: string;
+}
+
+export function useStuckGenerations() {
+  return useQuery({
+    queryKey: ['admin', 'rutinas', 'stuck'],
+    queryFn: async (): Promise<StuckGeneration[]> => {
+      const r = await api.get<StuckGeneration[]>('/admin/rutinas/pending/stuck');
+      return r.data;
+    },
+    refetchInterval: 60_000,
+  });
+}

@@ -64,6 +64,9 @@ function renderRutinas() {
     http.get('http://localhost:5001/api/admin/rutinas/pending', () =>
       HttpResponse.json(discarded ? [] : [pendingItem])
     ),
+    http.get('http://localhost:5001/api/admin/rutinas/pending/stuck', () =>
+      HttpResponse.json([])
+    ),
     http.get(`http://localhost:5001/api/admin/rutinas/${RUTINA_ID}`, () =>
       HttpResponse.json(detail)
     ),

@@ -6,7 +6,7 @@ import {
   approveSkeleton, rejectSkeleton, listPendingForCoach,
   findSkeleton, listSlots, createPendingSkeleton,
 } from '../services/skeleton.service.js';
-import { listExercisesForAthlete } from '../services/exercise.service.js';
+import { listExercisesForAthlete, listExercises } from '../services/exercise.service.js';
 import { generateRoutine } from '../services/routine-generation.service.js';
 import {
   listAthletesForAdmin,
@@ -66,9 +66,10 @@ router.post('/skeletons/:id/reject', async (req, res) => {
     `SELECT * FROM athlete_profiles WHERE user_id = $1`, [sk.athlete_id],
   )).rows[0];
   const exercises = await listExercisesForAthlete(profile, sk.athlete_id);
+  const catalog = await listExercises();
   try {
     const gen = await generateRoutine({
-      profile, exercises, rejectionFeedback: parsed.data.feedback,
+      profile, exercises, catalog, rejectionFeedback: parsed.data.feedback,
     });
     const { skeletonId } = await createPendingSkeleton(
       {
@@ -76,6 +77,7 @@ router.post('/skeletons/:id/reject', async (req, res) => {
         generationPrompt: {
           profile, rejection_feedback: parsed.data.feedback,
           source: gen.source, template: gen.templateSource, reasons: gen.reasons,
+          substituted: gen.substituted,
         },
         generationRationale: gen.skeleton.rationale,
         rejectionFeedback: parsed.data.feedback,

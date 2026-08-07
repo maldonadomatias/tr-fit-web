@@ -12,6 +12,14 @@ jest.unstable_mockModule('../../src/services/openai.service.js', () => ({
   adjustSkeleton: mockAdjust,
 }));
 
+const mockLog = {
+  info: jest.fn(), warn: jest.fn(), error: jest.fn(),
+  fatal: jest.fn(), debug: jest.fn(), trace: jest.fn(),
+};
+jest.unstable_mockModule('../../src/utils/logger.js', () => ({
+  default: mockLog,
+}));
+
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
@@ -24,6 +32,8 @@ beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
   await resetDatabase();
   mockAdjust.mockReset();
+  mockLog.warn.mockReset();
+  mockLog.error.mockReset();
   mockAdjust.mockResolvedValue({
     rationale: 'r',
     days: [{ day_index: 1, focus: 'f',
@@ -128,5 +138,27 @@ describe('regenTick', () => {
   it('is a no-op when there are no queued jobs', async () => {
     await expect(regenTick()).resolves.toBeUndefined();
     expect(mockAdjust).not.toHaveBeenCalled();
+  });
+
+  it('logs the underlying error message on retry and on permanent failure', async () => {
+    // days_per_week 6 is outside the coach 3-5 matrix, so generation takes the
+    // AI path and hits the mocked rejection.
+    const athleteId = await createAthlete(await createAdmin(), {
+      days_per_week: 6,
+      days_specific: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab'],
+    });
+    mockAdjust.mockRejectedValue(new Error('Request timed out.'));
+    const { jobId } = await enqueueRegenJob(athleteId);
+
+    for (let i = 0; i < MAX_JOB_ATTEMPTS; i++) {
+      await makeClaimable(jobId);
+      await regenTick();
+    }
+    expect((await jobStatus(jobId)).status).toBe('failed');
+
+    const logged = [...mockLog.warn.mock.calls, ...mockLog.error.mock.calls]
+      .map((c) => JSON.stringify(c[0]))
+      .join(' ');
+    expect(logged).toContain('Request timed out.');
   });
 });
