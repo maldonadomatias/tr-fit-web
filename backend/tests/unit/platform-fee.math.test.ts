@@ -1,6 +1,12 @@
 // backend/tests/unit/platform-fee.math.test.ts
 import {
-  computeFee, computeAdjustedBase, addMonthsISO, isAdjustmentDue,
+  computeFee,
+  computeAdjustedBase,
+  addMonthsISO,
+  isAdjustmentDue,
+  previousMonthPeriod,
+  paymentDueDate,
+  isPaymentOverdue,
 } from '../../src/services/platform-fee.math.js';
 
 describe('computeFee', () => {
@@ -56,5 +62,24 @@ describe('isAdjustmentDue', () => {
   });
   it('false when next date is in the future', () => {
     expect(isAdjustmentDue('2026-10-01', '2026-06-24')).toBe(false);
+  });
+});
+
+describe('previousMonthPeriod', () => {
+  it('returns the first of the prior month', () => {
+    expect(previousMonthPeriod('2026-07-01')).toBe('2026-06-01');
+    expect(previousMonthPeriod('2026-01-15')).toBe('2025-12-01');
+  });
+});
+
+describe('paymentDueDate / isPaymentOverdue', () => {
+  it('due date is the 10th of the current month', () => {
+    expect(paymentDueDate('2026-03-05')).toBe('2026-03-10');
+    expect(paymentDueDate('2026-03-10')).toBe('2026-03-10');
+  });
+  it('the 10th is still on time; the 11th is overdue', () => {
+    expect(isPaymentOverdue('2026-03-10', false)).toBe(false);
+    expect(isPaymentOverdue('2026-03-11', false)).toBe(true);
+    expect(isPaymentOverdue('2026-03-11', true)).toBe(false);
   });
 });

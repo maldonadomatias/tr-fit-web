@@ -1,14 +1,10 @@
 // backend/src/workers/platform-fee-cron.ts
 import cron from 'node-cron';
 import logger from '../utils/logger.js';
+import { previousMonthPeriod } from '../services/platform-fee.math.js';
 import { snapshotMonth } from '../services/platform-fee.service.js';
 
-/** First day (YYYY-MM-01, UTC) of the month before todayISO. */
-export function previousMonthPeriod(todayISO: string): string {
-  const [y, m] = todayISO.split('-').map(Number);
-  // m is 1-based; m-2 is the previous month's 0-based index.
-  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
-}
+export { previousMonthPeriod };
 
 export async function runPlatformFeeTick(todayISO?: string): Promise<void> {
   const today = todayISO ?? new Date().toISOString().slice(0, 10);

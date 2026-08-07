@@ -56,3 +56,27 @@ export function isAdjustmentDue(
 ): boolean {
   return nextAdjustmentDate <= todayISO;
 }
+
+/** First day (YYYY-MM-01) of the calendar month before `todayISO`. */
+export function previousMonthPeriod(todayISO: string): string {
+  const [y, m] = todayISO.slice(0, 10).split('-').map(Number);
+  // m is 1-based; m-2 is the previous month's 0-based UTC month index.
+  return new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 10);
+}
+
+/**
+ * Payment is due on the 10th of the current calendar month
+ * (settles the previous month's real collections).
+ */
+export function paymentDueDate(todayISO: string): string {
+  return `${todayISO.slice(0, 7)}-10`;
+}
+
+/** Overdue after the due day (the 10th itself still counts as on time). */
+export function isPaymentOverdue(
+  todayISO: string,
+  alreadyPaid: boolean
+): boolean {
+  if (alreadyPaid) return false;
+  return todayISO.slice(0, 10) > paymentDueDate(todayISO);
+}

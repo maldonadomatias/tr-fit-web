@@ -5,6 +5,9 @@ import {
   computeAdjustedBase,
   addMonthsISO,
   isAdjustmentDue,
+  previousMonthPeriod,
+  paymentDueDate,
+  isPaymentOverdue,
 } from './platform-fee.math.js';
 
 export type BillingPhase = 'testflight' | 'production';
@@ -21,21 +24,33 @@ export interface PlatformFeeConfig {
   updated_at: string;
 }
 
+/**
+ * Payable invoice settles the **previous** calendar month's real collections,
+ * due on the 10th of the current month. Current-month collection fields are
+ * visibility only (they feed next month's invoice).
+ */
 export interface PlatformFeeSummary {
   base_fee_ars: number;
-  /** Athletes already paid/renewed for the current calendar month (drives the 4%). */
+  /** Athletes in the previous month's real pool (drives the 4%). */
   active_athletes: number;
-  /** Gross already collected this month (4% is applied on this). */
+  /** Previous month real gross (4% is applied on this). */
   gross_revenue_ars: number;
-  /** Expected monthly gross if everyone in the pool pays/renews. */
+  /** Current month expected gross (next invoice preview). */
   gross_estimated_ars: number;
-  /** Athletes in the estimated pool (approved, membership not cancelled/paused). */
   estimated_athletes: number;
-  /** real / estimated × 100; 0 when estimated is 0. */
+  /** Current month real gross (next invoice preview). */
+  current_real_ars: number;
+  current_real_athletes: number;
+  /** current real / current estimated × 100. */
   collection_pct: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
   total_ars: number;
+  /** YYYY-MM-01 of the month whose real collections are being billed. */
+  revenue_period: string;
+  /** YYYY-MM-10 — coach must pay by this date. */
+  due_date: string;
+  overdue: boolean;
   next_adjustment_date: string;
   adjustment_due: boolean;
   phase: BillingPhase;
@@ -89,8 +104,10 @@ interface ConfigRow {
 const toISODate = (d: Date | string): string =>
   typeof d === 'string' ? d.slice(0, 10) : d.toISOString().slice(0, 10);
 
-const currentPeriod = (todayISO?: string): string =>
-  `${(todayISO ?? new Date().toISOString().slice(0, 10)).slice(0, 7)}-01`;
+/** Period key for the invoice being settled (previous calendar month). */
+function revenuePeriodFor(todayISO?: string): string {
+  return previousMonthPeriod(billingTodayISO(todayISO));
+}
 
 function mapConfig(r: ConfigRow): PlatformFeeConfig {
   return {
@@ -220,34 +237,96 @@ export async function updateConfig(
   return getConfig();
 }
 
+/** Prefer frozen history for a closed month; fall back to live recompute. */
+async function invoiceForRevenuePeriod(
+  revenuePeriod: string,
+  cfg: PlatformFeeConfig
+): Promise<{
+  baseFeeArs: number;
+  activeAthletes: number;
+  grossRevenueArs: number;
+  revenueSharePct: number;
+  revenueShareArs: number;
+  totalArs: number;
+}> {
+  const hist = await pool.query<{
+    base_fee_ars: string;
+    active_athletes: number;
+    gross_revenue_ars: string;
+    revenue_share_pct: string;
+    revenue_share_ars: string;
+    total_ars: string;
+  }>(
+    `SELECT base_fee_ars, active_athletes, gross_revenue_ars,
+            revenue_share_pct, revenue_share_ars, total_ars
+       FROM platform_fee_history
+      WHERE period = $1`,
+    [revenuePeriod]
+  );
+  if (hist.rows[0]) {
+    const h = hist.rows[0];
+    return {
+      baseFeeArs: Number(h.base_fee_ars),
+      activeAthletes: Number(h.active_athletes),
+      grossRevenueArs: Number(h.gross_revenue_ars),
+      revenueSharePct: Number(h.revenue_share_pct),
+      revenueShareArs: Number(h.revenue_share_ars),
+      totalArs: Number(h.total_ars),
+    };
+  }
+  const prev = await getAthleteBillingRevenue(revenuePeriod);
+  const fee = computeFee({
+    baseFeeArs: cfg.base_fee_ars,
+    activeAthletes: prev.realCount,
+    grossRevenueArs: prev.realArs,
+    revenueSharePct: cfg.revenue_share_pct,
+    testflight: cfg.phase === 'testflight',
+  });
+  return {
+    baseFeeArs: fee.baseFeeArs,
+    activeAthletes: fee.activeAthletes,
+    grossRevenueArs: fee.grossRevenueArs,
+    revenueSharePct: fee.revenueSharePct,
+    revenueShareArs: fee.revenueShareArs,
+    totalArs: fee.totalArs,
+  };
+}
+
 export async function computeCurrent(
   todayISO?: string
 ): Promise<PlatformFeeSummary> {
   const cfg = await getConfig();
-  const rev = await getAthleteBillingRevenue(todayISO);
-  // 4% share is billed on real collections only (not estimated pool).
-  const fee = computeFee({
-    baseFeeArs: cfg.base_fee_ars,
-    activeAthletes: rev.realCount,
-    grossRevenueArs: rev.realArs,
-    revenueSharePct: cfg.revenue_share_pct,
-    testflight: cfg.phase === 'testflight',
-  });
   const today = billingTodayISO(todayISO);
+  const revenuePeriod = previousMonthPeriod(today);
+  const due = paymentDueDate(today);
+
+  // Payable now: base + 4% of previous month's real (frozen snapshot when present).
+  const invoice = await invoiceForRevenuePeriod(revenuePeriod, cfg);
+
+  // Current month collections only preview next month's 4%.
+  const cur = await getAthleteBillingRevenue(today);
   const collectionPct =
-    rev.estimatedArs > 0
-      ? Math.round((rev.realArs / rev.estimatedArs) * 1000) / 10
+    cur.estimatedArs > 0
+      ? Math.round((cur.realArs / cur.estimatedArs) * 1000) / 10
       : 0;
+
+  const payment = await getPaymentForPeriod(revenuePeriod);
+
   return {
-    base_fee_ars: fee.baseFeeArs,
-    active_athletes: fee.activeAthletes,
-    gross_revenue_ars: fee.grossRevenueArs,
-    gross_estimated_ars: rev.estimatedArs,
-    estimated_athletes: rev.estimatedCount,
+    base_fee_ars: invoice.baseFeeArs,
+    active_athletes: invoice.activeAthletes,
+    gross_revenue_ars: invoice.grossRevenueArs,
+    revenue_share_pct: invoice.revenueSharePct,
+    revenue_share_ars: invoice.revenueShareArs,
+    total_ars: invoice.totalArs,
+    gross_estimated_ars: cur.estimatedArs,
+    estimated_athletes: cur.estimatedCount,
+    current_real_ars: cur.realArs,
+    current_real_athletes: cur.realCount,
     collection_pct: collectionPct,
-    revenue_share_pct: fee.revenueSharePct,
-    revenue_share_ars: fee.revenueShareArs,
-    total_ars: fee.totalArs,
+    revenue_period: revenuePeriod,
+    due_date: due,
+    overdue: isPaymentOverdue(today, payment !== null),
     next_adjustment_date: cfg.next_adjustment_date,
     adjustment_due: isAdjustmentDue(cfg.next_adjustment_date, today),
     phase: cfg.phase,
@@ -270,16 +349,23 @@ function mapPayment(row: PaymentRow): PlatformFeePayment {
   };
 }
 
-export async function getCurrentPayment(
-  todayISO?: string
+async function getPaymentForPeriod(
+  periodISO: string
 ): Promise<PlatformFeePayment | null> {
   const result = await pool.query<PaymentRow>(
     `SELECT period, total_ars, paid_at, recorded_by
        FROM platform_fee_payments
       WHERE period = $1`,
-    [currentPeriod(todayISO)]
+    [periodISO]
   );
   return result.rows[0] ? mapPayment(result.rows[0]) : null;
+}
+
+/** Payment for the invoice currently due (previous month's settlement). */
+export async function getCurrentPayment(
+  todayISO?: string
+): Promise<PlatformFeePayment | null> {
+  return getPaymentForPeriod(revenuePeriodFor(todayISO));
 }
 
 export async function recordCurrentPayment(
@@ -292,7 +378,7 @@ export async function recordCurrentPayment(
      VALUES ($1, $2, $3)
      ON CONFLICT (period) DO NOTHING
      RETURNING period, total_ars, paid_at, recorded_by`,
-    [currentPeriod(todayISO), summary.total_ars, recordedBy]
+    [summary.revenue_period, summary.total_ars, recordedBy]
   );
   return result.rows[0] ? mapPayment(result.rows[0]) : null;
 }

@@ -53,14 +53,18 @@ export default function PlatformFee() {
     }
   }
 
+  const revenueMonthLabel = monthYearLabel(summary.revenue_period);
+  const currentMonthLabel = monthYearLabel(summary.due_date);
+  const nextDueLabel = nextMonthDueLabel(summary.due_date);
+
   async function onMarkPaid() {
     const ok = window.confirm(
-      `¿Confirmás que se pagaron ${fmtARS(summary.total_ars)} este mes?`
+      `¿Confirmás el pago de ${fmtARS(summary.total_ars)} (factura de ${revenueMonthLabel})?`
     );
     if (!ok) return;
     try {
       await markPaid.mutateAsync();
-      toast.success('Pago del mes registrado');
+      toast.success('Pago registrado');
     } catch {
       toast.error('No se pudo registrar el pago');
     }
@@ -71,25 +75,45 @@ export default function PlatformFee() {
       <div>
         <h1 className="text-lg font-bold">Facturación TR-FIT</h1>
         <p className="text-sm text-muted-foreground">
-          Lo que se abona por el servicio este mes.
+          Fee base + {summary.revenue_share_pct}% del mes anterior. Vence el
+          día 10.
         </p>
       </div>
 
-      {/* Hero total */}
+      {/* Payable invoice: previous month settlement */}
       <div className="rounded-lg border border-border bg-card p-5">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">
-            Total del mes
+            A pagar · facturación de {revenueMonthLabel}
           </div>
           {isTestflight && (
             <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-600 dark:text-amber-400">
               TestFlight · 50%
             </span>
           )}
+          <span
+            className={
+              'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ' +
+              (payment
+                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                : summary.overdue
+                  ? 'bg-red-500/15 text-red-700 dark:text-red-400'
+                  : 'bg-amber-400/15 text-amber-700 dark:text-amber-400')
+            }
+          >
+            {payment
+              ? 'Pagado'
+              : summary.overdue
+                ? 'Vencido'
+                : `Vence ${fmtShortDate(summary.due_date)}`}
+          </span>
         </div>
         <div className="mt-1 text-3xl font-extrabold tabular-nums">
           {fmtARS(summary.total_ars)}
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Plazo: hasta el 10 de {currentMonthLabel} inclusive.
+        </p>
         <dl className="mt-4 grid gap-2 text-sm">
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
@@ -101,7 +125,8 @@ export default function PlatformFee() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
-              {summary.active_athletes} atletas ya cobrados (real)
+              {summary.active_athletes} atletas cobrados en {revenueMonthLabel}{' '}
+              (real)
             </dt>
             <dd className="tabular-nums">
               {fmtARS(summary.gross_revenue_ars)}
@@ -109,7 +134,7 @@ export default function PlatformFee() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
-              {summary.revenue_share_pct}% sobre facturación real
+              {summary.revenue_share_pct}% sobre real de {revenueMonthLabel}
             </dt>
             <dd className="tabular-nums">
               {isTestflight
@@ -120,10 +145,48 @@ export default function PlatformFee() {
         </dl>
       </div>
 
-      {/* Collection progress: estimated vs real (visibility only; 4% uses real) */}
+      <div
+        className={
+          'flex flex-col gap-3 rounded-lg border p-4 text-sm sm:flex-row sm:items-center sm:justify-between ' +
+          (payment
+            ? 'border-emerald-500/40 bg-emerald-500/10'
+            : summary.overdue
+              ? 'border-red-500/40 bg-red-50 dark:bg-red-950/30'
+              : 'border-amber-400/50 bg-amber-50 dark:bg-amber-950/30')
+        }
+      >
+        <div>
+          <div className="font-semibold">
+            {payment
+              ? 'Factura pagada'
+              : summary.overdue
+                ? 'Pago vencido'
+                : 'Pago pendiente'}
+          </div>
+          <div className="text-muted-foreground">
+            {payment
+              ? `${fmtARS(payment.total_ars)} registrados el ${fmtShortDate(payment.paid_at)}`
+              : summary.overdue
+                ? `Debía pagarse el ${fmtShortDate(summary.due_date)}. Total: ${fmtARS(summary.total_ars)}.`
+                : `Pagá ${fmtARS(summary.total_ars)} hasta el ${fmtShortDate(summary.due_date)}.`}
+          </div>
+        </div>
+        {!payment && isSuper && (
+          <button
+            type="button"
+            onClick={onMarkPaid}
+            disabled={markPaid.isPending}
+            className="h-9 shrink-0 rounded-md bg-primary px-3 font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {markPaid.isPending ? 'Registrando…' : 'Marcar como pagado'}
+          </button>
+        )}
+      </div>
+
+      {/* Current month collection → feeds next invoice (due next month's 10th) */}
       <div className="rounded-lg border border-border bg-card p-5">
         <div className="text-xs uppercase tracking-wide text-muted-foreground">
-          Cobro del mes
+          Cobro de {currentMonthLabel}
         </div>
         <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <div className="text-2xl font-extrabold tabular-nums">
@@ -142,7 +205,7 @@ export default function PlatformFee() {
           aria-valuenow={Math.min(100, summary.collection_pct)}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label="Porcentaje cobrado del mes"
+          aria-label="Porcentaje cobrado del mes en curso"
         >
           <div
             className="h-full rounded-full bg-primary transition-[width]"
@@ -164,9 +227,9 @@ export default function PlatformFee() {
           <div className="flex justify-between gap-2 sm:flex-col sm:justify-start">
             <dt className="text-muted-foreground">Real cobrado</dt>
             <dd className="font-semibold tabular-nums">
-              {fmtARS(summary.gross_revenue_ars)}
+              {fmtARS(summary.current_real_ars)}
               <span className="ml-1 font-normal text-muted-foreground">
-                ({summary.active_athletes})
+                ({summary.current_real_athletes})
               </span>
             </dd>
           </div>
@@ -176,46 +239,17 @@ export default function PlatformFee() {
               {fmtARS(
                 Math.max(
                   0,
-                  summary.gross_estimated_ars - summary.gross_revenue_ars
+                  summary.gross_estimated_ars - summary.current_real_ars
                 )
               )}
             </dd>
           </div>
         </dl>
         <p className="mt-3 text-xs text-muted-foreground">
-          El {summary.revenue_share_pct}% del fee se calcula solo sobre lo real.
-          Quienes aún no renovaron este mes no entran en el 4%.
+          Este cobro no entra en la factura de ahora: el{' '}
+          {summary.revenue_share_pct}% sobre lo real de {currentMonthLabel} se
+          factura el {nextDueLabel}. Quienes no renovaron este mes no cuentan.
         </p>
-      </div>
-
-      <div
-        className={
-          'flex flex-col gap-3 rounded-lg border p-4 text-sm sm:flex-row sm:items-center sm:justify-between ' +
-          (payment
-            ? 'border-emerald-500/40 bg-emerald-500/10'
-            : 'border-amber-400/50 bg-amber-50 dark:bg-amber-950/30')
-        }
-      >
-        <div>
-          <div className="font-semibold">
-            {payment ? 'Pagado este mes' : 'Pago pendiente'}
-          </div>
-          <div className="text-muted-foreground">
-            {payment
-              ? `${fmtARS(payment.total_ars)} registrados el ${fmtShortDate(payment.paid_at)}`
-              : `Todavía no se registró el pago de ${fmtARS(summary.total_ars)}.`}
-          </div>
-        </div>
-        {!payment && isSuper && (
-          <button
-            type="button"
-            onClick={onMarkPaid}
-            disabled={markPaid.isPending}
-            className="h-9 shrink-0 rounded-md bg-primary px-3 font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {markPaid.isPending ? 'Registrando…' : 'Marcar como pagado'}
-          </button>
-        )}
       </div>
 
       {/* Adjustment banner */}
@@ -382,6 +416,24 @@ export default function PlatformFee() {
       </div>
     </div>
   );
+}
+
+/** "marzo 2026" from YYYY-MM-DD (uses day 15 to avoid TZ edge cases). */
+function monthYearLabel(isoDate: string): string {
+  const [y, m] = isoDate.slice(0, 10).split('-').map(Number);
+  const d = new Date(y, m - 1, 15);
+  return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+}
+
+/** "10 de abril de 2026" — due date of the following month. */
+function nextMonthDueLabel(dueDateISO: string): string {
+  const [y, m] = dueDateISO.slice(0, 10).split('-').map(Number);
+  const d = new Date(y, m, 10); // month is 0-based; m is 1-based → next month
+  return d.toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 }
 
 function ConfigEditor({

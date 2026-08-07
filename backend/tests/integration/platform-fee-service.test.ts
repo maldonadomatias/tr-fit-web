@@ -64,44 +64,54 @@ describe('platform fee service', () => {
     expect(rev.grossArs).toBe(50000);
   });
 
-  it('estimated includes unpaid; real and 4% only count paid-this-month', async () => {
+  it('invoice bills previous month real; collection tracks current month', async () => {
     const coach = await createAdmin();
-    // Paid for June (covers past end of month)
-    const paid = await createAthlete(coach);
-    await setMembership(paid, '2026-07-15T00:00:00.000Z', 'active');
-    // Still active mid-month but has not renewed for the full month
-    const mid = await createAthlete(coach);
-    await setMembership(mid, '2026-06-20T00:00:00.000Z', 'active');
-    // Expired — still on the books for estimated, not real
+    // Paid for June only (covers into July, not full July → not July real)
+    const juneOnly = await createAthlete(coach);
+    await setMembership(juneOnly, '2026-07-15T00:00:00.000Z', 'active');
+    // Paid through August → real for both June and July
+    const both = await createAthlete(coach);
+    await setMembership(both, '2026-08-15T00:00:00.000Z', 'active');
+    // Unpaid / expired — estimated only
     const expired = await createAthlete(coach);
     await setMembership(expired, '2026-06-01T00:00:00.000Z', 'expired');
-    // Cancelled — out of both pools
     const cancelled = await createAthlete(coach);
     await setMembership(cancelled, '2026-05-01T00:00:00.000Z', 'cancelled');
 
-    const rev = await getAthleteBillingRevenue('2026-06-24');
-    expect(rev.estimatedCount).toBe(3);
-    expect(rev.estimatedArs).toBe(75000);
-    expect(rev.realCount).toBe(1);
-    expect(rev.realArs).toBe(25000);
-
-    const s = await computeCurrent('2026-06-24');
+    // 5 July: invoice settles June (due 10 July); collection is July progress.
+    const s = await computeCurrent('2026-07-05');
+    expect(s.revenue_period).toBe('2026-06-01');
+    expect(s.due_date).toBe('2026-07-10');
+    expect(s.overdue).toBe(false);
+    // June real: juneOnly + both
+    expect(s.active_athletes).toBe(2);
+    expect(s.gross_revenue_ars).toBe(50000);
+    expect(s.revenue_share_ars).toBe(2000);
+    expect(s.total_ars).toBe(107000);
+    // July collection: only `both` is real; 3 in estimated pool
     expect(s.estimated_athletes).toBe(3);
     expect(s.gross_estimated_ars).toBe(75000);
-    expect(s.active_athletes).toBe(1);
-    expect(s.gross_revenue_ars).toBe(25000);
+    expect(s.current_real_athletes).toBe(1);
+    expect(s.current_real_ars).toBe(25000);
     expect(s.collection_pct).toBe(33.3);
-    expect(s.revenue_share_ars).toBe(1000); // 4% of real only
-    expect(s.total_ars).toBe(106000);
   });
 
-  it('computeCurrent applies base + 4% on real gross', async () => {
+  it('invoice is overdue after the 10th if unpaid', async () => {
+    const s = await computeCurrent('2026-07-11');
+    expect(s.due_date).toBe('2026-07-10');
+    expect(s.overdue).toBe(true);
+  });
+
+  it('computeCurrent applies base + 4% on previous month real', async () => {
     const coach = await createAdmin();
     await createAthlete(coach);
     await createAthlete(coach);
     const s = await computeCurrent('2026-06-24');
+    // infinity memberships count as real for May (previous) and June (current)
+    expect(s.revenue_period).toBe('2026-05-01');
     expect(s.active_athletes).toBe(2);
     expect(s.gross_revenue_ars).toBe(50000);
+    expect(s.current_real_ars).toBe(50000);
     expect(s.gross_estimated_ars).toBe(50000);
     expect(s.collection_pct).toBe(100);
     expect(s.revenue_share_ars).toBe(2000);
@@ -109,7 +119,7 @@ describe('platform fee service', () => {
     expect(s.adjustment_due).toBe(false);
   });
 
-  it('computeCurrent sums per-athlete fees for the 4% on real only', async () => {
+  it('computeCurrent sums per-athlete fees for the 4% on previous month', async () => {
     const coach = await createAdmin();
     const a1 = await createAthlete(coach);
     const a2 = await createAthlete(coach);
@@ -120,6 +130,21 @@ describe('platform fee service', () => {
     expect(s.gross_revenue_ars).toBe(51000);
     expect(s.revenue_share_ars).toBe(2040);
     expect(s.total_ars).toBe(107040);
+  });
+
+  it('prefers frozen history snapshot for the previous-month invoice', async () => {
+    const coach = await createAdmin();
+    await createAthlete(coach);
+    await snapshotMonth('2026-05-01');
+    // Add another athlete after snapshot — must not change May invoice
+    await createAthlete(coach);
+    const s = await computeCurrent('2026-06-15');
+    expect(s.revenue_period).toBe('2026-05-01');
+    expect(s.active_athletes).toBe(1);
+    expect(s.gross_revenue_ars).toBe(25000);
+    expect(s.total_ars).toBe(106000);
+    // June collection includes both athletes
+    expect(s.current_real_athletes).toBe(2);
   });
 
   it('computeCurrent flags adjustment_due when the date has arrived', async () => {
@@ -137,6 +162,7 @@ describe('platform fee service', () => {
     expect(s.base_fee_ars).toBe(52500);
     expect(s.revenue_share_ars).toBe(0);
     expect(s.total_ars).toBe(52500);
+    // Previous-month real still reported; share is zeroed in testflight
     expect(s.gross_revenue_ars).toBe(50000);
   });
 
@@ -175,17 +201,24 @@ describe('platform fee service', () => {
     expect(h[0].total_ars).toBe(106000);
   });
 
-  it('includes the recorded payment in monthly history', async () => {
+  it('records payment against the previous-month revenue period', async () => {
     const coach = await createAdmin();
-    await snapshotMonth('2026-06-01');
-    await recordCurrentPayment(coach, '2026-06-24');
+    await snapshotMonth('2026-05-01');
+    // Paying on 5 June settles May (due 10 June)
+    const pay = await recordCurrentPayment(coach, '2026-06-05');
+    expect(pay?.period).toBe('2026-05-01');
 
     const h = await getHistory();
-
     expect(h[0]).toMatchObject({
-      period: '2026-06-01',
+      period: '2026-05-01',
       paid_total_ars: 105000,
       paid_at: expect.any(String),
     });
+
+    const s = await computeCurrent('2026-06-05');
+    expect(s.overdue).toBe(false);
+    // After payment, still not overdue even past the 10th
+    const late = await computeCurrent('2026-06-15');
+    expect(late.overdue).toBe(false);
   });
 });
