@@ -10,6 +10,7 @@ import {
   getConfig,
   updateConfig,
   getActiveAthleteRevenue,
+  getAthleteBillingRevenue,
   computeCurrent,
   previewAdjustment,
   applyAdjustment,
@@ -52,30 +53,63 @@ describe('platform fee service', () => {
     expect(c.next_adjustment_date).toBe('2026-10-01');
   });
 
-  it('getActiveAthleteRevenue counts only approved athletes with active membership', async () => {
+  it('getActiveAthleteRevenue counts only athletes paid for the current month', async () => {
     const coach = await createAdmin();
-    await createAthlete(coach); // active membership (infinity) via fixture
+    await createAthlete(coach); // infinity → paid this month
     await createAthlete(coach);
     const expired = await createAthlete(coach);
     await setMembership(expired, '2000-01-01T00:00:00.000Z', 'expired');
-    const rev = await getActiveAthleteRevenue();
+    const rev = await getActiveAthleteRevenue('2026-06-24');
     expect(rev.count).toBe(2);
     expect(rev.grossArs).toBe(50000);
   });
 
-  it('computeCurrent applies base + 4% on gross', async () => {
+  it('estimated includes unpaid; real and 4% only count paid-this-month', async () => {
+    const coach = await createAdmin();
+    // Paid for June (covers past end of month)
+    const paid = await createAthlete(coach);
+    await setMembership(paid, '2026-07-15T00:00:00.000Z', 'active');
+    // Still active mid-month but has not renewed for the full month
+    const mid = await createAthlete(coach);
+    await setMembership(mid, '2026-06-20T00:00:00.000Z', 'active');
+    // Expired — still on the books for estimated, not real
+    const expired = await createAthlete(coach);
+    await setMembership(expired, '2026-06-01T00:00:00.000Z', 'expired');
+    // Cancelled — out of both pools
+    const cancelled = await createAthlete(coach);
+    await setMembership(cancelled, '2026-05-01T00:00:00.000Z', 'cancelled');
+
+    const rev = await getAthleteBillingRevenue('2026-06-24');
+    expect(rev.estimatedCount).toBe(3);
+    expect(rev.estimatedArs).toBe(75000);
+    expect(rev.realCount).toBe(1);
+    expect(rev.realArs).toBe(25000);
+
+    const s = await computeCurrent('2026-06-24');
+    expect(s.estimated_athletes).toBe(3);
+    expect(s.gross_estimated_ars).toBe(75000);
+    expect(s.active_athletes).toBe(1);
+    expect(s.gross_revenue_ars).toBe(25000);
+    expect(s.collection_pct).toBe(33.3);
+    expect(s.revenue_share_ars).toBe(1000); // 4% of real only
+    expect(s.total_ars).toBe(106000);
+  });
+
+  it('computeCurrent applies base + 4% on real gross', async () => {
     const coach = await createAdmin();
     await createAthlete(coach);
     await createAthlete(coach);
     const s = await computeCurrent('2026-06-24');
     expect(s.active_athletes).toBe(2);
     expect(s.gross_revenue_ars).toBe(50000);
+    expect(s.gross_estimated_ars).toBe(50000);
+    expect(s.collection_pct).toBe(100);
     expect(s.revenue_share_ars).toBe(2000);
     expect(s.total_ars).toBe(107000);
     expect(s.adjustment_due).toBe(false);
   });
 
-  it('computeCurrent sums per-athlete fees for the 4%', async () => {
+  it('computeCurrent sums per-athlete fees for the 4% on real only', async () => {
     const coach = await createAdmin();
     const a1 = await createAthlete(coach);
     const a2 = await createAthlete(coach);

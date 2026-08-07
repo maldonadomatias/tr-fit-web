@@ -24,8 +24,11 @@ vi.mock('@/hooks/usePlatformFee', () => ({
     data: {
       summary: {
         base_fee_ars: 52500,
-        active_athletes: 13,
-        gross_revenue_ars: 329000,
+        active_athletes: 10,
+        gross_revenue_ars: 250000,
+        gross_estimated_ars: 329000,
+        estimated_athletes: 13,
+        collection_pct: 76,
         revenue_share_pct: 0,
         revenue_share_ars: 0,
         total_ars: 52500,
@@ -66,6 +69,19 @@ describe('platform fee payment status', () => {
     mocks.payment = null;
     mocks.history = [];
     mocks.markPaid.mockReset();
+  });
+
+  it('shows collection progress (estimated vs real)', () => {
+    render(<PlatformFee />);
+
+    expect(screen.getByText('Cobro del mes')).toBeInTheDocument();
+    expect(screen.getByText('cobrado vs estimado')).toBeInTheDocument();
+    expect(screen.getByText('Estimado')).toBeInTheDocument();
+    expect(screen.getByText('Real cobrado')).toBeInTheDocument();
+    expect(screen.getByText('Pendiente')).toBeInTheDocument();
+    expect(
+      screen.getByText(/El 0% del fee se calcula solo sobre lo real/)
+    ).toBeInTheDocument();
   });
 
   it('shows the recorded payment for the current month', () => {

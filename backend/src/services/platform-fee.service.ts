@@ -23,8 +23,16 @@ export interface PlatformFeeConfig {
 
 export interface PlatformFeeSummary {
   base_fee_ars: number;
+  /** Athletes already paid/renewed for the current calendar month (drives the 4%). */
   active_athletes: number;
+  /** Gross already collected this month (4% is applied on this). */
   gross_revenue_ars: number;
+  /** Expected monthly gross if everyone in the pool pays/renews. */
+  gross_estimated_ars: number;
+  /** Athletes in the estimated pool (approved, membership not cancelled/paused). */
+  estimated_athletes: number;
+  /** real / estimated × 100; 0 when estimated is 0. */
+  collection_pct: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
   total_ars: number;
@@ -109,24 +117,76 @@ export async function getConfig(): Promise<PlatformFeeConfig> {
   return mapConfig(r.rows[0]);
 }
 
-export async function getActiveAthleteRevenue(): Promise<{
-  count: number;
-  grossArs: number;
+/**
+ * Calendar day used for "paid this month" (matches frontend isPaidThisMonth):
+ * paid when paid_until is infinity or reaches the first instant of next month.
+ * When todayISO is omitted, use America/Argentina/Buenos_Aires current date.
+ */
+function billingTodayISO(todayISO?: string): string {
+  if (todayISO) return todayISO.slice(0, 10);
+  // en-CA yields YYYY-MM-DD in the given IANA zone.
+  return new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+}
+
+const FEE_EXPR = `COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)`;
+
+/**
+ * Estimated pool: approved athletes with a membership that is still on the
+ * books (not cancelled/paused) — includes expired and mid-month actives who
+ * have not renewed yet.
+ *
+ * Real pool: subset already paid for the current calendar month
+ * (paid_until >= start of next month, or infinity). The 4% fee uses real only.
+ */
+export async function getAthleteBillingRevenue(todayISO?: string): Promise<{
+  realCount: number;
+  realArs: number;
+  estimatedCount: number;
+  estimatedArs: number;
 }> {
-  const r = await pool.query<{ n: number; gross: string }>(
-    `SELECT COUNT(*)::int AS n,
-            COALESCE(SUM(COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)), 0) AS gross
+  const today = billingTodayISO(todayISO);
+  const r = await pool.query<{
+    estimated_n: number;
+    estimated_gross: string;
+    real_n: number;
+    real_gross: string;
+  }>(
+    `SELECT
+       COUNT(*)::int AS estimated_n,
+       COALESCE(SUM(${FEE_EXPR}), 0) AS estimated_gross,
+       COUNT(*) FILTER (
+         WHERE m.paid_until = 'infinity'
+            OR m.paid_until >= (date_trunc('month', $1::date) + interval '1 month')
+       )::int AS real_n,
+       COALESCE(SUM(${FEE_EXPR}) FILTER (
+         WHERE m.paid_until = 'infinity'
+            OR m.paid_until >= (date_trunc('month', $1::date) + interval '1 month')
+       ), 0) AS real_gross
        FROM users u
        LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
        JOIN memberships m ON m.user_id = u.id
       WHERE u.role = 'athlete'
         AND u.status = 'approved'
-        AND (m.paid_until = 'infinity' OR m.paid_until > now())`
+        AND m.status NOT IN ('cancelled', 'paused')`,
+    [today]
   );
+  const row = r.rows[0];
   return {
-    count: Number(r.rows[0]?.n ?? 0),
-    grossArs: Number(r.rows[0]?.gross ?? 0),
+    estimatedCount: Number(row?.estimated_n ?? 0),
+    estimatedArs: Number(row?.estimated_gross ?? 0),
+    realCount: Number(row?.real_n ?? 0),
+    realArs: Number(row?.real_gross ?? 0),
   };
+}
+
+/** @deprecated Prefer getAthleteBillingRevenue; returns real (paid this month) only. */
+export async function getActiveAthleteRevenue(
+  todayISO?: string
+): Promise<{ count: number; grossArs: number }> {
+  const rev = await getAthleteBillingRevenue(todayISO);
+  return { count: rev.realCount, grossArs: rev.realArs };
 }
 
 const UPDATABLE = [
@@ -164,19 +224,27 @@ export async function computeCurrent(
   todayISO?: string
 ): Promise<PlatformFeeSummary> {
   const cfg = await getConfig();
-  const { count, grossArs } = await getActiveAthleteRevenue();
+  const rev = await getAthleteBillingRevenue(todayISO);
+  // 4% share is billed on real collections only (not estimated pool).
   const fee = computeFee({
     baseFeeArs: cfg.base_fee_ars,
-    activeAthletes: count,
-    grossRevenueArs: grossArs,
+    activeAthletes: rev.realCount,
+    grossRevenueArs: rev.realArs,
     revenueSharePct: cfg.revenue_share_pct,
     testflight: cfg.phase === 'testflight',
   });
-  const today = todayISO ?? new Date().toISOString().slice(0, 10);
+  const today = billingTodayISO(todayISO);
+  const collectionPct =
+    rev.estimatedArs > 0
+      ? Math.round((rev.realArs / rev.estimatedArs) * 1000) / 10
+      : 0;
   return {
     base_fee_ars: fee.baseFeeArs,
     active_athletes: fee.activeAthletes,
     gross_revenue_ars: fee.grossRevenueArs,
+    gross_estimated_ars: rev.estimatedArs,
+    estimated_athletes: rev.estimatedCount,
+    collection_pct: collectionPct,
     revenue_share_pct: fee.revenueSharePct,
     revenue_share_ars: fee.revenueShareArs,
     total_ars: fee.totalArs,
@@ -281,11 +349,12 @@ export async function applyAdjustment(
 
 export async function snapshotMonth(periodISO: string): Promise<void> {
   const cfg = await getConfig();
-  const { count, grossArs } = await getActiveAthleteRevenue();
+  // Snapshot the closed month using real (paid-this-month) gross, same as live fee.
+  const rev = await getAthleteBillingRevenue(periodISO);
   const fee = computeFee({
     baseFeeArs: cfg.base_fee_ars,
-    activeAthletes: count,
-    grossRevenueArs: grossArs,
+    activeAthletes: rev.realCount,
+    grossRevenueArs: rev.realArs,
     revenueSharePct: cfg.revenue_share_pct,
     testflight: cfg.phase === 'testflight',
   });

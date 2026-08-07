@@ -101,7 +101,7 @@ export default function PlatformFee() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
-              {summary.active_athletes} atletas activos (facturado)
+              {summary.active_athletes} atletas ya cobrados (real)
             </dt>
             <dd className="tabular-nums">
               {fmtARS(summary.gross_revenue_ars)}
@@ -109,7 +109,7 @@ export default function PlatformFee() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">
-              {summary.revenue_share_pct}% sobre facturación
+              {summary.revenue_share_pct}% sobre facturación real
             </dt>
             <dd className="tabular-nums">
               {isTestflight
@@ -118,6 +118,74 @@ export default function PlatformFee() {
             </dd>
           </div>
         </dl>
+      </div>
+
+      {/* Collection progress: estimated vs real (visibility only; 4% uses real) */}
+      <div className="rounded-lg border border-border bg-card p-5">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+          Cobro del mes
+        </div>
+        <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <div className="text-2xl font-extrabold tabular-nums">
+            {summary.collection_pct.toLocaleString('es-AR', {
+              maximumFractionDigits: 1,
+            })}
+            %
+          </div>
+          <div className="text-sm text-muted-foreground">
+            cobrado vs estimado
+          </div>
+        </div>
+        <div
+          className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuenow={Math.min(100, summary.collection_pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Porcentaje cobrado del mes"
+        >
+          <div
+            className="h-full rounded-full bg-primary transition-[width]"
+            style={{
+              width: `${Math.min(100, Math.max(0, summary.collection_pct))}%`,
+            }}
+          />
+        </div>
+        <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+          <div className="flex justify-between gap-2 sm:flex-col sm:justify-start">
+            <dt className="text-muted-foreground">Estimado</dt>
+            <dd className="font-semibold tabular-nums">
+              {fmtARS(summary.gross_estimated_ars)}
+              <span className="ml-1 font-normal text-muted-foreground">
+                ({summary.estimated_athletes})
+              </span>
+            </dd>
+          </div>
+          <div className="flex justify-between gap-2 sm:flex-col sm:justify-start">
+            <dt className="text-muted-foreground">Real cobrado</dt>
+            <dd className="font-semibold tabular-nums">
+              {fmtARS(summary.gross_revenue_ars)}
+              <span className="ml-1 font-normal text-muted-foreground">
+                ({summary.active_athletes})
+              </span>
+            </dd>
+          </div>
+          <div className="flex justify-between gap-2 sm:flex-col sm:justify-start">
+            <dt className="text-muted-foreground">Pendiente</dt>
+            <dd className="font-semibold tabular-nums">
+              {fmtARS(
+                Math.max(
+                  0,
+                  summary.gross_estimated_ars - summary.gross_revenue_ars
+                )
+              )}
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-3 text-xs text-muted-foreground">
+          El {summary.revenue_share_pct}% del fee se calcula solo sobre lo real.
+          Quienes aún no renovaron este mes no entran en el 4%.
+        </p>
       </div>
 
       <div

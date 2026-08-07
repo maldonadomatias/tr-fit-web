@@ -5,8 +5,15 @@ export type BillingPhase = 'testflight' | 'production';
 
 export interface PlatformFeeSummary {
   base_fee_ars: number;
+  /** Athletes already paid/renewed this month (drives the 4%). */
   active_athletes: number;
+  /** Gross already collected this month (4% applied on this). */
   gross_revenue_ars: number;
+  /** Expected monthly gross if the full pool pays. */
+  gross_estimated_ars: number;
+  estimated_athletes: number;
+  /** real / estimated × 100. */
+  collection_pct: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
   total_ars: number;
