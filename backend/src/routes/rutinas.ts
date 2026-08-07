@@ -14,8 +14,9 @@ import {
   listSlots,
   createPendingSkeleton,
 } from '../services/skeleton.service.js';
-import { listExercisesForAthlete } from '../services/exercise.service.js';
+import { listExercisesForAthlete, listExercises } from '../services/exercise.service.js';
 import { generateRoutine } from '../services/routine-generation.service.js';
+import { listStuckGenerations } from '../services/generation-health.service.js';
 import pool from '../db/connect.js';
 import logger from '../utils/logger.js';
 import { notifyUser } from '../services/notification.service.js';
@@ -25,6 +26,11 @@ router.use(requireAuth, requireAdmin);
 
 router.get('/pending', async (req, res) => {
   const list = await listPendingForCoach(req.user!.id);
+  res.json(list);
+});
+
+router.get('/pending/stuck', async (req, res) => {
+  const list = await listStuckGenerations(req.user!.id);
   res.json(list);
 });
 
@@ -110,10 +116,12 @@ router.post('/:id/reject', async (req, res) => {
     ])
   ).rows[0];
   const exercises = await listExercisesForAthlete(profile, sk.athlete_id);
+  const catalog = await listExercises();
   try {
     const gen = await generateRoutine({
       profile,
       exercises,
+      catalog,
       rejectionFeedback: parsed.data.feedback,
     });
     const { skeletonId } = await createPendingSkeleton(
@@ -122,6 +130,7 @@ router.post('/:id/reject', async (req, res) => {
         generationPrompt: {
           profile, rejection_feedback: parsed.data.feedback,
           source: gen.source, template: gen.templateSource, reasons: gen.reasons,
+          substituted: gen.substituted,
         },
         generationRationale: gen.skeleton.rationale,
         rejectionFeedback: parsed.data.feedback,

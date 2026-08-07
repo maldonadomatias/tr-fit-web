@@ -49,70 +49,131 @@ const profile = {
 beforeEach(() => adjustSkeleton.mockReset());
 
 it('clean profile → template skeleton verbatim, ZERO OpenAI calls', async () => {
+  const catalog = exercisesFor(templateIds(FEMALE_3D));
   const r = await generateRoutine({
     profile,
-    exercises: exercisesFor(templateIds(FEMALE_3D)),
+    exercises: catalog,
+    catalog,
   });
   expect(adjustSkeleton).not.toHaveBeenCalled();
   expect(r.source).toBe('template');
   expect(r.templateSource).toBe(FEMALE_3D.source);
   expect(r.reasons).toEqual([]);
+  expect(r.substituted).toEqual([]);
   expect(r.skeleton).toEqual(buildSkeletonFromTemplate(FEMALE_3D));
 });
 
 it('75-min profile is still clean (templates are 1HS; extra is cardio)', async () => {
+  const catalog = exercisesFor(templateIds(FEMALE_3D));
   const r = await generateRoutine({
     profile: { ...profile, exercise_minutes: 75 },
-    exercises: exercisesFor(templateIds(FEMALE_3D)),
+    exercises: catalog,
+    catalog,
   });
   expect(adjustSkeleton).not.toHaveBeenCalled();
   expect(r.source).toBe('template');
 });
 
-it('missing template exercise (injury/equipment filter) triggers AI adjustment', async () => {
+it('missing template exercise is swapped deterministically, no AI', async () => {
   const ids = templateIds(FEMALE_3D);
   const missing = ids[0];
+  // Catalog holds the original (with a unique muscle group) plus a same-group
+  // replacement that is the only thing in the athlete-allowed list for that group.
+  const orig = {
+    id: missing!,
+    name: FEMALE_3D.days_detail
+      .flatMap((d) => d.slots)
+      .find((s) => s.exercise_id === missing)!.exercise_name,
+    muscle_group: 'Pecho - Mayor',
+    equipment: 'barra' as const, movement_pattern: 'push_h' as const,
+    is_principal: true, is_unilateral: false,
+    level_min: 'principiante' as const, contraindicated_for: [],
+    default_increment_kg: 1, alternatives_ids: [],
+    video_url: null, illustration_url: null,
+    modality: 'reps' as const, default_target: null, rep_cycle_threshold: 12,
+  };
+  const repl = {
+    ...orig, id: 99999, name: 'Flexiones', equipment: 'bw' as const,
+  };
+  const rest = exercisesFor(ids.slice(1));
+  const catalog = [orig, repl, ...rest];
+  const allowed = [repl, ...rest];
+
+  const r = await generateRoutine({
+    profile,
+    exercises: allowed,
+    catalog,
+  });
+  expect(adjustSkeleton).not.toHaveBeenCalled();
+  expect(r.source).toBe('template+swap');
+  expect(r.substituted.length).toBeGreaterThan(0);
+  expect(r.substituted.some((s) => s.to === 'Flexiones')).toBe(true);
+});
+
+it('unresolved missing exercise (no same-group candidate) triggers AI', async () => {
+  const ids = templateIds(FEMALE_3D);
+  const missing = ids[0];
+  const missingName = FEMALE_3D.days_detail
+    .flatMap((d) => d.slots)
+    .find((s) => s.exercise_id === missing)!.exercise_name;
+  const orig = {
+    id: missing!,
+    name: missingName,
+    muscle_group: 'Piernas - Pantorrillas',
+    equipment: 'barra' as const, movement_pattern: 'isolation' as const,
+    is_principal: false, is_unilateral: false,
+    level_min: 'principiante' as const, contraindicated_for: [],
+    default_increment_kg: 1, alternatives_ids: [],
+    video_url: null, illustration_url: null,
+    modality: 'reps' as const, default_target: null, rep_cycle_threshold: 12,
+  };
+  // Allowed catalog has only Espalda exercises — no pantorrillas candidate.
+  const allowed = exercisesFor(ids.slice(1));
+  const catalog = [orig, ...allowed];
   adjustSkeleton.mockResolvedValue(buildSkeletonFromTemplate(FEMALE_3D));
   const r = await generateRoutine({
     profile,
-    exercises: exercisesFor(ids.slice(1)),
+    exercises: allowed,
+    catalog,
   });
   expect(adjustSkeleton).toHaveBeenCalledTimes(1);
   expect(r.source).toBe('template+ai');
-  expect(r.reasons.join(' ')).toMatch(/no disponibles/i);
+  expect(r.reasons.join(' ')).toMatch(/sin reemplazo automático|no disponibles/i);
   const call = adjustSkeleton.mock.calls[0]![0]!;
-  expect(call.reasons.join(' ')).toContain(
-    FEMALE_3D.days_detail
-      .flatMap((d) => d.slots)
-      .find((s) => s.exercise_id === missing)!.exercise_name,
-  );
+  expect(call.reasons.join(' ')).toContain(missingName);
 });
 
 it('exercise_minutes < 60 triggers AI adjustment with series budget reason', async () => {
+  const catalog = exercisesFor(templateIds(FEMALE_3D));
   adjustSkeleton.mockResolvedValue(buildSkeletonFromTemplate(FEMALE_3D));
   const r = await generateRoutine({
     profile: { ...profile, exercise_minutes: 45 },
-    exercises: exercisesFor(templateIds(FEMALE_3D)),
+    exercises: catalog,
+    catalog,
   });
   expect(adjustSkeleton).toHaveBeenCalledTimes(1);
   expect(r.reasons.join(' ')).toMatch(/45 min|series/);
 });
 
 it('days outside the template matrix triggers AI adjustment', async () => {
+  const catalog = exercisesFor(templateIds(FEMALE_3D));
   adjustSkeleton.mockResolvedValue(buildSkeletonFromTemplate(FEMALE_3D));
   const r = await generateRoutine({
     profile: { ...profile, days_per_week: 2 },
-    exercises: exercisesFor(templateIds(FEMALE_3D)),
+    exercises: catalog,
+    catalog,
   });
   expect(adjustSkeleton).toHaveBeenCalledTimes(1);
   expect(r.reasons.join(' ')).toMatch(/2 días/);
 });
 
 it('coach rejection feedback triggers AI adjustment carrying the feedback', async () => {
+  const catalog = exercisesFor(templateIds(FEMALE_3D));
   adjustSkeleton.mockResolvedValue(buildSkeletonFromTemplate(FEMALE_3D));
   const r = await generateRoutine({
     profile,
-    exercises: exercisesFor(templateIds(FEMALE_3D)),
+    exercises: catalog,
+    catalog,
     rejectionFeedback: 'muy pesada para la alumna',
   });
   expect(adjustSkeleton).toHaveBeenCalledTimes(1);

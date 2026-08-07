@@ -105,11 +105,35 @@ export interface DashboardPayload {
     compliancePct: number;
   };
   nextSessions: NextSession[];
+  regenState: 'generating' | 'pending_review' | 'failed' | 'idle';
 }
 
 function firstName(name: string | null | undefined): string {
   if (!name) return 'Atleta';
   return name.trim().split(/\s+/)[0] || 'Atleta';
+}
+
+async function computeRegenState(
+  userId: string,
+): Promise<DashboardPayload['regenState']> {
+  const r = await pool.query<{
+    active: boolean; pending: boolean; failed: boolean;
+  }>(
+    `SELECT
+       EXISTS(SELECT 1 FROM skeleton_regen_jobs
+               WHERE athlete_id = $1 AND status IN ('queued','running')) AS active,
+       EXISTS(SELECT 1 FROM athlete_skeletons
+               WHERE athlete_id = $1 AND status = 'pending_review') AS pending,
+       (SELECT status FROM skeleton_regen_jobs
+          WHERE athlete_id = $1
+          ORDER BY created_at DESC LIMIT 1) = 'failed' AS failed`,
+    [userId],
+  );
+  const rs = r.rows[0];
+  if (rs.active) return 'generating';
+  if (rs.pending) return 'pending_review';
+  if (rs.failed) return 'failed';
+  return 'idle';
 }
 
 export async function buildDashboard(userId: string): Promise<DashboardPayload> {
@@ -136,6 +160,7 @@ export async function buildDashboard(userId: string): Promise<DashboardPayload> 
       },
       stats: { streakDays: 0, compliancePct: 0 },
       nextSessions: [],
+      regenState: 'idle',
     };
   }
 
@@ -257,5 +282,6 @@ export async function buildDashboard(userId: string): Promise<DashboardPayload> 
     },
     stats: { streakDays, compliancePct: Math.round(lastCompliance) },
     nextSessions,
+    regenState: await computeRegenState(userId),
   };
 }

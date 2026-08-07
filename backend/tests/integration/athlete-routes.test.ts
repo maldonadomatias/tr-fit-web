@@ -331,3 +331,34 @@ describe('GET /api/athlete/me', () => {
     expect((await me()).body.regenState).toBe('failed');
   });
 });
+
+describe('GET /api/athlete/dashboard regenState', () => {
+  it('dashboard reports regenState failed when the last job failed and nothing is pending', async () => {
+    const athleteId = await createAthlete(await createAdmin());
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, finished_at)
+       VALUES ($1, 'failed', now())`,
+      [athleteId],
+    );
+    const tok = signToken({ id: athleteId, role: 'athlete' });
+    const r = await request(app)
+      .get('/api/athlete/dashboard')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.status).toBe(200);
+    expect(r.body.regenState).toBe('failed');
+    expect(r.body.today.blocked).toBe('awaiting_review');
+  });
+
+  it('dashboard reports regenState generating while a job is queued', async () => {
+    const athleteId = await createAthlete(await createAdmin());
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status) VALUES ($1, 'queued')`,
+      [athleteId],
+    );
+    const tok = signToken({ id: athleteId, role: 'athlete' });
+    const r = await request(app)
+      .get('/api/athlete/dashboard')
+      .set('Authorization', `Bearer ${tok}`);
+    expect(r.body.regenState).toBe('generating');
+  });
+});

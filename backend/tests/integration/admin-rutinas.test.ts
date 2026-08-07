@@ -786,3 +786,75 @@ describe('Fall-through to queue router', () => {
     expect(r.body.skeleton.id).toBe(skeletonId);
   });
 });
+
+describe('GET /admin/rutinas/pending/stuck', () => {
+  it('lists athletes whose generation failed', async () => {
+    const coachId = await createAdmin();
+    const adminToken = signToken({ id: coachId, role: 'admin' });
+    const athleteId = await createAthlete(coachId);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, last_error, finished_at)
+       VALUES ($1, 'failed', 'Request timed out.', now())`,
+      [athleteId],
+    );
+    const r = await request(app)
+      .get('/api/admin/rutinas/pending/stuck')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(r.status).toBe(200);
+    expect(r.body).toHaveLength(1);
+    expect(r.body[0].athlete_id).toBe(athleteId);
+    expect(r.body[0].status).toBe('failed');
+    expect(r.body[0].last_error).toBe('Request timed out.');
+  });
+
+  it('flags a job stuck in queued for over 15 minutes', async () => {
+    const coachId = await createAdmin();
+    const adminToken = signToken({ id: coachId, role: 'admin' });
+    const athleteId = await createAthlete(coachId);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, created_at)
+       VALUES ($1, 'queued', now() - interval '30 minutes')`,
+      [athleteId],
+    );
+    const r = await request(app)
+      .get('/api/admin/rutinas/pending/stuck')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(r.body).toHaveLength(1);
+    expect(r.body[0].status).toBe('stalled');
+  });
+
+  it('ignores athletes that already have a skeleton', async () => {
+    const coachId = await createAdmin();
+    const adminToken = signToken({ id: coachId, role: 'admin' });
+    const athleteId = await createAthlete(coachId);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, finished_at)
+       VALUES ($1, 'failed', now())`,
+      [athleteId],
+    );
+    await pool.query(
+      `INSERT INTO athlete_skeletons (athlete_id, status, generated_by, generation_prompt)
+       VALUES ($1, 'pending_review', 'ai', '{}'::jsonb)`,
+      [athleteId],
+    );
+    const r = await request(app)
+      .get('/api/admin/rutinas/pending/stuck')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(r.body).toHaveLength(0);
+  });
+
+  it('does not leak another coach\'s athletes', async () => {
+    const coachA = await createAdmin();
+    const coachB = await createAdmin();
+    const athleteId = await createAthlete(coachA);
+    await pool.query(
+      `INSERT INTO skeleton_regen_jobs (athlete_id, status, finished_at)
+       VALUES ($1, 'failed', now())`,
+      [athleteId],
+    );
+    const r = await request(app)
+      .get('/api/admin/rutinas/pending/stuck')
+      .set('Authorization', `Bearer ${signToken({ id: coachB, role: 'admin' })}`);
+    expect(r.body).toHaveLength(0);
+  });
+});

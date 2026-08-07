@@ -1,7 +1,7 @@
 import pool from '../db/connect.js';
 import { generateRoutine } from './routine-generation.service.js';
 import { createPendingSkeleton } from './skeleton.service.js';
-import { listExercisesForAthlete } from './exercise.service.js';
+import { listExercisesForAthlete, listExercises } from './exercise.service.js';
 import type { AthleteProfile } from '../domain/types.js';
 
 export class PendingReviewExistsError extends Error {
@@ -51,9 +51,14 @@ export async function enqueueRegenJob(
   }
 }
 
-// Reconciliation: profiles that never got any skeleton (e.g. the process died
-// mid-generation before the async queue existed) and have no active job get
-// one enqueued. Runs once at worker startup.
+// Never re-enqueue the same athlete more often than this. Generation can be
+// deterministically broken for a profile (bad catalog, model refusing); the
+// sweep is a safety net, not a hot retry loop.
+export const SWEEP_COOLDOWN_MS = 1_800_000;
+
+// Reconciliation: profiles that never got any skeleton (process died
+// mid-generation, or every job attempt burned out) and have no active job get
+// one enqueued. Runs periodically from the worker.
 export async function sweepOrphanProfiles(): Promise<{ enqueued: number }> {
   const r = await pool.query(
     `INSERT INTO skeleton_regen_jobs (athlete_id, status)
@@ -64,7 +69,12 @@ export async function sweepOrphanProfiles(): Promise<{ enqueued: number }> {
         AND NOT EXISTS (
               SELECT 1 FROM skeleton_regen_jobs j
                WHERE j.athlete_id = p.user_id
-                 AND j.status IN ('queued', 'running'))`,
+                 AND j.status IN ('queued', 'running'))
+        AND NOT EXISTS (
+              SELECT 1 FROM skeleton_regen_jobs j
+               WHERE j.athlete_id = p.user_id
+                 AND j.created_at > now() - ($1::int * interval '1 millisecond'))`,
+    [SWEEP_COOLDOWN_MS],
   );
   return { enqueued: r.rowCount ?? 0 };
 }
@@ -96,13 +106,15 @@ export async function runRegenJob(
     );
     const profile = profileR.rows[0];
     const exercises = await listExercisesForAthlete(profile, athleteId);
-    const gen = await generateRoutine({ profile, exercises });
+    const catalog = await listExercises();
+    const gen = await generateRoutine({ profile, exercises, catalog });
     const { skeletonId } = await createPendingSkeleton(
       {
         athleteId,
         generationPrompt: {
           profile, exercises_count: exercises.length, trigger: 'regen',
           source: gen.source, template: gen.templateSource, reasons: gen.reasons,
+          substituted: gen.substituted,
         },
         generationRationale: gen.skeleton.rationale,
       },
