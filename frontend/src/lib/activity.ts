@@ -16,6 +16,8 @@ const LABELS: Record<AuditType, string> = {
   membership_paused: 'Membresía pausada',
   membership_resumed: 'Membresía reanudada',
   force_logout: 'Logout forzado',
+  verification_resent: 'Verificación reenviada',
+  password_reset_sent: 'Código de reseteo enviado',
 };
 
 export function activityLabel(type: AuditType): string {

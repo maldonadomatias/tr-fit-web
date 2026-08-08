@@ -104,6 +104,35 @@ export function useForceLogout(id: string) {
   });
 }
 
+// Emails the athlete the same 6-digit code the app's "olvidé mi contraseña"
+// flow sends. Goes through admin so the support action lands in the audit log.
+export function useSendPasswordReset(id: string) {
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      await api.post(`/admin/users/${id}/send-password-reset`);
+    },
+  });
+}
+
+// The self-serve /auth/resend-verification route acts on the caller's own
+// account, so the admin panel needs its own endpoint.
+export function useResendVerification(id: string) {
+  return useMutation({
+    mutationFn: async (): Promise<{
+      ok: true;
+      emailSendFailed: boolean;
+      alreadyVerified?: boolean;
+    }> => {
+      const r = await api.post<{
+        ok: true;
+        emailSendFailed: boolean;
+        alreadyVerified?: boolean;
+      }>(`/admin/users/${id}/resend-verification`);
+      return r.data;
+    },
+  });
+}
+
 export function usePauseMembership(id: string) {
   const qc = useQueryClient();
   return useMutation({

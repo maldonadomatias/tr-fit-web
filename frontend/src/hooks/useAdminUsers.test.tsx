@@ -9,7 +9,9 @@ import { api } from '@/lib/api';
 import {
   useForceLogout,
   usePauseMembership,
+  useResendVerification,
   useResumeMembership,
+  useSendPasswordReset,
 } from './useAdminUsers';
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -31,6 +33,55 @@ describe('useForceLogout', () => {
   it('surfaces errors from the API', async () => {
     vi.mocked(api.post).mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useForceLogout('u1'), { wrapper });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useSendPasswordReset', () => {
+  it('POSTs to the audited admin route, not the public one', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { ok: true } });
+    const { result } = renderHook(() => useSendPasswordReset('u1'), {
+      wrapper,
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/users/u1/send-password-reset'
+    );
+  });
+
+  it('surfaces errors from the API', async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error('400'));
+    const { result } = renderHook(() => useSendPasswordReset('u1'), {
+      wrapper,
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useResendVerification', () => {
+  it('POSTs to /admin/users/:id/resend-verification and returns the payload', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      data: { ok: true, emailSendFailed: false },
+    });
+    const { result } = renderHook(() => useResendVerification('u1'), {
+      wrapper,
+    });
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/users/u1/resend-verification'
+    );
+    expect(result.current.data).toEqual({ ok: true, emailSendFailed: false });
+  });
+
+  it('surfaces errors from the API', async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useResendVerification('u1'), {
+      wrapper,
+    });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
   });
