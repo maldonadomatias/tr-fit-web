@@ -365,7 +365,9 @@ export type AuditType =
   | 'membership_resumed'
   | 'athlete_fee_changed'
   | 'athlete_rm_changed'
-  | 'force_logout';
+  | 'force_logout'
+  | 'verification_resent'
+  | 'password_reset_sent';
 
 export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
 
@@ -588,7 +590,14 @@ const CATEGORY_TYPES: Record<ActivityCategory, AuditType[]> = {
     'subscription_authorized',
     'subscription_paused',
   ],
-  auth: ['email_verified', 'email_unverified', 'role_changed', 'force_logout'],
+  auth: [
+    'email_verified',
+    'email_unverified',
+    'role_changed',
+    'force_logout',
+    'verification_resent',
+    'password_reset_sent',
+  ],
 };
 
 export interface ActivityFilters {
