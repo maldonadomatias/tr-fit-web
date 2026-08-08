@@ -10,7 +10,11 @@ import {
   resumeMembership,
   MembershipError,
 } from '../services/membership.service.js';
-import { forceLogout } from '../services/auth.service.js';
+import {
+  forceLogout,
+  forgotPassword,
+  resendVerification,
+} from '../services/auth.service.js';
 import {
   listUsers,
   getUser,
@@ -548,6 +552,55 @@ router.post('/users/:id/force-logout', async (req: Request, res: Response) => {
   });
   res.json({ ok: true });
 });
+
+// Resend the verification email to a user from the admin panel. Reuses the
+// same single-use token flow the athlete triggers from the app — the
+// self-serve /auth/resend-verification route only works on the caller's own
+// account, so it can't be used here.
+router.post(
+  '/users/:id/resend-verification',
+  async (req: Request, res: Response) => {
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+
+    const out = await resendVerification(req.params.id);
+    if (!out.alreadyVerified) {
+      await logAudit({
+        type: 'verification_resent',
+        actor: await actorEmail(req),
+        target: before.email,
+        target_id: req.params.id,
+      });
+    }
+    res.json({ ok: true, ...out });
+  }
+);
+
+// Send the password reset code from the admin panel. The public
+// /auth/forgot-password route works too, but it is anti-enumeration by design
+// and leaves no audit trail — support actions taken on someone else's account
+// have to be attributable.
+router.post(
+  '/users/:id/send-password-reset',
+  async (req: Request, res: Response) => {
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+    // Reset is athletes-only (see resetPassword's role gate) — sending a code
+    // to an admin would mint one that can never be redeemed.
+    if (before.role !== 'athlete') {
+      return res.status(400).json({ error: 'not_athlete' });
+    }
+
+    await forgotPassword(before.email, req.ip ?? null);
+    await logAudit({
+      type: 'password_reset_sent',
+      actor: await actorEmail(req),
+      target: before.email,
+      target_id: req.params.id,
+    });
+    res.json({ ok: true });
+  }
+);
 
 // Freeze a membership (injury/vacation): blocks access, stops the paid clock.
 router.post(

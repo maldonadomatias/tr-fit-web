@@ -47,7 +47,9 @@ import {
   useDeleteUser,
   useForceLogout,
   usePauseMembership,
+  useResendVerification,
   useResumeMembership,
+  useSendPasswordReset,
   useUpdateAdminUser,
   useUpsertSubscription,
 } from '@/hooks/useAdminUsers';
@@ -346,6 +348,28 @@ function IdentityCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
 }
 
 function ResumenTab({ user }: { user: AdminUser }) {
+  const sendReset = useSendPasswordReset(user.id);
+  const onSendReset = () =>
+    sendReset.mutate(undefined, {
+      onSuccess: () =>
+        toast.success(`Código de reseteo enviado a ${user.email}`),
+      onError: (e) =>
+        toast.error(`No se pudo enviar el código: ${(e as Error).message}`),
+    });
+
+  const resendVerify = useResendVerification(user.id);
+  const onResendVerify = () =>
+    resendVerify.mutate(undefined, {
+      onSuccess: (r) => {
+        if (r.alreadyVerified) toast.info('El email ya estaba verificado');
+        else if (r.emailSendFailed)
+          toast.error('No se pudo enviar el email de verificación');
+        else toast.success(`Email de verificación enviado a ${user.email}`);
+      },
+      onError: (e) =>
+        toast.error(`No se pudo reenviar: ${(e as Error).message}`),
+    });
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
       <div className="flex flex-col gap-4">
@@ -450,13 +474,27 @@ function ResumenTab({ user }: { user: AdminUser }) {
         <div className="rounded-2xl border bg-card p-[18px]">
           <Eyebrow variant="muted">Soporte</Eyebrow>
           <div className="mt-3 flex flex-col gap-2">
-            <Button variant="outline" size="sm" className="justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start"
+              disabled={resendVerify.isPending || user.email_verified}
+              onClick={onResendVerify}
+            >
               <Mail data-icon="inline-start" />
-              Reenviar email de verificación
+              {user.email_verified
+                ? 'Email ya verificado'
+                : 'Reenviar email de verificación'}
             </Button>
-            <Button variant="outline" size="sm" className="justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              className="justify-start"
+              disabled={sendReset.isPending}
+              onClick={onSendReset}
+            >
               <RefreshCw data-icon="inline-start" />
-              Generar link de reseteo
+              Enviar código de reseteo
             </Button>
             <Button variant="outline" size="sm" className="justify-start">
               <ExternalLink data-icon="inline-start" />

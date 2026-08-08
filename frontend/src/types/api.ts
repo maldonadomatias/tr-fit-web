@@ -178,7 +178,9 @@ export type AuditType =
   | 'membership_paused'
   | 'membership_resumed'
   | 'athlete_rm_changed'
-  | 'force_logout';
+  | 'force_logout'
+  | 'verification_resent'
+  | 'password_reset_sent';
 
 export interface AthleteRm {
   exercise_id: number;
