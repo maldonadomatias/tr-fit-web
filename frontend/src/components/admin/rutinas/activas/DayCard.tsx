@@ -44,6 +44,7 @@ interface DayCardProps {
   onEdit(slotId: string, payload: SlotOverride): void;
   onDelete(slotId: string): void;
   onAdd(dayOfWeek: number, exercise: Exercise): void;
+  onFocusChange(dayOfWeek: number, focus: string): void;
 }
 /* eslint-enable no-unused-vars */
 
@@ -57,6 +58,7 @@ export function DayCard({
   onEdit,
   onDelete,
   onAdd,
+  onFocusChange,
 }: DayCardProps) {
   const nextIndex = nextAvailableSlotIndex(slots);
   const [addOpen, setAddOpen] = useState(false);
@@ -67,7 +69,13 @@ export function DayCard({
         <h3 className="text-sm font-semibold">
           {dayHeading(dayOfWeek, daysSpecific)}
         </h3>
-        {focus && <p className="text-xs text-muted-foreground">{focus}</p>}
+        <input
+          value={focus ?? ''}
+          onChange={(e) => onFocusChange(dayOfWeek, e.target.value)}
+          placeholder="Grupos musculares"
+          aria-label={`Grupos musculares del día ${dayOfWeek}`}
+          className="w-full rounded-sm bg-transparent text-xs text-muted-foreground outline-none hover:bg-muted/50 focus:bg-muted/50"
+        />
       </header>
       <div className="divide-y divide-border">
         {slots.length === 0 && (

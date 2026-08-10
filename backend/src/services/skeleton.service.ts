@@ -134,6 +134,8 @@ export interface SlotEditOptions {
     reps?: string | null;
     descanso?: string | null;
   }[];
+  /** Renamed muscle-group labels (the day subtitle) per training day. */
+  dayFocus?: { day_of_week: number; focus: string }[];
 }
 
 export interface ApproveSkeletonOptions extends SlotEditOptions {
@@ -149,6 +151,15 @@ export async function applySlotEdits(
   skeletonId: string,
   opts: SlotEditOptions
 ): Promise<void> {
+  for (const day of opts.dayFocus ?? []) {
+    await client.query(
+      `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (skeleton_id, day_of_week) DO UPDATE SET focus = EXCLUDED.focus`,
+      [skeletonId, day.day_of_week, day.focus]
+    );
+  }
+
   if (opts.deletedSlotIds && opts.deletedSlotIds.length > 0) {
     await client.query(
       `DELETE FROM skeleton_slots

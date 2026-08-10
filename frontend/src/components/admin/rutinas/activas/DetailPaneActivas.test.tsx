@@ -125,6 +125,25 @@ describe('DetailPaneActivas draft save', () => {
     });
   });
 
+  it('stages a renamed muscle group and sends it on save', async () => {
+    const user = userEvent.setup();
+    renderPane();
+    await screen.findByText('Press Banca');
+
+    const input = screen.getByLabelText('Grupos musculares del día 1');
+    await user.clear(input);
+    await user.type(input, 'Espalda');
+
+    expect(api.post).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    const [, body] = vi.mocked(api.post).mock.calls[0];
+    expect(body).toMatchObject({
+      day_focus: [{ day_of_week: 1, focus: 'Espalda' }],
+    });
+  });
+
   it('discard restores server state without network calls', async () => {
     const user = userEvent.setup();
     renderPane();

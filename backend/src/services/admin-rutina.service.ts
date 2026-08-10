@@ -558,6 +558,7 @@ export async function applyEdits(
       slotOrder: input.slot_order,
       deletedSlotIds: input.deleted_slot_ids,
       addedSlots: input.added_slots,
+      dayFocus: input.day_focus,
     });
 
     await client.query(

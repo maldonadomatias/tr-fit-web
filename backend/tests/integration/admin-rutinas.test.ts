@@ -482,6 +482,35 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/apply-edits', () => {
     ).toBe('10x10x10');
   });
 
+  it('renames a day muscle-group label, inserting the row if missing', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+    await pool.query(
+      `DELETE FROM skeleton_days WHERE skeleton_id = $1 AND day_of_week = 2`,
+      [skeletonId],
+    );
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        day_focus: [
+          { day_of_week: 1, focus: 'Espalda' },
+          { day_of_week: 2, focus: 'Hombros' },
+        ],
+      });
+    expect(r.status).toBe(204);
+
+    const after = await pool.query<{ day_of_week: number; focus: string }>(
+      `SELECT day_of_week, focus FROM skeleton_days
+        WHERE skeleton_id = $1 ORDER BY day_of_week`,
+      [skeletonId],
+    );
+    expect(after.rows).toEqual([
+      { day_of_week: 1, focus: 'Espalda' },
+      { day_of_week: 2, focus: 'Hombros' },
+    ]);
+  });
+
   it('204 applies override + add + delete + reorder in one call', async () => {
     const { athleteId, skeletonId, tok } = await setupActiveRutina();
     const slotsR = await pool.query<{

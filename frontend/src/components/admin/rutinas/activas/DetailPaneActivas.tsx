@@ -37,11 +37,13 @@ export function DetailPaneActivas({
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [orderDirty, setOrderDirty] = useState(false);
+  const [focusEdits, setFocusEdits] = useState<Record<number, string>>({});
 
   const hasDraftChanges =
     Object.keys(overrides).length > 0 ||
     deleted.size > 0 ||
     addedIds.size > 0 ||
+    Object.keys(focusEdits).length > 0 ||
     orderDirty;
 
   useEffect(() => {
@@ -140,6 +142,7 @@ export function DetailPaneActivas({
     setDeleted(new Set());
     setAddedIds(new Set());
     setOrderDirty(false);
+    setFocusEdits({});
   }
 
   function onEdit(slotId: string, payload: SlotOverride) {
@@ -167,6 +170,10 @@ export function DetailPaneActivas({
       return;
     }
     setOverrides((current) => ({ ...current, [slotId]: payload }));
+  }
+
+  function onFocusChange(dayOfWeek: number, focus: string) {
+    setFocusEdits((current) => ({ ...current, [dayOfWeek]: focus }));
   }
 
   function onDelete(slotId: string) {
@@ -289,6 +296,14 @@ export function DetailPaneActivas({
       slot_order: slotOrder,
       deleted_slot_ids: [...deleted],
       added_slots: addedSlots,
+      // Blank labels are dropped: the API requires a non-empty focus, and an
+      // empty subtitle is what "no focus row" already renders as.
+      day_focus: Object.entries(focusEdits)
+        .filter(([, focus]) => focus.trim() !== '')
+        .map(([day, focus]) => ({
+          day_of_week: Number(day),
+          focus: focus.trim(),
+        })),
     };
 
     try {
@@ -353,6 +368,7 @@ export function DetailPaneActivas({
     Object.keys(overrides).filter((id) => !deleted.has(id)).length +
     [...addedIds].filter((id) => !deleted.has(id)).length +
     deleted.size +
+    Object.keys(focusEdits).length +
     (orderDirty ? 1 : 0);
 
   return (
@@ -396,13 +412,14 @@ export function DetailPaneActivas({
               key={day}
               dayOfWeek={day}
               daysSpecific={rutina.profile.days_specific}
-              focus={dayFocus.get(day) ?? null}
+              focus={focusEdits[day] ?? dayFocus.get(day) ?? null}
               slots={slotsByDay.get(day) ?? []}
               flaggedExerciseIds={flaggedExerciseIds}
               editedSlotIds={editedSlotIds}
               onEdit={onEdit}
               onDelete={onDelete}
               onAdd={onAdd}
+              onFocusChange={onFocusChange}
             />
           ))}
         </DndContext>

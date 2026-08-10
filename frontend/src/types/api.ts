@@ -410,4 +410,5 @@ export interface ApplyEditsInput {
     reps?: string | null;
     descanso?: string | null;
   }[];
+  day_focus?: { day_of_week: number; focus: string }[];
 }

@@ -72,6 +72,7 @@ router.post('/:id/approve', async (req, res) => {
     slotOrder: parsed.data.slot_order,
     deletedSlotIds: parsed.data.deleted_slot_ids,
     addedSlots: parsed.data.added_slots,
+    dayFocus: parsed.data.day_focus,
   });
   pool
     .query<{ athlete_id: string }>(
