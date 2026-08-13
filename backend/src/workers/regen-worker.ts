@@ -1,6 +1,10 @@
 import pool from '../db/connect.js';
 import logger from '../utils/logger.js';
-import { runRegenJob, sweepOrphanProfiles } from '../services/skeleton-regen.service.js';
+import {
+  NoAthleteProfileError,
+  runRegenJob,
+  sweepOrphanProfiles,
+} from '../services/skeleton-regen.service.js';
 
 export const MAX_JOB_ATTEMPTS = 3;
 export const STUCK_RUNNING_MS = 300000;
@@ -57,7 +61,12 @@ export async function regenTick(): Promise<void> {
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (job.attempts < MAX_JOB_ATTEMPTS) {
+      const stack = e instanceof Error ? e.stack : undefined;
+      // Missing profile will never appear on retry — fail now, don't burn
+      // two more attempts 30s apart.
+      const retryable =
+        job.attempts < MAX_JOB_ATTEMPTS && !(e instanceof NoAthleteProfileError);
+      if (retryable) {
         await pool.query(
           `UPDATE skeleton_regen_jobs
               SET status = 'queued', last_error = $2,
@@ -65,7 +74,7 @@ export async function regenTick(): Promise<void> {
             WHERE id = $1`,
           [job.id, msg, RETRY_BACKOFF_MS],
         );
-        logger.warn({ jobId: job.id, attempts: job.attempts, err: msg }, 'regen job retry');
+        logger.warn({ jobId: job.id, attempts: job.attempts, err: msg, stack }, 'regen job retry');
       } else {
         await pool.query(
           `UPDATE skeleton_regen_jobs
@@ -73,7 +82,7 @@ export async function regenTick(): Promise<void> {
             WHERE id = $1`,
           [job.id, msg],
         );
-        logger.error({ jobId: job.id, err: msg }, 'regen job failed permanently');
+        logger.error({ jobId: job.id, err: msg, stack }, 'regen job failed permanently');
       }
     }
   } catch (e) {

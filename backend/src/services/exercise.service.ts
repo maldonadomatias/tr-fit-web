@@ -39,15 +39,23 @@ export async function listExercisesForAthlete(
   profile: AthleteProfile,
   athleteId?: string,
 ): Promise<Exercise[]> {
+  if (!profile) {
+    throw new Error('no athlete profile');
+  }
   const allowedEquipment = equipmentMatrix[profile.equipment];
+  if (!allowedEquipment) {
+    throw new Error(`unknown athlete equipment: ${String(profile.equipment)}`);
+  }
   const athleteLevel = athleteLevelRank(profile.level);
   const excluded = athleteId ? await getExclusionMap(athleteId) : new Map<number, number | null>();
+  const injuries = profile.injuries ?? [];
   const all = await listExercises();
   return all.filter((ex) => {
     if (excluded.has(ex.id)) return false;
     if (!allowedEquipment.includes(ex.equipment)) return false;
     if (levelOrder[ex.level_min] > athleteLevel) return false;
-    if (ex.contraindicated_for.some((c) => profile.injuries.includes(c))) return false;
+    const contra = ex.contraindicated_for ?? [];
+    if (contra.some((c) => injuries.includes(c))) return false;
     return true;
   });
 }

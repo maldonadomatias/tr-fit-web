@@ -123,6 +123,31 @@ describe('runRegenJob', () => {
     expect(sk.rows[0].source).toBe('template+ai');
   });
 
+  // Repro: new-user onboarding (casa + principiante) blew up the worker with
+  // "Cannot read properties of undefined (reading 'equipment')".
+  it('generates for a home beginner without throwing on equipment', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    const a = await createAthlete(c, {
+      equipment: 'casa_basica',
+      level: 'nunca',
+      days_per_week: 3,
+      training_mode: 'casa',
+    });
+    const { skeletonId } = await runRegenJob(a);
+    expect(skeletonId).toBeTruthy();
+  });
+
+  it('fails clearly when the athlete has no profile', async () => {
+    const hash = 'x';
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO users (email, password_hash, role)
+       VALUES ($1, $2, 'athlete') RETURNING id`,
+      [`noprof-${Date.now()}@test.local`, hash],
+    );
+    await expect(runRegenJob(rows[0].id)).rejects.toThrow(/no athlete profile/i);
+  });
+
   it('is idempotent when a pending_review skeleton already exists', async () => {
     const c = await createAdmin();
     const a = await createAthlete(c);

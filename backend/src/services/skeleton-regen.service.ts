@@ -12,6 +12,14 @@ export class PendingReviewExistsError extends Error {
   }
 }
 
+/** Job ran for a user who never finished onboarding (no athlete_profiles row). */
+export class NoAthleteProfileError extends Error {
+  constructor(athleteId: string) {
+    super(`no athlete profile for ${athleteId}`);
+    this.name = 'NoAthleteProfileError';
+  }
+}
+
 // Enqueue a background regeneration job. Rejects if the athlete already has an
 // active job (queued/running) or a pending_review skeleton awaiting the coach.
 export async function enqueueRegenJob(
@@ -21,6 +29,14 @@ export async function enqueueRegenJob(
   try {
     await client.query('BEGIN');
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [athleteId]);
+
+    const hasProfile = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(SELECT 1 FROM athlete_profiles WHERE user_id = $1) AS exists`,
+      [athleteId],
+    );
+    if (!hasProfile.rows[0].exists) {
+      throw new NoAthleteProfileError(athleteId);
+    }
 
     const active = await client.query<{ exists: boolean }>(
       `SELECT (
@@ -105,6 +121,9 @@ export async function runRegenJob(
       `SELECT * FROM athlete_profiles WHERE user_id = $1`, [athleteId],
     );
     const profile = profileR.rows[0];
+    if (!profile) {
+      throw new NoAthleteProfileError(athleteId);
+    }
     const exercises = await listExercisesForAthlete(profile, athleteId);
     const catalog = await listExercises();
     const gen = await generateRoutine({ profile, exercises, catalog });
