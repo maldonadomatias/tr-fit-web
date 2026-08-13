@@ -1,7 +1,12 @@
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
 import { createAdmin, createAthlete } from './helpers/fixtures.js';
-import { findAlternative, findAlternatives } from '../../src/services/alternatives.service.js';
+import {
+  findAlternative,
+  findAlternatives,
+  toAlternativePayloads,
+} from '../../src/services/alternatives.service.js';
 import pool from '../../src/db/connect.js';
+import type { Exercise } from '../../src/domain/types.js';
 
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => { await resetDatabase(); });
@@ -95,4 +100,51 @@ it('skips contraindicated exercises', async () => {
   if (alt) {
     expect(alt.contraindicated_for).not.toContain('lumbar');
   }
+});
+
+// Each exercise carries its OWN weight: the app must not reuse the replaced
+// exercise's kilos on the alternative (athlete report 2026-08-13).
+describe('toAlternativePayloads', () => {
+  it('returns the alternative own logged weight, and null without history', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
+    const r = await pool.query<Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>>(
+      `SELECT id, name, muscle_group, equipment FROM exercises
+         WHERE equipment = 'maquina' ORDER BY id LIMIT 2`,
+    );
+    if (r.rows.length < 2) return;
+    const [withHistory, without] = r.rows;
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_value, unit, updated_by)
+       VALUES ($1, $2, 120, 'kg', 'athlete_correction')`,
+      [ath, withHistory.id],
+    );
+
+    const out = await toAlternativePayloads(ath, r.rows);
+    expect(out.find((a) => a.id === withHistory.id)?.suggested_value).toBe(120);
+    expect(out.find((a) => a.id === without.id)?.suggested_value).toBeNull();
+    expect(out[0].unit).toBe('kg');
+  });
+
+  // 10 ladrillos is not 10 kg: a value logged under another unit is dropped,
+  // same rule as the session engine.
+  it('drops a weight logged under a different unit', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
+    const r = await pool.query<Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>>(
+      `SELECT id, name, muscle_group, equipment FROM exercises
+         WHERE equipment = 'maquina' ORDER BY id LIMIT 1`,
+    );
+    if (r.rows.length === 0) return;
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_value, unit, updated_by)
+       VALUES ($1, $2, 10, 'ladrillos', 'athlete_correction')`,
+      [ath, r.rows[0].id],
+    );
+    const [out] = await toAlternativePayloads(ath, r.rows);
+    expect(out.unit).toBe('kg');
+    expect(out.suggested_value).toBeNull();
+  });
 });

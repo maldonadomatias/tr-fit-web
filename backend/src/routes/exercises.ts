@@ -3,8 +3,10 @@ import { z } from 'zod';
 import pool from '../db/connect.js';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/role.js';
-import { findAlternatives } from '../services/alternatives.service.js';
-import { resolveUnit } from '../services/equipment-units.service.js';
+import {
+  findAlternatives,
+  toAlternativePayloads,
+} from '../services/alternatives.service.js';
 import { listExercises as listExercisesAdmin } from '../services/admin-exercise.service.js';
 
 const router = Router();
@@ -85,24 +87,10 @@ router.get('/:id/alternatives', async (req: Request, res: Response) => {
     .map((s) => parseInt(s, 10))
     .filter((n) => Number.isFinite(n) && n > 0);
   const alts = await findAlternatives(id, req.user!.id, excludeIds);
-  // Each alternative carries its OWN logging unit: swapping "cuádriceps
-  // sentado" (polea → ladrillos) for a hack (kg) must not keep asking for
-  // ladrillos. Resolved per distinct equipment, athlete preference first.
-  const equipments = [...new Set(alts.map((a) => a.equipment))];
-  const unitByEquipment = new Map(
-    await Promise.all(
-      equipments.map(async (eq) =>
-        [eq, await resolveUnit(req.user!.id, eq)] as const
-      )
-    )
-  );
-  const out = alts.map((a) => ({
-    id: a.id,
-    name: a.name,
-    muscle_group: a.muscle_group,
-    equipment: a.equipment,
-    unit: unitByEquipment.get(a.equipment)!,
-  }));
+  // Each alternative carries its OWN logging unit and its OWN working weight:
+  // swapping "cuádriceps sentado" (polea → ladrillos) for a hack (kg) must not
+  // keep asking for ladrillos, nor suggest the polea's weight.
+  const out = await toAlternativePayloads(req.user!.id, alts);
   // `alternative` stays for app builds older than the picker list.
   return res.status(200).json({ alternative: out[0] ?? null, alternatives: out });
 });
