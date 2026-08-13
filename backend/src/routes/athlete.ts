@@ -37,7 +37,7 @@ import {
   listExclusions,
 } from '../services/exclusions.service.js';
 import { resetProgramForGymChange } from '../services/program-reset.service.js';
-import { resolveUnit } from '../services/equipment-units.service.js';
+import { toAlternativePayloads } from '../services/alternatives.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -305,18 +305,13 @@ router.post('/exclusions', async (req, res) => {
     sessionLogId,
     routineExcludeIds
   );
-  res.json({
-    replacement: replacement
-      ? {
-          id: replacement.id,
-          name: replacement.name,
-          muscle_group: replacement.muscle_group,
-          equipment: replacement.equipment,
-          // The replacement logs in its own unit, not the excluded exercise's.
-          unit: await resolveUnit(req.user!.id, replacement.equipment),
-        }
-      : null,
-  });
+  // The replacement logs in its own unit and at its own weight, not the
+  // excluded exercise's.
+  const [payload] = await toAlternativePayloads(
+    req.user!.id,
+    replacement ? [replacement] : []
+  );
+  res.json({ replacement: payload ?? null });
 });
 
 router.delete('/exclusions/:exerciseId', async (req, res) => {

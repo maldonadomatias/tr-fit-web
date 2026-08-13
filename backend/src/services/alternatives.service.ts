@@ -1,6 +1,7 @@
 import pool from '../db/connect.js';
 import type { Exercise, AthleteProfile } from '../domain/types.js';
 import { athleteLevelRank } from './level-helpers.js';
+import { resolveUnit, type Unit } from './equipment-units.service.js';
 
 // NOTE: this file ranks Exercise.level_min inline inside the SQL CASE
 // expression (principiante=1, intermedio=2, avanzado=3) — the equivalent
@@ -95,4 +96,64 @@ export async function findAlternative(
 ): Promise<Exercise | null> {
   const [first] = await findAlternatives(exerciseId, athleteId, excludeIds, 1);
   return first ?? null;
+}
+
+export interface AlternativePayload {
+  id: number;
+  name: string;
+  muscle_group: string;
+  equipment: string;
+  unit: Unit;
+  suggested_value: number | null;
+}
+
+/**
+ * What the app needs to swap a slot to this exercise: its OWN unit and its OWN
+ * working weight (athlete_exercise_weights), never the replaced exercise's.
+ * Inheriting the replaced slot's weight put a hack's 80 kg on a leg extension
+ * (athlete report 2026-08-13); each exercise carries its own history.
+ *
+ * A value logged under a unit that no longer matches is dropped (10 ladrillos
+ * is not 10 kg) — same rule as the session engine. No history yet → null, and
+ * the athlete enters the weight.
+ */
+export async function toAlternativePayloads(
+  athleteId: string,
+  exercises: Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>[],
+): Promise<AlternativePayload[]> {
+  if (exercises.length === 0) return [];
+  const equipments = [...new Set(exercises.map((e) => e.equipment))];
+  const unitByEquipment = new Map(
+    await Promise.all(
+      equipments.map(async (eq) => [eq, await resolveUnit(athleteId, eq)] as const),
+    ),
+  );
+  const wR = await pool.query<{
+    exercise_id: number;
+    current_value: string | null;
+    unit: Unit | null;
+  }>(
+    `SELECT exercise_id,
+            COALESCE(current_value, current_weight_kg) AS current_value,
+            unit
+       FROM athlete_exercise_weights
+      WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])`,
+    [athleteId, exercises.map((e) => e.id)],
+  );
+  const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));
+
+  return exercises.map((e) => {
+    const unit = unitByEquipment.get(e.equipment)!;
+    const w = wByEx.get(e.id);
+    const staleUnit = !!w?.unit && w.unit !== unit;
+    return {
+      id: e.id,
+      name: e.name,
+      muscle_group: e.muscle_group,
+      equipment: e.equipment,
+      unit,
+      suggested_value:
+        !w || staleUnit || w.current_value === null ? null : Number(w.current_value),
+    };
+  });
 }
