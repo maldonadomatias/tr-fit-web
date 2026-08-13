@@ -388,13 +388,15 @@ function baseItem(
 }
 
 /**
- * Returns the next pending program day index for the athlete,
- * computed sequentially from `session_logs` for the current
- * program_week. Always cycles within `1..days_per_week`.
+ * Días de la semana de programa que el atleta todavía no terminó, en orden.
+ * Fuente única para "qué puedo entrenar hoy": la usa el arranque de sesión y
+ * el dashboard. Vacío cuando la semana está completa.
+ *
+ * Antes esto era MAX(day_of_week) + 1, así que terminar un día fuera de orden
+ * dejaba los anteriores inalcanzables para siempre. Un día postergado ahora
+ * vuelve a ofrecerse.
  */
-export async function computeNextPendingDay(
-  athleteId: string
-): Promise<number> {
+export async function listPendingDays(athleteId: string): Promise<number[]> {
   const stateR = await pool.query<{
     current_week: number | null;
     active_skeleton_id: string | null;
@@ -411,19 +413,32 @@ export async function computeNextPendingDay(
   );
   const daysPerWeek = profileR.rows[0]?.days_per_week ?? 7;
 
-  if (!state || !state.active_skeleton_id) {
-    return 1;
-  }
+  if (!state || !state.active_skeleton_id) return [1];
 
-  const lastR = await pool.query<{ last_day: number }>(
-    `SELECT COALESCE(MAX(day_of_week), 0)::int AS last_day
+  const doneR = await pool.query<{ day_of_week: number }>(
+    `SELECT DISTINCT day_of_week
        FROM session_logs
       WHERE athlete_id = $1
         AND program_week = $2
         AND finished_at IS NOT NULL`,
     [athleteId, state.current_week ?? 0]
   );
-  const lastDay = lastR.rows[0]?.last_day ?? 0;
+  const done = new Set(doneR.rows.map((r) => r.day_of_week));
 
-  return (lastDay % daysPerWeek) + 1;
+  const pending: number[] = [];
+  for (let d = 1; d <= daysPerWeek; d++) {
+    if (!done.has(d)) pending.push(d);
+  }
+  return pending;
+}
+
+/**
+ * Próximo día pendiente del atleta: el menor sin terminar de la semana de
+ * programa. Con la semana completa vuelve al 1 (arranca el ciclo siguiente).
+ */
+export async function computeNextPendingDay(
+  athleteId: string
+): Promise<number> {
+  const pending = await listPendingDays(athleteId);
+  return pending[0] ?? 1;
 }

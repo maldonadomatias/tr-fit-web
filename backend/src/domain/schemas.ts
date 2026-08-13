@@ -395,11 +395,14 @@ export type VerifyResetCodePayload = z.infer<typeof verifyResetCodePayload>;
 export type ResetPasswordPayload = z.infer<typeof resetPasswordPayload>;
 
 export const startSessionPayload = z.object({
-  // Ignored by the server (the day is computed server-side); still accepted
-  // so older app builds that send it keep working.
+  // Ignorado por el servidor (el día se computa server-side); se sigue
+  // aceptando para que builds viejas de la app no rompan.
   day_of_week: z.number().int().min(1).max(7).optional(),
+  // Día ELEGIDO por el atleta ("Entrenar este"). Campo nuevo y separado de
+  // `day_of_week` justamente porque aquel viaja con basura en builds viejas.
+  pick_day_of_week: z.number().int().min(1).max(7).optional(),
   client_id: z.string().uuid(),
-  // Override the "already trained today" rest guard ("Entrenar de todas formas").
+  // Override del guard "ya entrenaste hoy" ("Entrenar de todas formas").
   force: z.boolean().optional(),
 });
 

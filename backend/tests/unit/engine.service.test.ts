@@ -47,6 +47,7 @@ function seed(opts: {
   activeSkeletonId?: string | null;
   daysPerWeek?: number;
   lastDay?: number;
+  doneDays?: number[];
 }) {
   pushHandler(
     (s) =>
@@ -65,9 +66,17 @@ function seed(opts: {
     (s) => s.startsWith('SELECT days_per_week FROM athlete_profiles'),
     [{ days_per_week: 'daysPerWeek' in opts ? (opts.daysPerWeek ?? null) : 4 }]
   );
+  // Finished days this week. `lastDay: N` still means "1..N are done" so the
+  // sequential cases keep their old expected next-day. The new query is
+  // DISTINCT day_of_week, not MAX.
+  const doneDays =
+    opts.doneDays ??
+    (opts.lastDay && opts.lastDay > 0
+      ? Array.from({ length: opts.lastDay }, (_, i) => i + 1)
+      : []);
   pushHandler(
-    (s) => s.startsWith('SELECT COALESCE(MAX(day_of_week), 0)'),
-    [{ last_day: opts.lastDay ?? 0 }]
+    (s) => s.startsWith('SELECT DISTINCT day_of_week'),
+    doneDays.map((day_of_week) => ({ day_of_week }))
   );
 }
 
@@ -201,7 +210,7 @@ describe('computeNextPendingDay', () => {
     expect(await computeNextPendingDay('athlete-1')).toBe(1);
   });
 
-  it('returns lastDay + 1 within the program week', async () => {
+  it('returns the smallest unfinished day within the program week', async () => {
     seed({ lastDay: 2, daysPerWeek: 4 });
     expect(await computeNextPendingDay('athlete-1')).toBe(3);
   });
