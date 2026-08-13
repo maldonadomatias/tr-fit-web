@@ -18,6 +18,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const out = await startSession(req.user!.id, parsed.data.client_id, {
       force: parsed.data.force,
+      dayOfWeek: parsed.data.pick_day_of_week,
     });
     return res.status(201).json(out);
   } catch (e) {

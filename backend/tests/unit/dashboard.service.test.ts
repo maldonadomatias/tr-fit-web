@@ -107,12 +107,15 @@ describe('projectNextSessions', () => {
     expect(r).toHaveLength(3);
     expect(r[0]).toMatchObject({
       label: 'Sesión 1', dayIndex: 3, focus: 'Piernas', exerciseCount: 4,
+      pending: false,
     });
     expect(r[1]).toMatchObject({
       label: 'Sesión 2', dayIndex: 1, focus: 'Pecho', exerciseCount: 5,
+      pending: false,
     });
     expect(r[2]).toMatchObject({
       label: 'Sesión 3', dayIndex: 2, focus: 'Espalda', exerciseCount: 6,
+      pending: false,
     });
   });
 

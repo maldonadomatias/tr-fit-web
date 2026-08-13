@@ -1,5 +1,6 @@
 import pool from '../db/connect.js';
-import { buildTodaySession, computeNextPendingDay, TodayBlockedError } from './engine.service.js';
+import { buildTodaySession, computeNextPendingDay, listPendingDays, TodayBlockedError } from './engine.service.js';
+import { dominantGroupByDay } from './day-focus.service.js';
 import { listCompliance } from './progress.service.js';
 
 /**
@@ -47,6 +48,11 @@ export interface NextSession {
   focus: string | null;
   exerciseCount: number;
   estimatedMin: number;
+  dominantGroup: string | null;
+  blocked: 'same_focus' | null;
+  // true = day still open this week (app can send pick_day_of_week).
+  // false = cyclic preview of the next week; startSession would reject it.
+  pending: boolean;
 }
 
 export interface ProjectNextSessionsInput {
@@ -55,12 +61,13 @@ export interface ProjectNextSessionsInput {
   slotsByDay: Record<number, number>;
   focusByDay: Record<number, string>;
   estimatedMin: number;
+  dominantByDay?: Record<number, string | null>;
 }
 
 export function projectNextSessions(
   input: ProjectNextSessionsInput,
 ): NextSession[] {
-  const { daysPerWeek, currentDay, slotsByDay, focusByDay, estimatedMin } = input;
+  const { daysPerWeek, currentDay, slotsByDay, focusByDay, estimatedMin, dominantByDay } = input;
   if (daysPerWeek <= 0) return [];
   const out: NextSession[] = [];
   for (let i = 1; i <= 3; i++) {
@@ -71,6 +78,9 @@ export function projectNextSessions(
       focus: focusByDay[dayIndex] ?? null,
       exerciseCount: slotsByDay[dayIndex] ?? 0,
       estimatedMin,
+      dominantGroup: dominantByDay?.[dayIndex] ?? null,
+      blocked: null,
+      pending: false,
     });
   }
   return out;
@@ -257,13 +267,61 @@ export async function buildDashboard(userId: string): Promise<DashboardPayload> 
 
   const daysPerWeek = profile.days_per_week
     ?? (profile.days_specific?.length ?? 7);
-  const nextSessions = projectNextSessions({
-    daysPerWeek,
-    currentDay: nextDay,
-    slotsByDay,
-    focusByDay,
-    estimatedMin,
-  });
+
+  let dominantByDay: Record<number, string | null> = {};
+  if (state?.active_skeleton_id) {
+    dominantByDay = await dominantGroupByDay(state.active_skeleton_id);
+  }
+
+  // Pendientes posteriores al de hoy. Un día queda bloqueado si repite el
+  // grupo dominante de la última sesión terminada — salvo que TODOS los
+  // pendientes lo repitan, en cuyo caso no se bloquea ninguno.
+  const pending = await listPendingDays(userId);
+  const upcoming = pending.filter((d) => d !== nextDay);
+  let nextSessions: NextSession[];
+  if (upcoming.length > 0) {
+    // Last finished session overall, not scoped to current week/skeleton.
+    // After a routine change the day_of_week may map to a different group
+    // on the new skeleton; that fails open (does not over-block).
+    const lastR = await pool.query<{ day_of_week: number }>(
+      `SELECT day_of_week FROM session_logs
+        WHERE athlete_id = $1 AND finished_at IS NOT NULL
+        ORDER BY finished_at DESC LIMIT 1`,
+      [userId],
+    );
+    const lastGroup = lastR.rows[0]
+      ? dominantByDay[lastR.rows[0].day_of_week] ?? null
+      : null;
+    const hasFreeAlternative = pending.some(
+      (d) => (dominantByDay[d] ?? null) !== lastGroup,
+    );
+    nextSessions = upcoming.map((dayIndex, i) => {
+      const dominantGroup = dominantByDay[dayIndex] ?? null;
+      const blocked: 'same_focus' | null =
+        lastGroup && dominantGroup === lastGroup && hasFreeAlternative
+          ? 'same_focus'
+          : null;
+      return {
+        label: `Sesión ${i + 1}`,
+        dayIndex,
+        focus: focusByDay[dayIndex] ?? null,
+        exerciseCount: slotsByDay[dayIndex] ?? 0,
+        estimatedMin,
+        dominantGroup,
+        blocked,
+        pending: true,
+      };
+    });
+  } else {
+    nextSessions = projectNextSessions({
+      daysPerWeek,
+      currentDay: nextDay,
+      slotsByDay,
+      focusByDay,
+      estimatedMin,
+      dominantByDay,
+    });
+  }
 
   return {
     displayName: firstName(profile.name),
