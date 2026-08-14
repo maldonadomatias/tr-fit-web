@@ -61,7 +61,9 @@ it('startSession advances to the next pending day after each finish', async () =
     await finishSession(out.sessionId, ath, 'normal');
   }
   // All days done and the week hasn't advanced yet → wraps to day 1,
-  // mirroring computeNextPendingDay (what the dashboard shows).
+  // mirroring computeNextPendingDay (what the dashboard shows). Completing
+  // the week normally DOES advance it now (see week-complete-advance.test.ts);
+  // these sessions log no sets, so the compliance gate holds the week back.
   const wrapped = await startSession(ath, randomUUID(), { force: true });
   expect(wrapped.expectedDay).toBe(1);
 });

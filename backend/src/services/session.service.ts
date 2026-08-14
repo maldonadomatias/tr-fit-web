@@ -5,6 +5,7 @@ import {
   buildTodaySession, listPendingDays, TodayBlockedError,
 } from './engine.service.js';
 import { dominantGroupByDay } from './day-focus.service.js';
+import { runWeeklyProgressionForAthlete } from './progression.service.js';
 
 export class SessionError extends Error {
   constructor(public reason:
@@ -257,6 +258,28 @@ export async function getActive(
   };
 }
 
+/**
+ * Cierra la semana de programa cuando el atleta terminó TODOS sus días.
+ *
+ * `current_week` la subía sólo el cron de los domingos, así que completar la
+ * semana antes dejaba `listPendingDays` vacío y el dashboard volvía a ofrecer
+ * el día 1 de la MISMA semana — sesión duplicada y "se me cambió el día solo"
+ * (bug 2026-08-14). Corre la misma progresión que el cron (pesos, reps,
+ * rm_test_blocking, progression_runs), que mantiene su propio gate de
+ * compliance: con la semana floja no sube y la semana se repite, como antes.
+ *
+ * Best-effort: la sesión ya quedó terminada, y si esto falla el cron reintenta.
+ */
+async function closeWeekIfComplete(athleteId: string): Promise<void> {
+  const pending = await listPendingDays(athleteId);
+  if (pending.length > 0) return;
+  try {
+    await runWeeklyProgressionForAthlete(athleteId);
+  } catch {
+    // Ya queda logueado adentro de la progresión.
+  }
+}
+
 export async function finishSession(
   sessionId: string,
   athleteId: string,
@@ -264,6 +287,7 @@ export async function finishSession(
   note?: string,
 ): Promise<SessionSummary> {
   const client = await pool.connect();
+  let summary: SessionSummary;
   try {
     await client.query('BEGIN');
 
@@ -364,7 +388,7 @@ export async function finishSession(
 
     await client.query('COMMIT');
 
-    return {
+    summary = {
       totalVolumeKg, setsCompleted, setsTarget, compliancePct,
       durationSeconds, newPRs,
     };
@@ -374,4 +398,9 @@ export async function finishSession(
   } finally {
     client.release();
   }
+
+  // Fuera de la transacción a propósito: la progresión toma su propia conexión
+  // y un advisory lock, y no tiene que poder tumbar un finish ya commiteado.
+  await closeWeekIfComplete(athleteId);
+  return summary;
 }
