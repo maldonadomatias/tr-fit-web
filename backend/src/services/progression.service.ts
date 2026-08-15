@@ -212,9 +212,15 @@ export async function runWeeklyProgressionForAthlete(
 }
 
 export async function runWeeklyProgressionForAll(): Promise<void> {
+  // Saltea a quien ya cerró la semana entrenándola completa (finishSession
+  // corre esta misma progresión). Sin este filtro el cron del domingo le subía
+  // una segunda semana contando el compliance de los días que ya lleva de la
+  // semana nueva, y se le comía días de programa.
   const { rows } = await pool.query<{ athlete_id: string }>(
     `SELECT athlete_id FROM athlete_program_state
-      WHERE active_skeleton_id IS NOT NULL`
+      WHERE active_skeleton_id IS NOT NULL
+        AND (last_week_advanced_at IS NULL
+             OR last_week_advanced_at < NOW() - INTERVAL '6 days')`
   );
   for (const r of rows) {
     try {
