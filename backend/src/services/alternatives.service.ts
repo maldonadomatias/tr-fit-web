@@ -26,9 +26,17 @@ const equipmentMatrix: Record<AthleteProfile['equipment'], string[]> = {
  * group" and buried the curated picks (coach report 2026-08-06).
  *
  * The automatic same-muscle-group query is only the fallback: no curated ids,
- * or every curated one knocked out by the injury guard / exclude list.
+ * or every curated one knocked out by the injury guard.
  * Curated ones skip the equipment/level filter — an admin already vouched for
  * them — but NOTHING skips the injury guard or the caller's exclude list.
+ *
+ * Que la rutina de hoy se coma la lista curada NO abre el barrido: devolvemos
+ * vacío. "Vuelos Laterales con Mancuerna" tiene una sola curada ("Vuelo lateral
+ * en polea") y el armador de rutinas los pone el mismo día, así que el exclude
+ * la vaciaba y el atleta terminaba viendo press militar y face pull como
+ * reemplazo de un lateral (reporte 2026-08-15). Si el admin eligió a mano, lo
+ * que no listó no es alternativa: mejor "esperá la máquina" que un ejercicio
+ * de otra porción del músculo.
  */
 export async function findAlternatives(
   exerciseId: number,
@@ -50,17 +58,20 @@ export async function findAlternatives(
 
   const curatedIds = orig.alternatives_ids ?? [];
   if (curatedIds.length) {
+    // El exclude se aplica DESPUÉS, en JS: hace falta saber si la curación
+    // sobrevivió al filtro de lesiones antes de decidir si el barrido corre.
     const c = await pool.query<Exercise>(
       `SELECT * FROM exercises
          WHERE id != $1
-           AND id <> ALL($2::int[])
-           AND NOT (contraindicated_for && $3::text[])
-           AND id = ANY($4::int[])
-         ORDER BY array_position($4::int[], id)
-         LIMIT $5`,
-      [exerciseId, excludeIds, profile.injuries, curatedIds, limit],
+           AND NOT (contraindicated_for && $2::text[])
+           AND id = ANY($3::int[])
+         ORDER BY array_position($3::int[], id)`,
+      [exerciseId, profile.injuries, curatedIds],
     );
-    if (c.rows.length) return c.rows;
+    // Curación viable: manda, aunque la rutina de hoy la deje en cero.
+    if (c.rows.length) {
+      return c.rows.filter((e) => !excludeIds.includes(e.id)).slice(0, limit);
+    }
   }
 
   const allowedEquipment = equipmentMatrix[profile.equipment];
