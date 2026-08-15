@@ -81,10 +81,38 @@ it('lists only the curated alternatives_ids', async () => {
   const one = await findAlternative(r.rows[0].id, ath);
   expect(one?.id).toBe(other.rows[0].id);
 
-  // Every curated pick knocked out by the exclude list → automatic sweep.
-  const fallback = await findAlternatives(r.rows[0].id, ath, [other.rows[0].id]);
-  expect(fallback.map((a) => a.id)).not.toContain(other.rows[0].id);
-  for (const a of fallback) expect(a.muscle_group).toBe('Pecho - Mayor');
+  // Curación viable pero toda dentro de la rutina de hoy → NO se barre el
+  // grupo. El barrido devolvía el músculo entero y contradecía la curación:
+  // "Vuelos Laterales" (curada = {Vuelo lateral en polea}, y los dos caen el
+  // mismo día) ofrecía press militar y face pull (reporte 2026-08-15). Si el
+  // admin eligió a mano, lo que él no listó no es alternativa.
+  const excluded = await findAlternatives(r.rows[0].id, ath, [other.rows[0].id]);
+  expect(excluded).toEqual([]);
+});
+
+// El barrido automático sigue vivo donde siempre fue la única red: cuando la
+// curación no sobrevive al filtro de LESIONES (o no existe), el atleta no puede
+// quedarse sin nada por una contraindicación.
+it('sweeps the muscle group when the curated pick is contraindicated', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach, {
+    equipment: 'gym_completo', level: 'medio', injuries: ['lumbar'],
+  });
+  const target = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE muscle_group = 'Pecho - Mayor'
+       AND NOT ('lumbar' = ANY(contraindicated_for)) LIMIT 1`,
+  );
+  const hurts = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE 'lumbar' = ANY(contraindicated_for) LIMIT 1`,
+  );
+  if (target.rows.length === 0 || hurts.rows.length === 0) return;
+  await pool.query(`UPDATE exercises SET alternatives_ids = $2 WHERE id = $1`,
+    [target.rows[0].id, [hurts.rows[0].id]]);
+
+  const alts = await findAlternatives(target.rows[0].id, ath);
+  expect(alts.length).toBeGreaterThan(0);
+  expect(alts.map((a) => a.id)).not.toContain(hurts.rows[0].id);
+  for (const a of alts) expect(a.muscle_group).toBe('Pecho - Mayor');
 });
 
 it('skips contraindicated exercises', async () => {
