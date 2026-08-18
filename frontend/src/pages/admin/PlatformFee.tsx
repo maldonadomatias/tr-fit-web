@@ -11,6 +11,7 @@ import {
   useApplyAdjustment,
   useFeeLog,
   useMarkPlatformFeePaid,
+  useAthleteBillingBreakdown,
   type BillingPhase,
 } from '@/hooks/usePlatformFee';
 
@@ -23,6 +24,7 @@ export default function PlatformFee() {
   const applyAdjustment = useApplyAdjustment();
   const markPaid = useMarkPlatformFeePaid();
   const { data: feeLog } = useFeeLog();
+  const { data: breakdown } = useAthleteBillingBreakdown();
 
   const [usdInput, setUsdInput] = useState('');
 
@@ -263,6 +265,68 @@ export default function PlatformFee() {
           </div>
         </dl>
       </div>
+
+      {/* Per-athlete breakdown: which pool (Estimado / Real) each athlete falls in and why */}
+      <details className="rounded-lg border border-border bg-card p-5">
+        <summary className="cursor-pointer text-sm font-semibold">
+          Detalle por alumno ({breakdown?.length ?? 0})
+        </summary>
+        <p className="mt-2 text-xs text-muted-foreground">
+          <strong>Estimado</strong> = todos los alumnos con membresía activa
+          (paguen o no este ciclo). <strong>Real</strong> = ya renovaron con
+          vencimiento después de fin de mes; solo estos entran en el "Real
+          cobrado" y en el 4%.
+        </p>
+        {!breakdown || breakdown.length === 0 ? (
+          <div className="mt-3 text-sm text-muted-foreground">
+            Sin datos.
+          </div>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-1">Alumno</th>
+                  <th className="py-1 text-right">Cuota</th>
+                  <th className="py-1">Estado</th>
+                  <th className="py-1">Vence</th>
+                  <th className="py-1 text-right">Pool</th>
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((row) => (
+                  <tr key={row.athlete_id} className="border-t border-border">
+                    <td className="py-1.5">{row.name}</td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {fmtARS(row.fee_ars)}
+                    </td>
+                    <td className="py-1.5 text-muted-foreground">
+                      {row.membership_status}
+                    </td>
+                    <td className="py-1.5 text-muted-foreground">
+                      {row.paid_until === 'infinity'
+                        ? 'Sin vencimiento'
+                        : fmtShortDate(row.paid_until)}
+                    </td>
+                    <td className="py-1.5 text-right">
+                      <span
+                        className={
+                          'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ' +
+                          (row.in_real
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-muted text-muted-foreground')
+                        }
+                      >
+                        {row.in_real ? 'Real' : 'Solo estimado'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </details>
 
       {/* Adjustment banner */}
       <div

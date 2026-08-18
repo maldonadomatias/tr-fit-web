@@ -76,6 +76,25 @@ export interface FeeLogRow {
   created_at: string;
 }
 
+export interface AthleteBillingRow {
+  athlete_id: string;
+  name: string;
+  fee_ars: number;
+  membership_status: string;
+  paid_until: string;
+  in_real: boolean;
+}
+
+export function useAthleteBillingBreakdown() {
+  return useQuery({
+    queryKey: ['platform-fee', 'breakdown'],
+    queryFn: async () => {
+      const r = await api.get<AthleteBillingRow[]>('/platform-fee/breakdown');
+      return r.data;
+    },
+  });
+}
+
 export function useFeeLog() {
   return useQuery({
     queryKey: ['platform-fee', 'fee-log'],

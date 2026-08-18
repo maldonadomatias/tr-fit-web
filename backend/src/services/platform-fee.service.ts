@@ -210,6 +210,53 @@ export async function getActiveAthleteRevenue(
   return { count: rev.realCount, grossArs: rev.realArs };
 }
 
+export interface AthleteBillingRow {
+  athlete_id: string;
+  name: string;
+  fee_ars: number;
+  membership_status: string;
+  paid_until: string;
+  in_real: boolean;
+}
+
+/** Per-athlete detail behind getAthleteBillingRevenue's Estimado/Real totals — for the coach-facing breakdown. */
+export async function getAthleteBillingBreakdown(
+  todayISO?: string
+): Promise<AthleteBillingRow[]> {
+  const today = billingTodayISO(todayISO);
+  const r = await pool.query<{
+    id: string;
+    name: string | null;
+    fee: string;
+    status: string;
+    paid_until: Date | string;
+    in_real: boolean;
+  }>(
+    `SELECT u.id,
+            COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), ap.name) AS name,
+            ${FEE_EXPR} AS fee,
+            m.status,
+            m.paid_until,
+            (m.paid_until = 'infinity'
+              OR m.paid_until >= (date_trunc('month', $1::date) + interval '1 month')) AS in_real
+       FROM users u
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
+       JOIN memberships m ON m.user_id = u.id
+      WHERE u.role = 'athlete' AND u.status = 'approved'
+        AND m.status NOT IN ('cancelled', 'paused')
+      ORDER BY fee DESC, name`,
+    [today]
+  );
+  return r.rows.map((row) => ({
+    athlete_id: row.id,
+    name: row.name ?? '(sin nombre)',
+    fee_ars: Number(row.fee),
+    membership_status: row.status,
+    paid_until: toISODate(row.paid_until),
+    in_real: row.in_real,
+  }));
+}
+
 const UPDATABLE = [
   'base_fee_ars',
   'reference_usd',
