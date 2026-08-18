@@ -268,14 +268,27 @@ export default function PlatformFee() {
 
       {/* Per-athlete breakdown: which pool (Estimado / Real) each athlete falls in and why */}
       <details className="rounded-lg border border-border bg-card p-5">
-        <summary className="cursor-pointer text-sm font-semibold">
-          Detalle por alumno ({breakdown?.length ?? 0})
+        <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold">
+          <span>Detalle por alumno ({breakdown?.length ?? 0})</span>
+          {breakdown && breakdown.length > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                exportBreakdownCsv(breakdown);
+              }}
+              className="rounded-md border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+            >
+              Descargar CSV
+            </button>
+          )}
         </summary>
         <p className="mt-2 text-xs text-muted-foreground">
           <strong>Estimado</strong> = todos los alumnos con membresía activa
           (paguen o no este ciclo). <strong>Real</strong> = ya renovaron con
           vencimiento después de fin de mes; solo estos entran en el "Real
-          cobrado" y en el 4%.
+          cobrado" y en el 4%. (No incluye precio base ni cantidad de
+          referidos — la app no lleva ese dato, solo la cuota final.)
         </p>
         {!breakdown || breakdown.length === 0 ? (
           <div className="mt-3 text-sm text-muted-foreground">
@@ -492,6 +505,47 @@ export default function PlatformFee() {
       </div>
     </div>
   );
+}
+
+function csvEscape(value: string): string {
+  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+  return value;
+}
+
+/** YYYY-MM-DD -> DD/MM/YYYY, matching the coach's own spreadsheet format. */
+function ddmmyyyy(isoDate: string): string {
+  const [y, m, d] = isoDate.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function exportBreakdownCsv(
+  rows: {
+    name: string;
+    fee_ars: number;
+    membership_status: string;
+    paid_until: string;
+    in_real: boolean;
+  }[]
+) {
+  const header = 'Nombre,Estado,Vencimiento,Precio,Pool\n';
+  const lines = rows
+    .map((r) =>
+      [
+        csvEscape(r.name),
+        r.membership_status,
+        r.paid_until === 'infinity' ? 'Sin vencimiento' : ddmmyyyy(r.paid_until),
+        r.fee_ars,
+        r.in_real ? 'Real' : 'Solo estimado',
+      ].join(',')
+    )
+    .join('\n');
+  const blob = new Blob([header + lines], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `alumnos-facturacion-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 /** "marzo 2026" from YYYY-MM-DD (day 15 avoids TZ off-by-one on period dates). */
