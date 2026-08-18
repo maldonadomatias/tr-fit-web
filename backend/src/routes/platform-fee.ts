@@ -13,6 +13,7 @@ import {
   getFeeLog,
   getCurrentPayment,
   recordCurrentPayment,
+  getAthleteBillingBreakdown,
 } from '../services/platform-fee.service.js';
 
 const router = Router();
@@ -39,6 +40,10 @@ router.post('/payments', requireSuperadmin, async (req, res) => {
 
 router.get('/history', async (_req, res) => {
   res.json(await getHistory());
+});
+
+router.get('/breakdown', async (_req, res) => {
+  res.json(await getAthleteBillingBreakdown());
 });
 
 router.get('/fee-log', async (_req, res) => {
