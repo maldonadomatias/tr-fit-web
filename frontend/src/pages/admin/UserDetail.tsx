@@ -911,7 +911,10 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
             </div>
           </div>
 
-          <Field label="Estado de pago">
+          <Field
+            label="Estado de pago"
+            hint="Solo es una etiqueta — no extiende el vencimiento ni registra cobro. Para renovar o dar acceso, usá 'Registrar pago' en la pestaña Membresía."
+          >
             <Segmented<SubscriptionStatus>
               value={subStatus}
               onChange={setSubStatus}

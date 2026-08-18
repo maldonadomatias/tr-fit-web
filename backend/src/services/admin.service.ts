@@ -1,6 +1,5 @@
 import bcrypt from 'bcrypt';
 import pool from '../db/connect.js';
-import { addCalendarMonth } from './membership.service.js';
 import { resolveUnit } from './equipment-units.service.js';
 
 const BCRYPT_COST = 10;
@@ -240,12 +239,17 @@ export interface UpsertSubInput {
   current_period_end?: string | null;
 }
 
-// Admin-managed manual subscription. Bypasses MercadoPago. Uses a synthetic
-// preapproval/plan id so we don't collide with real MP rows.
+// Admin-managed manual subscription label. Bypasses MercadoPago. Uses a
+// synthetic preapproval/plan id so we don't collide with real MP rows.
 /**
  * @deprecated Writes the legacy MercadoPago-shaped subscriptions table with a
  * tier. Superseded by membership.service.registerPayment (membership model);
  * tiers no longer gate anything. Kept until the admin dashboard migrates.
+ *
+ * Cosmetic label only — does NOT touch memberships/paid_until. It used to
+ * silently extend access on status 'authorized' with no payments row behind
+ * it, which let "Real cobrado" count athletes who never actually paid. Use
+ * registerPayment (the "Registrar pago" button) to grant/extend access.
  */
 export async function upsertManualSubscription(
   userId: string,
@@ -289,43 +293,6 @@ export async function upsertManualSubscription(
           input.current_period_end ?? null,
         ]
       );
-    }
-    // Authorizing a subscription must also grant access. The login gate checks
-    // the memberships table (paid_until), NOT subscriptions — so without this an
-    // admin who "activates" a subscription still sees the athlete blocked with
-    // payment_required. Mirror registerPayment: create/extend the membership and
-    // flip the account to approved, in the same transaction.
-    if (input.status === 'authorized') {
-      const existingMem = await client.query<{
-        paid_until: string | number | null;
-      }>(`SELECT paid_until FROM memberships WHERE user_id = $1 FOR UPDATE`, [
-        userId,
-      ]);
-      const paidUntil = (() => {
-        if (input.current_period_end) return new Date(input.current_period_end);
-        // Extend from later of current paid_until or now (renewal vs top-up).
-        const cur = existingMem.rows[0]?.paid_until;
-        const base =
-          cur != null &&
-          cur !== Infinity &&
-          cur !== 'infinity' &&
-          new Date(cur).getTime() > Date.now()
-            ? new Date(cur)
-            : new Date();
-        // Renewals are calendar-month based (same day next month, clamped),
-        // matching registerPayment — not +30 days, which drifts each cycle.
-        return addCalendarMonth(base);
-      })();
-      await client.query(
-        `INSERT INTO memberships (user_id, status, started_at, paid_until, updated_at)
-         VALUES ($1, 'active', now(), $2, now())
-         ON CONFLICT (user_id) DO UPDATE
-           SET status = 'active', paid_until = $2, updated_at = now()`,
-        [userId, paidUntil.toISOString()]
-      );
-      await client.query(`UPDATE users SET status = 'approved' WHERE id = $1`, [
-        userId,
-      ]);
     }
     await client.query('COMMIT');
   } catch (e) {
