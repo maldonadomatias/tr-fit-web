@@ -41,6 +41,23 @@ export interface AdminUserRow {
   days_per_week: number | null;
   days_specific: string[] | null;
   injuries: string[] | null;
+  profile: AdminAthleteProfile | null;
+}
+
+export interface AdminAthleteProfile {
+  name: string;
+  gender: 'male' | 'female' | 'other';
+  age: number;
+  height_cm: number;
+  weight_kg: number;
+  level: string;
+  goal: string;
+  days_per_week: number;
+  days_specific: string[] | null;
+  equipment: string;
+  injuries: string[];
+  exercise_minutes: number | null;
+  sport_focus: string | null;
 }
 
 export interface ListFilters {
@@ -115,8 +132,21 @@ export async function listUsers(filters: ListFilters): Promise<AdminUserRow[]> {
   }));
 }
 
+type AdminUserQueryRow = Omit<AdminUserRow, 'profile'> & {
+  gender: AdminAthleteProfile['gender'] | null;
+  age: number | null;
+  height_cm: number | null;
+  weight_kg: string | number | null;
+  level: string | null;
+  goal: string | null;
+  equipment: string | null;
+  exercise_minutes: number | null;
+  sport_focus: string | null;
+  profile_name: string | null;
+};
+
 export async function getUser(id: string): Promise<AdminUserRow | null> {
-  const r = await pool.query<AdminUserRow>(
+  const r = await pool.query<AdminUserQueryRow>(
     `SELECT
        u.id, u.email, u.role, u.status, u.email_verified, u.email_verified_at,
        u.created_at,
@@ -135,6 +165,16 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        ap.days_per_week,
        ap.days_specific,
        ap.injuries,
+       ap.gender,
+       ap.age,
+       ap.height_cm,
+       ap.weight_kg,
+       ap.level,
+       ap.goal,
+       ap.equipment,
+       ap.exercise_minutes,
+       ap.sport_focus,
+       ap.name AS profile_name,
        (
          SELECT MAX(started_at) FROM session_logs
            WHERE athlete_id = u.id
@@ -155,10 +195,50 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
   );
   const row = r.rows[0];
   if (!row) return null;
+  const {
+    profile_name,
+    gender,
+    age,
+    height_cm,
+    weight_kg,
+    level,
+    goal,
+    equipment,
+    exercise_minutes,
+    sport_focus,
+    ...rest
+  } = row;
+  const profile: AdminAthleteProfile | null =
+    gender &&
+    age != null &&
+    height_cm != null &&
+    weight_kg != null &&
+    level &&
+    goal &&
+    equipment &&
+    rest.days_per_week != null
+      ? {
+          name: profile_name ?? rest.name ?? '',
+          gender,
+          age: Number(age),
+          height_cm: Number(height_cm),
+          weight_kg: Number(weight_kg),
+          level,
+          goal,
+          days_per_week: rest.days_per_week,
+          days_specific: rest.days_specific,
+          equipment,
+          injuries: rest.injuries ?? [],
+          exercise_minutes:
+            exercise_minutes == null ? null : Number(exercise_minutes),
+          sport_focus,
+        }
+      : null;
   return {
-    ...row,
+    ...rest,
     monthly_fee_ars:
-      row.monthly_fee_ars == null ? null : Number(row.monthly_fee_ars),
+      rest.monthly_fee_ars == null ? null : Number(rest.monthly_fee_ars),
+    profile,
   };
 }
 

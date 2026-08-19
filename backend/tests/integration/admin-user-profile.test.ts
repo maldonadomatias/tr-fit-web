@@ -42,6 +42,18 @@ describe('GET /api/admin/users/:id training fields', () => {
     expect(r.body.days_per_week).toBe(3);
     expect(r.body.days_specific).toEqual(['lun', 'mie', 'vie']);
     expect(r.body.injuries).toEqual(['lumbar', 'rodilla']);
+    expect(r.body.profile).toMatchObject({
+      gender: 'male',
+      age: 30,
+      height_cm: 175,
+      weight_kg: 75,
+      level: 'medio',
+      goal: 'hipertrofia',
+      days_per_week: 3,
+      days_specific: ['lun', 'mie', 'vie'],
+      equipment: 'gym_completo',
+      injuries: ['lumbar', 'rodilla'],
+    });
   });
 
   it('returns null training fields when the user has no athlete profile', async () => {
@@ -61,6 +73,7 @@ describe('GET /api/admin/users/:id training fields', () => {
     expect(r.body.days_per_week).toBeNull();
     expect(r.body.days_specific).toBeNull();
     expect(r.body.injuries).toBeNull();
+    expect(r.body.profile).toBeNull();
   });
 });
 

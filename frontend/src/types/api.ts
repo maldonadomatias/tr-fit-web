@@ -158,6 +158,7 @@ export interface AdminUser {
     | ('lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom')[]
     | null;
   injuries: string[] | null;
+  profile: RutinaDetail['profile'] | null;
 }
 
 export type MembershipStatus =

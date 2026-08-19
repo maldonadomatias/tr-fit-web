@@ -45,6 +45,7 @@ import { Donut } from '@/components/admin/Donut';
 import { Timeline, type TimelineEntry } from '@/components/admin/Timeline';
 import { AdminTabs } from '@/components/admin/AdminTabs';
 import { DangerRow } from '@/components/admin/DangerRow';
+import { TabContexto } from '@/components/admin/rutinas/TabContexto';
 import {
   useAdminUser,
   useDeleteUser,
@@ -388,7 +389,7 @@ function ResumenTab({ user }: { user: AdminUser }) {
           </dl>
         </div>
 
-        {user.days_per_week != null && <TrainingCard user={user} />}
+        {user.profile && <TabContexto profile={user.profile} />}
 
         <div className="rounded-2xl border bg-card">
           <div className="border-b border-border p-[18px]">
@@ -462,62 +463,6 @@ function ResumenTab({ user }: { user: AdminUser }) {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-const WEEKDAY_LABEL: Record<string, string> = {
-  lun: 'Lun',
-  mar: 'Mar',
-  mie: 'Mié',
-  jue: 'Jue',
-  vie: 'Vie',
-  sab: 'Sáb',
-  dom: 'Dom',
-};
-
-function TrainingCard({ user }: { user: AdminUser }) {
-  const days =
-    user.days_specific && user.days_specific.length > 0
-      ? user.days_specific.map((d) => WEEKDAY_LABEL[d] ?? d).join(' · ')
-      : '—';
-  const injuries = user.injuries ?? [];
-
-  return (
-    <div className="rounded-2xl border bg-card">
-      <div className="border-b border-border p-[18px]">
-        <Eyebrow variant="muted">Semana actual</Eyebrow>
-        <div className="mt-1 text-[17px] font-semibold tracking-tight">
-          Entrenamiento
-        </div>
-      </div>
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-[18px] text-sm sm:grid-cols-[160px_1fr]">
-        <Kv
-          label="Frecuencia"
-          value={`${user.days_per_week} días / semana`}
-          mono
-        />
-        <Kv label="Días" value={days} />
-        <Kv
-          label="Lesiones"
-          value={
-            injuries.length > 0 ? (
-              <ul className="space-y-1.5">
-                {injuries.map((injury) => (
-                  <li key={injury} className="flex items-center gap-2">
-                    <span className="size-1.5 shrink-0 rounded-full bg-amber-500" />
-                    {injury}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <span className="text-muted-foreground">
-                Sin lesiones declaradas.
-              </span>
-            )
-          }
-        />
-      </dl>
     </div>
   );
 }

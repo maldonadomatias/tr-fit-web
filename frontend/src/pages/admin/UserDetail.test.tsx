@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
     days_per_week: null,
     days_specific: null,
     injuries: null,
+    profile: null,
   } as AdminUser,
   idleMutation: () => ({
     mutate: vi.fn(),
@@ -171,45 +172,77 @@ describe('user detail contact', () => {
   });
 });
 
-describe('user detail training card', () => {
+describe('user detail athlete context cards', () => {
   afterEach(() => {
-    mocks.newAthlete.days_per_week = null;
-    mocks.newAthlete.days_specific = null;
-    mocks.newAthlete.injuries = null;
+    mocks.newAthlete.profile = null;
   });
 
-  it('sits between Identidad and Plan actual with days and injuries', () => {
-    mocks.newAthlete.days_per_week = 3;
-    mocks.newAthlete.days_specific = ['lun', 'mie', 'vie'];
-    mocks.newAthlete.injuries = ['lumbar'];
+  it('shows the pending-rutina profile cards between Identidad and Plan actual', () => {
+    mocks.newAthlete.profile = {
+      name: 'Ana',
+      gender: 'female',
+      age: 30,
+      height_cm: 165,
+      weight_kg: 60,
+      level: 'medio',
+      goal: 'fuerza',
+      days_per_week: 3,
+      days_specific: ['lun', 'mie', 'vie'],
+      equipment: 'gym_completo',
+      injuries: ['lumbar'],
+      exercise_minutes: 75,
+      sport_focus: 'running',
+    };
     renderUserDetail();
 
     const identidad = screen.getByText('Identidad');
-    const entrenamiento = screen.getByText('Entrenamiento');
+    const perfil = screen.getByText('Perfil del atleta');
+    const lesiones = screen.getByText('Lesiones declaradas');
     const plan = screen.getByText('Plan actual');
-    expect(identidad.compareDocumentPosition(entrenamiento)).toBe(
+    expect(identidad.compareDocumentPosition(perfil)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(entrenamiento.compareDocumentPosition(plan)).toBe(
+    expect(perfil.compareDocumentPosition(lesiones)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
-    expect(screen.getByText('3 días / semana')).toBeInTheDocument();
+    expect(lesiones.compareDocumentPosition(plan)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(screen.getByText('Intermedio')).toBeInTheDocument();
+    expect(screen.getByText('Fuerza')).toBeInTheDocument();
+    expect(screen.getByText('165 cm')).toBeInTheDocument();
+    expect(screen.getByText('60 kg')).toBeInTheDocument();
     expect(screen.getByText('Lun · Mié · Vie')).toBeInTheDocument();
+    expect(screen.getByText('1 h 15 min')).toBeInTheDocument();
+    expect(screen.getByText('Running')).toBeInTheDocument();
     expect(screen.getByText('lumbar')).toBeInTheDocument();
   });
 
   it('says there are no injuries when the list is empty', () => {
-    mocks.newAthlete.days_per_week = 4;
-    mocks.newAthlete.days_specific = ['lun', 'mar', 'jue', 'sab'];
-    mocks.newAthlete.injuries = [];
+    mocks.newAthlete.profile = {
+      name: 'Ana',
+      gender: 'female',
+      age: 30,
+      height_cm: 165,
+      weight_kg: 60,
+      level: 'medio',
+      goal: 'fuerza',
+      days_per_week: 4,
+      days_specific: ['lun', 'mar', 'jue', 'sab'],
+      equipment: 'gym_completo',
+      injuries: [],
+      exercise_minutes: 60,
+      sport_focus: null,
+    };
     renderUserDetail();
 
     expect(screen.getByText('Sin lesiones declaradas.')).toBeInTheDocument();
   });
 
-  it('hides the card when the user has no athlete profile', () => {
+  it('hides the cards when the user has no athlete profile', () => {
     renderUserDetail();
-    expect(screen.queryByText('Entrenamiento')).not.toBeInTheDocument();
+    expect(screen.queryByText('Perfil del atleta')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lesiones declaradas')).not.toBeInTheDocument();
   });
 });
 
