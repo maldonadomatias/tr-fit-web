@@ -46,6 +46,7 @@ import {
   useDeleteUser,
   useForceLogout,
   usePauseMembership,
+  useRegisterPayment,
   useResumeMembership,
   useUpdateAdminUser,
 } from '@/hooks/useAdminUsers';
@@ -635,8 +636,9 @@ const MEMBERSHIP_LABELS: Record<string, string> = {
 function MembresiaCard({ user }: { user: AdminUser }) {
   const pause = usePauseMembership(user.id);
   const resume = useResumeMembership(user.id);
+  const registerPayment = useRegisterPayment();
   const status = user.membership_status;
-  if (user.role !== 'athlete' || !status) return null;
+  if (user.role !== 'athlete') return null;
 
   const onPause = () =>
     pause.mutate(undefined, {
@@ -653,6 +655,51 @@ function MembresiaCard({ user }: { user: AdminUser }) {
       onError: (e) =>
         toast.error(`No se pudo reanudar: ${(e as Error).message}`),
     });
+  const onRegisterPayment = () =>
+    registerPayment.mutate(
+      { id: user.id, amount: user.monthly_fee_ars ?? 25000, method: 'transfer' },
+      {
+        onSuccess: () =>
+          toast.success('Pago registrado. Acceso habilitado por 30 días.'),
+        onError: (e) =>
+          toast.error(`No se pudo registrar el pago: ${(e as Error).message}`),
+      }
+    );
+
+  // No membership row yet: brand-new athlete. This is the only way to grant
+  // first access — there's no other admin path that creates one.
+  if (!status) {
+    return (
+      <div className="rounded-2xl border bg-card p-[22px]">
+        <Eyebrow variant="muted">Membresía</Eyebrow>
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              Estado
+            </div>
+            <div className="mt-1 font-semibold text-muted-foreground">
+              Sin membresía — no puede iniciar sesión
+            </div>
+          </div>
+          <div className="ml-auto">
+            <Button
+              size="sm"
+              onClick={onRegisterPayment}
+              disabled={registerPayment.isPending}
+            >
+              <RefreshCw
+                data-icon="inline-start"
+                className={registerPayment.isPending ? 'animate-spin' : undefined}
+              />
+              {registerPayment.isPending
+                ? 'Registrando…'
+                : `Registrar pago (${fmtARS(user.monthly_fee_ars ?? 25000)})`}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-2xl border bg-card p-[22px]">
@@ -677,7 +724,19 @@ function MembresiaCard({ user }: { user: AdminUser }) {
               : 'Sin vencimiento'}
           </div>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRegisterPayment}
+            disabled={registerPayment.isPending}
+          >
+            <RefreshCw
+              data-icon="inline-start"
+              className={registerPayment.isPending ? 'animate-spin' : undefined}
+            />
+            {registerPayment.isPending ? 'Registrando…' : 'Registrar pago'}
+          </Button>
           {status === 'paused' ? (
             <Button
               variant="brand"
@@ -821,8 +880,8 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Para dar de alta, renovar o extender acceso usá "Registrar pago" en
-        la pestaña Membresía — es lo único que deja un cobro registrado.
+        Para dar de alta, renovar o extender acceso usá "Registrar pago"
+        arriba, en Membresía — es lo único que deja un cobro registrado.
       </p>
     </div>
   );

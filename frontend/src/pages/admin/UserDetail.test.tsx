@@ -42,13 +42,12 @@ vi.mock('@/hooks/useAdminUsers', () => ({
     isLoading: false,
     error: null,
   }),
-  useCancelSubscription: mocks.idleMutation,
   useDeleteUser: mocks.idleMutation,
   useForceLogout: mocks.idleMutation,
   usePauseMembership: mocks.idleMutation,
+  useRegisterPayment: mocks.idleMutation,
   useResumeMembership: mocks.idleMutation,
   useUpdateAdminUser: mocks.idleMutation,
-  useUpsertSubscription: mocks.idleMutation,
 }));
 
 vi.mock('@/hooks/useActivityLog', () => ({
