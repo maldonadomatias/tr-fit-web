@@ -38,6 +38,9 @@ export interface AdminUserRow {
   paid_until: string | number | null;
   monthly_fee_ars: number | null;
   last_session_at: string | null;
+  days_per_week: number | null;
+  days_specific: string[] | null;
+  injuries: string[] | null;
 }
 
 export interface ListFilters {
@@ -129,6 +132,9 @@ export async function getUser(id: string): Promise<AdminUserRow | null> {
        s.current_period_end,
        mem.status AS membership_status,
        mem.paid_until AS paid_until,
+       ap.days_per_week,
+       ap.days_specific,
+       ap.injuries,
        (
          SELECT MAX(started_at) FROM session_logs
            WHERE athlete_id = u.id
@@ -332,6 +338,7 @@ export type AuditType =
   | 'membership_resumed'
   | 'athlete_fee_changed'
   | 'athlete_rm_changed'
+  | 'athlete_weight_changed'
   | 'force_logout';
 
 export type AuditSeverity = 'brand' | 'warning' | 'destructive' | null;
@@ -542,6 +549,111 @@ export async function setAthleteRm(
   } finally {
     client.release();
   }
+}
+
+// ─── Athlete working weights ─────────────────────────────────────
+// The session engine reads athlete_exercise_weights.current_value (falling
+// back to current_weight_kg) as the prescribed load. Coach edit here is a
+// manual override of that casillero, same table the athlete/cron write.
+
+export interface AthleteWeightRow {
+  exercise_id: number;
+  exercise_name: string;
+  current_value: number | null;
+  unit: string;
+}
+
+export async function listAthleteWeights(
+  athleteId: string
+): Promise<AthleteWeightRow[]> {
+  const r = await pool.query<{
+    exercise_id: number;
+    exercise_name: string;
+    current_value: string | null;
+    unit: string;
+  }>(
+    `SELECT w.exercise_id,
+            e.name AS exercise_name,
+            COALESCE(w.current_value, w.current_weight_kg)::text AS current_value,
+            COALESCE(w.unit, 'kg') AS unit
+       FROM athlete_exercise_weights w
+       JOIN exercises e ON e.id = w.exercise_id
+      WHERE w.athlete_id = $1
+      ORDER BY e.name`,
+    [athleteId]
+  );
+  return r.rows.map((row) => ({
+    exercise_id: row.exercise_id,
+    exercise_name: row.exercise_name,
+    current_value: row.current_value == null ? null : Number(row.current_value),
+    unit: row.unit,
+  }));
+}
+
+export interface SetAthleteWeightInput {
+  exerciseId: number;
+  currentValue: number;
+}
+
+export async function setAthleteWeight(
+  athleteId: string,
+  input: SetAthleteWeightInput,
+  actor: string
+): Promise<AthleteWeightRow> {
+  const exR = await pool.query<{
+    id: number;
+    name: string;
+    equipment: string;
+  }>(`SELECT id, name, equipment FROM exercises WHERE id = $1`, [
+    input.exerciseId,
+  ]);
+  if (!exR.rows[0]) throw new Error('exercise_not_found');
+  const unit = await resolveUnit(athleteId, exR.rows[0].equipment ?? 'barra');
+
+  const prev = await pool.query<{ current_value: string | null }>(
+    `SELECT COALESCE(current_value, current_weight_kg)::text AS current_value
+       FROM athlete_exercise_weights
+      WHERE athlete_id = $1 AND exercise_id = $2`,
+    [athleteId, input.exerciseId]
+  );
+  const from =
+    prev.rows[0]?.current_value == null
+      ? null
+      : Number(prev.rows[0].current_value);
+
+  await pool.query(
+    `INSERT INTO athlete_exercise_weights
+       (athlete_id, exercise_id, current_weight_kg, current_value, unit, updated_by)
+     VALUES ($1, $2, $3, $3, $4, 'coach')
+     ON CONFLICT (athlete_id, exercise_id)
+       DO UPDATE SET current_weight_kg = EXCLUDED.current_weight_kg,
+                     current_value = EXCLUDED.current_value,
+                     unit = EXCLUDED.unit,
+                     updated_by = 'coach',
+                     updated_at = NOW()`,
+    [athleteId, input.exerciseId, input.currentValue, unit]
+  );
+
+  await logAudit({
+    type: 'athlete_weight_changed',
+    actor,
+    target: 'athlete',
+    target_id: athleteId,
+    severity: 'warning',
+    meta: {
+      exercise_id: input.exerciseId,
+      exercise_name: exR.rows[0].name,
+      from,
+      to: input.currentValue,
+    },
+  });
+
+  return {
+    exercise_id: input.exerciseId,
+    exercise_name: exR.rows[0].name,
+    current_value: input.currentValue,
+    unit,
+  };
 }
 
 export type ActivityCategory = 'user' | 'sub' | 'auth';

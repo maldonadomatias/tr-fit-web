@@ -15,6 +15,8 @@ const LABELS: Record<AuditType, string> = {
   subscription_paused: 'Suscripción pausada',
   membership_paused: 'Membresía pausada',
   membership_resumed: 'Membresía reanudada',
+  athlete_rm_changed: 'RM actualizado',
+  athlete_weight_changed: 'Peso de ejercicio actualizado',
   force_logout: 'Logout forzado',
 };
 

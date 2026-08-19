@@ -153,6 +153,11 @@ export interface AdminUser {
   // 'infinity'::timestamptz serializes as null-ish JSON — treat as sin vencimiento.
   paid_until: string | null;
   last_session_at: string | null;
+  days_per_week: number | null;
+  days_specific:
+    | ('lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom')[]
+    | null;
+  injuries: string[] | null;
 }
 
 export type MembershipStatus =
@@ -178,7 +183,15 @@ export type AuditType =
   | 'membership_paused'
   | 'membership_resumed'
   | 'athlete_rm_changed'
+  | 'athlete_weight_changed'
   | 'force_logout';
+
+export interface AthleteExerciseWeight {
+  exercise_id: number;
+  exercise_name: string;
+  current_value: number | null;
+  unit: string;
+}
 
 export interface AthleteRm {
   exercise_id: number;

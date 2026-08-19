@@ -25,6 +25,8 @@ import {
   setAthleteMonthlyFee,
   listAthleteRms,
   setAthleteRm,
+  listAthleteWeights,
+  setAthleteWeight,
   AdminError,
 } from '../services/admin.service.js';
 import { getLoggedSessions } from '../services/logged-sessions.service.js';
@@ -472,6 +474,42 @@ router.put('/users/:id/rms', async (req: Request, res: Response) => {
       await actorEmail(req)
     );
     res.json({ rm: row });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'exercise_not_found') {
+      return res.status(404).json({ error: 'exercise_not_found' });
+    }
+    throw e;
+  }
+});
+
+// Working weights the session engine prescribes (athlete_exercise_weights).
+router.get('/users/:id/weights', async (req: Request, res: Response) => {
+  const user = await getUser(req.params.id);
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  res.json({ weights: await listAthleteWeights(req.params.id) });
+});
+
+const weightBody = z.object({
+  exercise_id: z.number().int().positive(),
+  current_value: z.number().positive().max(1000),
+});
+
+router.put('/users/:id/weights', async (req: Request, res: Response) => {
+  const parsed = weightBody.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: 'invalid_payload' });
+  const user = await getUser(req.params.id);
+  if (!user) return res.status(404).json({ error: 'not_found' });
+  try {
+    const row = await setAthleteWeight(
+      req.params.id,
+      {
+        exerciseId: parsed.data.exercise_id,
+        currentValue: parsed.data.current_value,
+      },
+      await actorEmail(req)
+    );
+    res.json({ weight: row });
   } catch (e) {
     if (e instanceof Error && e.message === 'exercise_not_found') {
       return res.status(404).json({ error: 'exercise_not_found' });

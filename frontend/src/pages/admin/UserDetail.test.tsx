@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { AdminUser } from '@/types/api';
 import UserDetail from './UserDetail';
@@ -25,6 +25,10 @@ const mocks = vi.hoisted(() => ({
     monthly_fee_ars: null,
     membership_status: null,
     paid_until: null,
+    last_session_at: null,
+    days_per_week: null,
+    days_specific: null,
+    injuries: null,
   } as AdminUser,
   idleMutation: () => ({
     mutate: vi.fn(),
@@ -66,6 +70,26 @@ vi.mock('@/hooks/useLoggedSessions', () => ({
 vi.mock('@/hooks/useAthleteRms', () => ({
   useAthleteRms: () => ({ data: [] }),
   useSetAthleteRm: mocks.idleMutation,
+}));
+
+const weightMocks = vi.hoisted(() => ({
+  setWeight: vi.fn(),
+  weights: [
+    {
+      exercise_id: 7,
+      exercise_name: 'Press banca',
+      current_value: 40,
+      unit: 'kg',
+    },
+  ],
+}));
+
+vi.mock('@/hooks/useAthleteWeights', () => ({
+  useAthleteWeights: () => ({ data: weightMocks.weights, isLoading: false }),
+  useSetAthleteWeight: () => ({
+    mutateAsync: weightMocks.setWeight,
+    isPending: false,
+  }),
 }));
 
 vi.mock('@/hooks/useSetMonthlyFee', () => ({
@@ -144,5 +168,79 @@ describe('user detail contact', () => {
     expect(
       screen.getByRole('link', { name: '+5493815551234' })
     ).toHaveAttribute('href', 'tel:+5493815551234');
+  });
+});
+
+describe('user detail training card', () => {
+  afterEach(() => {
+    mocks.newAthlete.days_per_week = null;
+    mocks.newAthlete.days_specific = null;
+    mocks.newAthlete.injuries = null;
+  });
+
+  it('sits between Identidad and Plan actual with days and injuries', () => {
+    mocks.newAthlete.days_per_week = 3;
+    mocks.newAthlete.days_specific = ['lun', 'mie', 'vie'];
+    mocks.newAthlete.injuries = ['lumbar'];
+    renderUserDetail();
+
+    const identidad = screen.getByText('Identidad');
+    const entrenamiento = screen.getByText('Entrenamiento');
+    const plan = screen.getByText('Plan actual');
+    expect(identidad.compareDocumentPosition(entrenamiento)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(entrenamiento.compareDocumentPosition(plan)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    expect(screen.getByText('3 días / semana')).toBeInTheDocument();
+    expect(screen.getByText('Lun · Mié · Vie')).toBeInTheDocument();
+    expect(screen.getByText('lumbar')).toBeInTheDocument();
+  });
+
+  it('says there are no injuries when the list is empty', () => {
+    mocks.newAthlete.days_per_week = 4;
+    mocks.newAthlete.days_specific = ['lun', 'mar', 'jue', 'sab'];
+    mocks.newAthlete.injuries = [];
+    renderUserDetail();
+
+    expect(screen.getByText('Sin lesiones declaradas.')).toBeInTheDocument();
+  });
+
+  it('hides the card when the user has no athlete profile', () => {
+    renderUserDetail();
+    expect(screen.queryByText('Entrenamiento')).not.toBeInTheDocument();
+  });
+});
+
+describe('user detail exercise weights', () => {
+  beforeEach(() => {
+    weightMocks.setWeight.mockReset();
+    weightMocks.setWeight.mockResolvedValue({
+      exercise_id: 7,
+      exercise_name: 'Press banca',
+      current_value: 42.5,
+      unit: 'kg',
+    });
+  });
+
+  it('lets the coach change a working weight', async () => {
+    const user = userEvent.setup();
+    renderUserDetail();
+
+    await user.click(screen.getByRole('tab', { name: 'RM / Pesos' }));
+    expect(screen.getByText('Press banca')).toBeInTheDocument();
+    expect(screen.getByText('40 kg')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Editar' }));
+    const input = screen.getByRole('spinbutton');
+    await user.clear(input);
+    await user.type(input, '42.5');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(weightMocks.setWeight).toHaveBeenCalledWith({
+      exercise_id: 7,
+      current_value: 42.5,
+    });
   });
 });

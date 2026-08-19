@@ -62,11 +62,20 @@ import {
 } from '@/hooks/useProgressionRuns';
 import { useSetMonthlyFee } from '@/hooks/useSetMonthlyFee';
 import { useAthleteRms, useSetAthleteRm } from '@/hooks/useAthleteRms';
+import {
+  useAthleteWeights,
+  useSetAthleteWeight,
+} from '@/hooks/useAthleteWeights';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtARS, fmtShortDate, fmtTimeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { AdminUser, Role, UserStatus } from '@/types/api';
+import type {
+  AdminUser,
+  AthleteExerciseWeight,
+  Role,
+  UserStatus,
+} from '@/types/api';
 
 type TabKey =
   | 'resumen'
@@ -134,7 +143,7 @@ export default function UserDetail() {
           { key: 'resumen', label: 'Resumen' },
           { key: 'entrenamientos', label: 'Entrenamientos' },
           { key: 'progresion', label: 'Progresión' },
-          { key: 'rm', label: 'RM / Planilla' },
+          { key: 'rm', label: 'RM / Pesos' },
           { key: 'estado', label: 'Estado de la cuenta' },
           { key: 'suscripcion', label: 'Suscripción' },
           {
@@ -379,6 +388,8 @@ function ResumenTab({ user }: { user: AdminUser }) {
           </dl>
         </div>
 
+        {user.days_per_week != null && <TrainingCard user={user} />}
+
         <div className="rounded-2xl border bg-card">
           <div className="border-b border-border p-[18px]">
             <Eyebrow variant="muted">Plan actual</Eyebrow>
@@ -451,6 +462,62 @@ function ResumenTab({ user }: { user: AdminUser }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+const WEEKDAY_LABEL: Record<string, string> = {
+  lun: 'Lun',
+  mar: 'Mar',
+  mie: 'Mié',
+  jue: 'Jue',
+  vie: 'Vie',
+  sab: 'Sáb',
+  dom: 'Dom',
+};
+
+function TrainingCard({ user }: { user: AdminUser }) {
+  const days =
+    user.days_specific && user.days_specific.length > 0
+      ? user.days_specific.map((d) => WEEKDAY_LABEL[d] ?? d).join(' · ')
+      : '—';
+  const injuries = user.injuries ?? [];
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <div className="border-b border-border p-[18px]">
+        <Eyebrow variant="muted">Semana actual</Eyebrow>
+        <div className="mt-1 text-[17px] font-semibold tracking-tight">
+          Entrenamiento
+        </div>
+      </div>
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 p-[18px] text-sm sm:grid-cols-[160px_1fr]">
+        <Kv
+          label="Frecuencia"
+          value={`${user.days_per_week} días / semana`}
+          mono
+        />
+        <Kv label="Días" value={days} />
+        <Kv
+          label="Lesiones"
+          value={
+            injuries.length > 0 ? (
+              <ul className="space-y-1.5">
+                {injuries.map((injury) => (
+                  <li key={injury} className="flex items-center gap-2">
+                    <span className="size-1.5 shrink-0 rounded-full bg-amber-500" />
+                    {injury}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-muted-foreground">
+                Sin lesiones declaradas.
+              </span>
+            )
+          }
+        />
+      </dl>
     </div>
   );
 }
@@ -1199,6 +1266,126 @@ const RM_WEEK_LABEL: Record<number, string> = {
   30: 'Semana 30',
 };
 
+function WeightsCard({ user }: { user: AdminUser }) {
+  const q = useAthleteWeights(user.id);
+  const setWeight = useSetAthleteWeight(user.id);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [value, setValue] = useState('');
+  const weights = q.data ?? [];
+
+  function startEdit(w: AthleteExerciseWeight) {
+    setEditId(w.exercise_id);
+    setValue(w.current_value == null ? '' : String(w.current_value));
+  }
+
+  async function save(exercise_id: number) {
+    const v = Number(value);
+    if (!v || v <= 0 || v > 1000) {
+      toast.error('Peso inválido (entre 0 y 1000)');
+      return;
+    }
+    try {
+      await setWeight.mutateAsync({ exercise_id, current_value: v });
+      toast.success('Peso actualizado');
+      setEditId(null);
+    } catch {
+      toast.error('No se pudo actualizar el peso');
+    }
+  }
+
+  if (q.isLoading) {
+    return (
+      <div className="rounded-2xl border bg-card p-[18px]">
+        <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border bg-card">
+      <div className="border-b border-border p-[18px]">
+        <Eyebrow variant="muted">Casilleros</Eyebrow>
+        <div className="mt-1 text-[17px] font-semibold tracking-tight">
+          Pesos de ejercicios
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          El valor que la app prescribe en la rutina. Cambialo a mano si hay que
+          ajustar un ejercicio puntual.
+        </p>
+      </div>
+
+      {weights.length === 0 ? (
+        <div className="p-[18px] text-sm text-muted-foreground">
+          Este atleta todavía no tiene pesos cargados.
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {weights.map((w) => {
+            const editing = editId === w.exercise_id;
+            return (
+              <div key={w.exercise_id} className="p-[18px]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[13px] font-semibold">
+                    {w.exercise_name}
+                  </div>
+                  {!editing && (
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono tabular-nums text-sm font-semibold">
+                        {w.current_value == null
+                          ? '—'
+                          : `${w.current_value} ${w.unit}`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startEdit(w)}
+                        className="h-8 rounded-md border border-border bg-background px-3 text-xs font-semibold hover:bg-muted/40"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {editing && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <input
+                      type="number"
+                      min={0.5}
+                      max={1000}
+                      step={0.5}
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                      className="h-9 w-32 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
+                      placeholder="Peso"
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {w.unit}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={setWeight.isPending}
+                      onClick={() => save(w.exercise_id)}
+                      className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditId(null)}
+                      className="h-9 rounded-md border border-border bg-background px-3 text-sm font-semibold hover:bg-muted/40"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Edit a student's RM (rep-max) — the coach lowers it TEMPORARILY on injury or
 // illness so the app prescribes lighter weights. The engine multiplies value_kg
 // by the block's %RM, so a lower RM cascades to every prescribed weight.
@@ -1255,111 +1442,114 @@ function RmTab({ user }: { user: AdminUser }) {
   }
 
   return (
-    <div className="rounded-2xl border bg-card">
-      <div className="border-b border-border p-[18px]">
-        <Eyebrow variant="muted">Planilla · RM</Eyebrow>
-        <div className="mt-1 text-[17px] font-semibold tracking-tight">
-          Editar RM (rep-max)
+    <div className="flex flex-col gap-4">
+      <WeightsCard user={user} />
+      <div className="rounded-2xl border bg-card">
+        <div className="border-b border-border p-[18px]">
+          <Eyebrow variant="muted">Planilla · RM</Eyebrow>
+          <div className="mt-1 text-[17px] font-semibold tracking-tight">
+            Editar RM (rep-max)
+          </div>
+          <div className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            Bajá el RM de forma <b>temporal</b> por lesión o enfermedad: la app
+            prescribe menos peso mientras el atleta se recupera. Restaurá el
+            valor a mano cuando vuelva a estar al 100%.
+          </div>
         </div>
-        <div className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-          Bajá el RM de forma <b>temporal</b> por lesión o enfermedad: la app
-          prescribe menos peso mientras el atleta se recupera. Restaurá el valor
-          a mano cuando vuelva a estar al 100%.
-        </div>
-      </div>
 
-      {rms.length === 0 ? (
-        <div className="p-[18px] text-sm text-muted-foreground">
-          Este atleta todavía no tiene RM cargados.
-        </div>
-      ) : (
-        <div className="divide-y divide-border">
-          {rms.map((r) => {
-            const key = `${r.exercise_id}-${r.program_week}`;
-            const editing = editKey === key;
-            return (
-              <div key={key} className="p-[18px]">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[13px] font-semibold">
-                      {r.exercise_name}
+        {rms.length === 0 ? (
+          <div className="p-[18px] text-sm text-muted-foreground">
+            Este atleta todavía no tiene RM cargados.
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {rms.map((r) => {
+              const key = `${r.exercise_id}-${r.program_week}`;
+              const editing = editKey === key;
+              return (
+                <div key={key} className="p-[18px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[13px] font-semibold">
+                        {r.exercise_name}
+                      </div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        {RM_WEEK_LABEL[r.program_week] ??
+                          `Semana ${r.program_week}`}
+                      </div>
                     </div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                      {RM_WEEK_LABEL[r.program_week] ??
-                        `Semana ${r.program_week}`}
-                    </div>
+                    {!editing && (
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono tabular-nums text-sm font-semibold">
+                          {r.value_kg} {r.unit ?? 'kg'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(r)}
+                          className="h-8 rounded-md border border-border bg-background px-3 text-xs font-semibold hover:bg-muted/40"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {!editing && (
-                    <div className="flex items-center gap-3">
-                      <span className="font-mono tabular-nums text-sm font-semibold">
-                        {r.value_kg} {r.unit ?? 'kg'}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(r)}
-                        className="h-8 rounded-md border border-border bg-background px-3 text-xs font-semibold hover:bg-muted/40"
-                      >
-                        Editar
-                      </button>
+
+                  {r.coach_note && !editing && (
+                    <div className="mt-1.5 text-xs italic text-muted-foreground">
+                      Nota: {r.coach_note}
+                    </div>
+                  )}
+
+                  {editing && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          step={0.5}
+                          value={value}
+                          onChange={(e) => setValue(e.target.value)}
+                          className="h-9 w-32 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
+                          placeholder="RM en kg"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {r.unit ?? 'kg'}
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="h-9 w-full max-w-[420px] rounded-md border border-border bg-background px-2 text-sm"
+                        placeholder="Motivo (opcional): p. ej. lesión hombro, gripe…"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={setRm.isPending}
+                          onClick={() => save(r.exercise_id, r.program_week)}
+                          className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditKey(null)}
+                          className="h-9 rounded-md border border-border bg-background px-3 text-sm font-semibold hover:bg-muted/40"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {r.coach_note && !editing && (
-                  <div className="mt-1.5 text-xs italic text-muted-foreground">
-                    Nota: {r.coach_note}
-                  </div>
-                )}
-
-                {editing && (
-                  <div className="mt-3 flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min={1}
-                        max={1000}
-                        step={0.5}
-                        value={value}
-                        onChange={(e) => setValue(e.target.value)}
-                        className="h-9 w-32 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
-                        placeholder="RM en kg"
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {r.unit ?? 'kg'}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      maxLength={200}
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      className="h-9 w-full max-w-[420px] rounded-md border border-border bg-background px-2 text-sm"
-                      placeholder="Motivo (opcional): p. ej. lesión hombro, gripe…"
-                    />
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={setRm.isPending}
-                        onClick={() => save(r.exercise_id, r.program_week)}
-                        className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
-                      >
-                        Guardar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditKey(null)}
-                        className="h-9 rounded-md border border-border bg-background px-3 text-sm font-semibold hover:bg-muted/40"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
