@@ -482,7 +482,9 @@ router.put('/users/:id/rms', async (req: Request, res: Response) => {
 
 // ─── Membership / manual payments ────────────────────────────────
 const paymentBody = z.object({
-  amount: z.number().positive(),
+  // nonnegative, not positive: courtesy athletes have a 0 fee and still need
+  // a payment row to get/extend access (it's the only path that grants it).
+  amount: z.number().nonnegative(),
   currency: z.string().min(1).max(8).optional(),
   method: z.enum(['transfer', 'cash', 'mercadopago', 'other']),
   paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

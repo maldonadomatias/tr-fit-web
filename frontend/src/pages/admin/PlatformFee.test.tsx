@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
     recorded_by: string | null;
   },
   history: [] as Array<Record<string, string | number | null>>,
+  breakdown: [] as Array<Record<string, string | number | boolean>>,
   markPaid: vi.fn(),
 }));
 
@@ -63,6 +64,7 @@ vi.mock('@/hooks/usePlatformFee', () => ({
   }),
   useApplyAdjustment: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useFeeLog: () => ({ data: [] }),
+  useAthleteBillingBreakdown: () => ({ data: mocks.breakdown }),
   useMarkPlatformFeePaid: () => ({
     mutateAsync: mocks.markPaid,
     isPending: false,
@@ -74,6 +76,7 @@ describe('platform fee payment status', () => {
     mocks.role = 'superadmin';
     mocks.payment = null;
     mocks.history = [];
+    mocks.breakdown = [];
     mocks.markPaid.mockReset();
   });
 
@@ -85,9 +88,7 @@ describe('platform fee payment status', () => {
     expect(
       screen.getByText(/Pagá en .+ hasta el día 10 inclusive/i)
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Facturación real en curso/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Facturación real en curso/i)).toBeInTheDocument();
     expect(screen.getAllByText(/No se pierde nada/i).length).toBeGreaterThan(0);
     expect(screen.getByText('cobrado vs estimado')).toBeInTheDocument();
   });

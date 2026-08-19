@@ -8,6 +8,7 @@ import UserDetail from './UserDetail';
 
 const mocks = vi.hoisted(() => ({
   setFee: vi.fn(),
+  registerPayment: vi.fn(),
   newAthlete: {
     id: 'new-athlete-id',
     email: 'new-athlete@test.local',
@@ -45,7 +46,11 @@ vi.mock('@/hooks/useAdminUsers', () => ({
   useDeleteUser: mocks.idleMutation,
   useForceLogout: mocks.idleMutation,
   usePauseMembership: mocks.idleMutation,
-  useRegisterPayment: mocks.idleMutation,
+  useRegisterPayment: () => ({
+    mutate: mocks.registerPayment,
+    mutateAsync: mocks.registerPayment,
+    isPending: false,
+  }),
   useResumeMembership: mocks.idleMutation,
   useUpdateAdminUser: mocks.idleMutation,
 }));
@@ -103,6 +108,32 @@ describe('user detail monthly fee', () => {
     await user.click(screen.getByRole('button', { name: 'Guardar' }));
 
     expect(mocks.setFee).toHaveBeenCalledWith(0);
+  });
+});
+
+describe('user detail register payment', () => {
+  beforeEach(() => {
+    mocks.registerPayment.mockReset();
+  });
+
+  it('confirms before booking the payment', async () => {
+    const user = userEvent.setup();
+    renderUserDetail();
+
+    await user.click(screen.getByRole('tab', { name: 'Suscripción' }));
+    await user.click(screen.getByRole('button', { name: /Registrar pago/i }));
+
+    // The click must only open the dialog — booking revenue and granting
+    // access is too costly to fire on a stray click.
+    expect(mocks.registerPayment).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar pago' }));
+
+    expect(mocks.registerPayment).toHaveBeenCalledTimes(1);
+    expect(mocks.registerPayment.mock.calls[0][0]).toMatchObject({
+      id: 'new-athlete-id',
+    });
   });
 });
 

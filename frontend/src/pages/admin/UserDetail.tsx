@@ -31,6 +31,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Eyebrow } from '@/components/admin/Eyebrow';
+import {
+  ConfirmPaymentDialog,
+  MEMBERSHIP_LABELS,
+} from '@/components/admin/ConfirmPaymentDialog';
 import { Avatar } from '@/components/admin/Avatar';
 import { RoleBadge } from '@/components/admin/RoleBadge';
 import { StatusBadge } from '@/components/admin/StatusBadge';
@@ -625,18 +629,11 @@ function Field({
   );
 }
 
-const MEMBERSHIP_LABELS: Record<string, string> = {
-  active: 'Activa',
-  expiring: 'Por vencer',
-  expired: 'Vencida',
-  cancelled: 'Cancelada',
-  paused: 'Pausada',
-};
-
 function MembresiaCard({ user }: { user: AdminUser }) {
   const pause = usePauseMembership(user.id);
   const resume = useResumeMembership(user.id);
   const registerPayment = useRegisterPayment();
+  const [confirmPayment, setConfirmPayment] = useState(false);
   const status = user.membership_status;
   if (user.role !== 'athlete') return null;
 
@@ -655,16 +652,35 @@ function MembresiaCard({ user }: { user: AdminUser }) {
       onError: (e) =>
         toast.error(`No se pudo reanudar: ${(e as Error).message}`),
     });
-  const onRegisterPayment = () =>
-    registerPayment.mutate(
-      { id: user.id, amount: user.monthly_fee_ars ?? 25000, method: 'transfer' },
-      {
-        onSuccess: () =>
-          toast.success('Pago registrado. Acceso habilitado por 30 días.'),
-        onError: (e) =>
-          toast.error(`No se pudo registrar el pago: ${(e as Error).message}`),
+
+  const paymentDialog = (
+    <ConfirmPaymentDialog
+      open={confirmPayment}
+      user={user}
+      amount={user.monthly_fee_ars ?? 25000}
+      pending={registerPayment.isPending}
+      onClose={() => setConfirmPayment(false)}
+      onConfirm={() =>
+        registerPayment.mutate(
+          {
+            id: user.id,
+            amount: user.monthly_fee_ars ?? 25000,
+            method: 'transfer',
+          },
+          {
+            onSuccess: () => {
+              setConfirmPayment(false);
+              toast.success('Pago registrado. Acceso habilitado.');
+            },
+            onError: (e) =>
+              toast.error(
+                `No se pudo registrar el pago: ${(e as Error).message}`
+              ),
+          }
+        )
       }
-    );
+    />
+  );
 
   // No membership row yet: brand-new athlete. This is the only way to grant
   // first access — there's no other admin path that creates one.
@@ -682,21 +698,13 @@ function MembresiaCard({ user }: { user: AdminUser }) {
             </div>
           </div>
           <div className="ml-auto">
-            <Button
-              size="sm"
-              onClick={onRegisterPayment}
-              disabled={registerPayment.isPending}
-            >
-              <RefreshCw
-                data-icon="inline-start"
-                className={registerPayment.isPending ? 'animate-spin' : undefined}
-              />
-              {registerPayment.isPending
-                ? 'Registrando…'
-                : `Registrar pago (${fmtARS(user.monthly_fee_ars ?? 25000)})`}
+            <Button size="sm" onClick={() => setConfirmPayment(true)}>
+              <RefreshCw data-icon="inline-start" />
+              Registrar pago
             </Button>
           </div>
         </div>
+        {paymentDialog}
       </div>
     );
   }
@@ -728,14 +736,10 @@ function MembresiaCard({ user }: { user: AdminUser }) {
           <Button
             size="sm"
             variant="outline"
-            onClick={onRegisterPayment}
-            disabled={registerPayment.isPending}
+            onClick={() => setConfirmPayment(true)}
           >
-            <RefreshCw
-              data-icon="inline-start"
-              className={registerPayment.isPending ? 'animate-spin' : undefined}
-            />
-            {registerPayment.isPending ? 'Registrando…' : 'Registrar pago'}
+            <RefreshCw data-icon="inline-start" />
+            Registrar pago
           </Button>
           {status === 'paused' ? (
             <Button
@@ -764,6 +768,7 @@ function MembresiaCard({ user }: { user: AdminUser }) {
           Al reanudar, los días pausados se suman a la fecha de vencimiento.
         </p>
       )}
+      {paymentDialog}
     </div>
   );
 }
@@ -880,8 +885,8 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Para dar de alta, renovar o extender acceso usá "Registrar pago"
-        arriba, en Membresía — es lo único que deja un cobro registrado.
+        Para dar de alta, renovar o extender acceso usá "Registrar pago" arriba,
+        en Membresía — es lo único que deja un cobro registrado.
       </p>
     </div>
   );

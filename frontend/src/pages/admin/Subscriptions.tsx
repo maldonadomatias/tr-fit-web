@@ -12,6 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PageHeader } from '@/components/admin/PageHeader';
+import { ConfirmPaymentDialog } from '@/components/admin/ConfirmPaymentDialog';
 import { Segmented } from '@/components/admin/Segmented';
 import { Avatar } from '@/components/admin/Avatar';
 import { TierBadge } from '@/components/admin/TierBadge';
@@ -51,6 +52,7 @@ export default function Subscriptions() {
   const usersQ = useAdminUsers({});
   const statsQ = useAdminStats();
   const renewM = useRegisterPayment();
+  const [confirmUser, setConfirmUser] = useState<AdminUser | null>(null);
 
   // Each student's real price is their custom monthly_fee_ars; the tier map is
   // only a fallback when no custom fee has been set.
@@ -89,11 +91,18 @@ export default function Subscriptions() {
 
   const activeSubs = subs.filter((u) => u.subscription_status === 'authorized');
 
-  const renew = (u: AdminUser) => {
-    // "Pagado, renovar 30 días": books the payment to today's month (revenue)
-    // and pushes paid_until +30 days. Backend extends from the later of the
-    // current paid_until or now, so an early renewal never loses paid days.
-    renewM.mutate({ id: u.id, amount: feeOf(u), method: 'transfer' });
+  // Books the payment to today's month (revenue) and pushes paid_until one
+  // calendar month. Backend extends from the later of the current paid_until
+  // or now, so an early renewal never loses paid days. Confirmed via dialog —
+  // it books revenue and grants access, too costly to fire on a stray click.
+  const renew = () => {
+    if (!confirmUser) return;
+    renewM.mutate(
+      { id: confirmUser.id, amount: feeOf(confirmUser), method: 'transfer' },
+      {
+        onSuccess: () => setConfirmUser(null),
+      }
+    );
   };
 
   const tierStats = (['premium', 'full', 'basico'] as SubscriptionTier[]).map(
@@ -257,8 +266,6 @@ export default function Subscriptions() {
                   const price = feeOf(u);
                   const info = expiryInfo(u.paid_until);
                   const paid = isPaidThisMonth(u.paid_until);
-                  const renewing =
-                    renewM.isPending && renewM.variables?.id === u.id;
                   return (
                     <TableRow
                       key={u.id}
@@ -302,15 +309,11 @@ export default function Subscriptions() {
                         <Button
                           variant={paid ? 'outline' : 'default'}
                           size="sm"
-                          disabled={renewing}
-                          onClick={() => renew(u)}
-                          title="Marca pagado y renueva 30 días"
+                          onClick={() => setConfirmUser(u)}
+                          title="Registra el cobro y renueva un mes"
                         >
-                          <RefreshCw
-                            data-icon="inline-start"
-                            className={renewing ? 'animate-spin' : undefined}
-                          />
-                          {renewing ? 'Renovando…' : 'Pagado, renovar 30 días'}
+                          <RefreshCw data-icon="inline-start" />
+                          Registrar pago
                         </Button>
                       </TableCell>
                       <TableCell>
@@ -338,6 +341,17 @@ export default function Subscriptions() {
           </>
         )}
       </div>
+
+      {confirmUser && (
+        <ConfirmPaymentDialog
+          open
+          user={confirmUser}
+          amount={feeOf(confirmUser)}
+          pending={renewM.isPending}
+          onClose={() => setConfirmUser(null)}
+          onConfirm={renew}
+        />
+      )}
     </div>
   );
 }

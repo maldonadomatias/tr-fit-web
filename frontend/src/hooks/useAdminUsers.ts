@@ -139,8 +139,9 @@ export interface RegisterPaymentInput {
 }
 
 /**
- * "Pagado, renovar 30 días": logs the payment (booked to paid_at's month for
- * revenue), extends the membership by period_days (default 30), and re-approves.
+ * Logs the payment (booked to paid_at's month for revenue), extends the
+ * membership (period_days if given, else one calendar month), and re-approves.
+ * The only path that grants or extends access — see upsertManualSubscription.
  * Refreshes the users list so the row re-sorts and flips to PAGADO.
  */
 export function useRegisterPayment() {
