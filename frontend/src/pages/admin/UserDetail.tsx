@@ -43,13 +43,11 @@ import { AdminTabs } from '@/components/admin/AdminTabs';
 import { DangerRow } from '@/components/admin/DangerRow';
 import {
   useAdminUser,
-  useCancelSubscription,
   useDeleteUser,
   useForceLogout,
   usePauseMembership,
   useResumeMembership,
   useUpdateAdminUser,
-  useUpsertSubscription,
 } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { useLoggedSessions } from '@/hooks/useLoggedSessions';
@@ -63,13 +61,7 @@ import { activityLabel, activitySub } from '@/lib/activity';
 import { useAuth } from '@/hooks/useAuth';
 import { fmtARS, fmtShortDate, fmtTimeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type {
-  AdminUser,
-  Role,
-  SubscriptionStatus,
-  SubscriptionTier,
-  UserStatus,
-} from '@/types/api';
+import type { AdminUser, Role, UserStatus } from '@/types/api';
 
 type TabKey =
   | 'resumen'
@@ -80,17 +72,6 @@ type TabKey =
   | 'suscripcion'
   | 'actividad'
   | 'peligro';
-
-const TIER_PRICE: Record<SubscriptionTier, number> = {
-  basico: 15000,
-  full: 25000,
-  premium: 70000,
-};
-const TIER_LABEL: Record<SubscriptionTier, string> = {
-  basico: 'Plan ver-only',
-  full: 'Registro completo',
-  premium: 'Reportes coach',
-};
 
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
@@ -729,56 +710,14 @@ function MembresiaCard({ user }: { user: AdminUser }) {
 }
 
 function SuscripcionTab({ user }: { user: AdminUser }) {
-  const upsert = useUpsertSubscription(user.id);
-  const cancel = useCancelSubscription(user.id);
   const setFee = useSetMonthlyFee(user.id);
-  const [tier, setTier] = useState<SubscriptionTier>(
-    user.subscription_tier ?? 'full'
-  );
-  const [subStatus, setSubStatus] = useState<SubscriptionStatus>(
-    user.subscription_status ?? 'authorized'
-  );
   const [cuota, setCuota] = useState(String(user.monthly_fee_ars ?? 25000));
 
   useEffect(() => {
-    setTier(user.subscription_tier ?? 'full');
-    setSubStatus(user.subscription_status ?? 'authorized');
     setCuota(String(user.monthly_fee_ars ?? 25000));
-  }, [user.subscription_tier, user.subscription_status, user.monthly_fee_ars]);
+  }, [user.monthly_fee_ars]);
 
   const hasSub = !!user.subscription_tier;
-  const dirty =
-    !hasSub ||
-    tier !== user.subscription_tier ||
-    subStatus !== user.subscription_status;
-
-  function save() {
-    upsert.mutate(
-      { tier, status: subStatus },
-      {
-        onSuccess: () =>
-          toast.success(
-            hasSub ? 'Suscripción actualizada' : 'Suscripción creada'
-          ),
-        onError: () =>
-          toast.error(
-            hasSub
-              ? 'No se pudo guardar la suscripción'
-              : 'No se pudo crear la suscripción'
-          ),
-      }
-    );
-  }
-  function cancelSub() {
-    cancel.mutate(undefined, {
-      onSuccess: () => toast.success('Suscripción cancelada'),
-      onError: () => toast.error('No se pudo cancelar'),
-    });
-  }
-  function discard() {
-    setTier(user.subscription_tier ?? 'full');
-    setSubStatus(user.subscription_status ?? 'authorized');
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -833,44 +772,12 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
 
       <div className="rounded-2xl border bg-card">
         <div className="border-b border-border p-[18px]">
-          <Eyebrow variant="muted">
-            {hasSub ? 'Editar suscripción' : 'Crear suscripción manual'}
-          </Eyebrow>
+          <Eyebrow variant="muted">Cuota</Eyebrow>
           <div className="mt-1 text-[17px] font-semibold tracking-tight">
-            {hasSub ? 'Cambios manuales' : 'Sin pasar por MercadoPago'}
+            Cuota mensual
           </div>
         </div>
-        <div className="flex flex-col gap-5 p-[18px]">
-          <Field
-            label="Plan"
-            hint="El cambio se aplica al próximo período de cobro."
-          >
-            <div className="grid max-w-[540px] grid-cols-1 gap-2 sm:grid-cols-2">
-              {(['full', 'premium'] as SubscriptionTier[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTier(t)}
-                  className={cn(
-                    'rounded-2xl border p-[14px] text-left transition-colors',
-                    tier === t
-                      ? 'border-brand bg-brand/6'
-                      : 'border-border bg-background hover:bg-muted/40'
-                  )}
-                >
-                  <TierBadge tier={t} className="mb-1.5" />
-                  <div className="font-mono tabular-nums text-sm font-semibold">
-                    {fmtARS(TIER_PRICE[t])}{' '}
-                    <span className="text-muted-foreground">/mes</span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {TIER_LABEL[t]}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </Field>
-
+        <div className="p-[18px]">
           {/* Cuota mensual — drives the platform 4% */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">
@@ -910,57 +817,13 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
               </button>
             </div>
           </div>
-
-          <Field
-            label="Estado de pago"
-            hint="Solo es una etiqueta — no extiende el vencimiento ni registra cobro. Para renovar o dar acceso, usá 'Registrar pago' en la pestaña Membresía."
-          >
-            <Segmented<SubscriptionStatus>
-              value={subStatus}
-              onChange={setSubStatus}
-              options={[
-                { key: 'authorized', label: 'Activa' },
-                { key: 'pending', label: 'Pendiente' },
-                { key: 'paused', label: 'Pausada' },
-                { key: 'cancelled', label: 'Cancelada' },
-              ]}
-            />
-          </Field>
-
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
-            {hasSub && user.subscription_status !== 'cancelled' && (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="mr-auto"
-                onClick={cancelSub}
-                disabled={cancel.isPending}
-              >
-                Cancelar suscripción
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={discard}
-              disabled={!dirty}
-            >
-              Descartar
-            </Button>
-            <Button
-              size="sm"
-              onClick={save}
-              disabled={!dirty || upsert.isPending}
-            >
-              {upsert.isPending
-                ? 'Guardando…'
-                : hasSub
-                  ? 'Guardar cambios'
-                  : 'Crear suscripción'}
-            </Button>
-          </div>
         </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Para dar de alta, renovar o extender acceso usá "Registrar pago" en
+        la pestaña Membresía — es lo único que deja un cobro registrado.
+      </p>
     </div>
   );
 }
