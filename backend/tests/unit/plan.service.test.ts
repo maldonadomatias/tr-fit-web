@@ -36,12 +36,18 @@ beforeEach(() => {
 });
 
 function seedBasicFixtures(opts: {
-  daysSpecific?: string[];
+  daysSpecific?: string[] | null;
   exerciseMinutes?: number;
   daysPerWeek?: number;
   currentWeek?: number;
   activeSkeletonId?: string | null;
-  periodization?: Array<{ week_number: number; block_label: string }>;
+  startDate?: string | null;
+  periodization?: Array<{
+    week_number: number;
+    block_label: string;
+    is_deload?: boolean;
+    is_rm_test?: boolean;
+  }>;
   slotCounts?: Array<{ day_of_week: number; n: number }>;
   focuses?: Array<{ day_of_week: number; focus: string }>;
   doneLogs?: Array<{ program_week: number; day_of_week: number }>;
@@ -51,21 +57,25 @@ function seedBasicFixtures(opts: {
          || s.startsWith('SELECT name, days_per_week, days_specific, exercise_minutes'),
     [{
       name: 'Test',
-      days_specific: opts.daysSpecific ?? ['lun', 'mar', 'jue', 'sab'],
+      days_specific:
+        opts.daysSpecific === undefined ? ['lun', 'mar', 'jue', 'sab'] : opts.daysSpecific,
       exercise_minutes: opts.exerciseMinutes ?? 60,
       days_per_week: opts.daysPerWeek ?? 4,
     }],
   );
   pushHandler(
-    (s) => s.startsWith('SELECT current_week, active_skeleton_id FROM athlete_program_state'),
+    (s) => s.startsWith('SELECT current_week, active_skeleton_id')
+        && s.includes('FROM athlete_program_state'),
     [{
       current_week: opts.currentWeek ?? 5,
       active_skeleton_id: opts.activeSkeletonId === undefined ? 'sk-1' : opts.activeSkeletonId,
+      start_date: opts.startDate === undefined ? '2026-03-02' : opts.startDate,
     }],
   );
   pushHandler(
-    (s) => s.startsWith('SELECT week_number, block_label FROM periodization_config'),
-    opts.periodization ?? [
+    (s) => s.startsWith('SELECT week_number, block_label')
+        && s.includes('FROM periodization_config'),
+    (opts.periodization ?? [
       { week_number: 1, block_label: 'Hipertrofia' },
       { week_number: 2, block_label: 'Hipertrofia' },
       { week_number: 3, block_label: 'Hipertrofia' },
@@ -74,7 +84,7 @@ function seedBasicFixtures(opts: {
       { week_number: 6, block_label: 'Fuerza' },
       { week_number: 7, block_label: 'Fuerza' },
       { week_number: 8, block_label: 'Fuerza' },
-    ],
+    ]).map((row) => ({ is_deload: false, is_rm_test: false, ...row })),
   );
   pushHandler(
     (s) => s.startsWith('SELECT day_of_week, COUNT(*)::int AS n FROM skeleton_slots'),
@@ -97,21 +107,78 @@ function seedBasicFixtures(opts: {
 }
 
 describe('buildPlan', () => {
-  it('groups weeks by block_label preserving first-seen order', async () => {
+  it('splits repeated labels into contiguous blocks', async () => {
+    seedBasicFixtures({
+      periodization: [
+        { week_number: 1, block_label: 'Hipertrofia' },
+        { week_number: 2, block_label: 'Hipertrofia' },
+        { week_number: 3, block_label: 'Descarga', is_deload: true },
+        { week_number: 4, block_label: 'Hipertrofia' },
+      ],
+    });
+    const r = await buildPlan('athlete-1');
+    expect(r.blocks).toHaveLength(3);
+    expect(r.blocks.map((b) => b.name)).toEqual(['Hipertrofia', 'Descarga', 'Hipertrofia']);
+    expect(r.blocks.map((b) => b.weeks.map((w) => w.weekNumber))).toEqual([[1, 2], [3], [4]]);
+  });
+
+  it('gives each contiguous block a unique id and keeps the label as name and tag', async () => {
+    seedBasicFixtures({
+      periodization: [
+        { week_number: 1, block_label: 'Hipertrofia' },
+        { week_number: 2, block_label: 'Descarga', is_deload: true },
+        { week_number: 3, block_label: 'Hipertrofia' },
+      ],
+    });
+    const r = await buildPlan('athlete-1');
+    const ids = r.blocks.map((b) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(['Hipertrofia#1', 'Descarga#2', 'Hipertrofia#3']);
+    expect(r.blocks[2]!.name).toBe('Hipertrofia');
+    expect(r.blocks[2]!.tag).toBe('Hipertrofia');
+  });
+
+  it('points currentBlockId at the contiguous block holding current_week', async () => {
+    seedBasicFixtures({
+      currentWeek: 3,
+      periodization: [
+        { week_number: 1, block_label: 'Hipertrofia' },
+        { week_number: 2, block_label: 'Descarga', is_deload: true },
+        { week_number: 3, block_label: 'Hipertrofia' },
+      ],
+    });
+    const r = await buildPlan('athlete-1');
+    expect(r.currentBlockId).toBe('Hipertrofia#3');
+  });
+
+  it('marks a block as test when any of its weeks is an RM test', async () => {
+    seedBasicFixtures({
+      periodization: [{ week_number: 1, block_label: 'Testeo RM', is_rm_test: true }],
+    });
+    const r = await buildPlan('athlete-1');
+    expect(r.blocks[0]!.kind).toBe('test');
+  });
+
+  it('marks a block as deload when any of its weeks is a deload', async () => {
+    seedBasicFixtures({
+      periodization: [
+        { week_number: 1, block_label: 'Descarga - pre RM', is_deload: true },
+      ],
+    });
+    const r = await buildPlan('athlete-1');
+    expect(r.blocks[0]!.kind).toBe('deload');
+  });
+
+  it('defaults a block to work', async () => {
     seedBasicFixtures({});
     const r = await buildPlan('athlete-1');
-    expect(r.totalWeeks).toBe(8);
-    expect(r.blocks).toHaveLength(2);
-    expect(r.blocks[0]!.id).toBe('Hipertrofia');
-    expect(r.blocks[0]!.weeks.map((w) => w.weekNumber)).toEqual([1, 2, 3, 4]);
-    expect(r.blocks[1]!.id).toBe('Fuerza');
-    expect(r.blocks[1]!.weeks.map((w) => w.weekNumber)).toEqual([5, 6, 7, 8]);
+    expect(r.blocks.every((b) => b.kind === 'work')).toBe(true);
   });
 
   it('sets currentBlockId from current_week', async () => {
     seedBasicFixtures({ currentWeek: 5 });
     const r = await buildPlan('athlete-1');
-    expect(r.currentBlockId).toBe('Fuerza');
+    expect(r.currentBlockId).toBe('Fuerza#5');
     expect(r.currentWeekNumber).toBe(5);
   });
 
@@ -142,7 +209,20 @@ describe('buildPlan', () => {
       currentBlockId: null,
       currentWeekNumber: 0,
       blocks: [],
+      startDate: null,
     });
+  });
+
+  it('returns the program start date as YYYY-MM-DD', async () => {
+    seedBasicFixtures({ startDate: '2026-03-02' });
+    const r = await buildPlan('athlete-1');
+    expect(r.startDate).toBe('2026-03-02');
+  });
+
+  it('returns startDate null when the program state has no start date', async () => {
+    seedBasicFixtures({ startDate: null });
+    const r = await buildPlan('athlete-1');
+    expect(r.startDate).toBeNull();
   });
 
   it('renders sessions with exerciseCount=0 when no active skeleton', async () => {
@@ -162,5 +242,28 @@ describe('buildPlan', () => {
     // days_per_week=4, slot counts = {1:6, 2:5, 3:6, 4:4}
     const week1 = r.blocks[0]!.weeks[0]!;
     expect(week1.sessions.map((s) => s.exerciseCount)).toEqual([6, 5, 6, 4]);
+  });
+
+  it('maps each session to its real weekday from days_specific', async () => {
+    seedBasicFixtures({ daysSpecific: ['lun', 'mar', 'jue', 'sab'], daysPerWeek: 4 });
+    const r = await buildPlan('athlete-1');
+    const week1 = r.blocks[0]!.weeks[0]!;
+    expect(week1.sessions.map((s) => s.weekday)).toEqual([0, 1, 3, 5]);
+  });
+
+  it('returns weekday null when the profile has no days_specific', async () => {
+    // El perfil viejo guarda days_per_week pero no la lista de días.
+    seedBasicFixtures({ daysSpecific: null, daysPerWeek: 3 });
+    const r = await buildPlan('athlete-1');
+    const week1 = r.blocks[0]!.weeks[0]!;
+    expect(week1.sessions.map((s) => s.weekday)).toEqual([null, null, null]);
+  });
+
+  it('returns weekday null for sessions beyond the stored days', async () => {
+    // days_per_week quedó en 4 pero days_specific sólo tiene 2 días.
+    seedBasicFixtures({ daysSpecific: ['mie', 'vie'], daysPerWeek: 4 });
+    const r = await buildPlan('athlete-1');
+    const week1 = r.blocks[0]!.weeks[0]!;
+    expect(week1.sessions.map((s) => s.weekday)).toEqual([2, 4, null, null]);
   });
 });

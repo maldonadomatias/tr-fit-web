@@ -1,5 +1,8 @@
 import pool from '../db/connect.js';
 
+// days_specific[i] es el día de semana de la sesión i+1, guardado en este orden.
+const WEEKDAY_CODES = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'] as const;
+
 export interface PlanSession {
   day: number;
   title: string;
@@ -7,6 +10,8 @@ export interface PlanSession {
   exerciseCount: number;
   estimatedMin: number;
   done: boolean;
+  /** Día de semana real: 0 = lunes … 6 = domingo. null si el perfil no lo tiene. */
+  weekday: number | null;
 }
 export interface PlanWeek {
   weekNumber: number;
@@ -17,12 +22,16 @@ export interface PlanBlock {
   name: string;
   tag: string;
   weeks: PlanWeek[];
+  /** Para colorear la barra de periodización del app. */
+  kind: 'work' | 'deload' | 'test';
 }
 export interface PlanPayload {
   totalWeeks: number;
   currentBlockId: string | null;
   currentWeekNumber: number;
   blocks: PlanBlock[];
+  /** Inicio del programa, 'YYYY-MM-DD'. Ancla el calendario del app. */
+  startDate: string | null;
 }
 
 export async function buildPlan(userId: string): Promise<PlanPayload> {
@@ -38,22 +47,29 @@ export async function buildPlan(userId: string): Promise<PlanPayload> {
   );
   const profile = profileR.rows[0];
   if (!profile) {
-    return { totalWeeks: 0, currentBlockId: null, currentWeekNumber: 0, blocks: [] };
+    return { totalWeeks: 0, currentBlockId: null, currentWeekNumber: 0, blocks: [], startDate: null };
   }
 
   const stateR = await pool.query<{
     current_week: number | null;
     active_skeleton_id: string | null;
+    start_date: string | null;
   }>(
-    `SELECT current_week, active_skeleton_id
+    `SELECT current_week, active_skeleton_id, start_date::text AS start_date
        FROM athlete_program_state WHERE athlete_id = $1`,
     [userId],
   );
   const state = stateR.rows[0];
   const currentWeek = state?.current_week ?? 0;
+  const startDate = state?.start_date ?? null;
 
-  const periodR = await pool.query<{ week_number: number; block_label: string }>(
-    `SELECT week_number, block_label FROM periodization_config
+  const periodR = await pool.query<{
+    week_number: number;
+    block_label: string;
+    is_deload: boolean;
+    is_rm_test: boolean;
+  }>(
+    `SELECT week_number, block_label, is_deload, is_rm_test FROM periodization_config
        ORDER BY week_number ASC`,
   );
   const periodization = periodR.rows;
@@ -63,6 +79,7 @@ export async function buildPlan(userId: string): Promise<PlanPayload> {
       currentBlockId: null,
       currentWeekNumber: currentWeek,
       blocks: [],
+      startDate,
     };
   }
 
@@ -98,24 +115,40 @@ export async function buildPlan(userId: string): Promise<PlanPayload> {
     ?? (profile.days_specific?.length ?? 0);
   const dayIndices = Array.from({ length: daysPerWeek }, (_, i) => i + 1);
 
-  // Group weeks into blocks preserving the order each block_label first appears.
-  const blockOrder: string[] = [];
-  const blockMap = new Map<string, PlanBlock>();
+  const daysSpecific = profile.days_specific ?? [];
+  const weekdayForSession = (sessionNumber: number): number | null => {
+    const code = daysSpecific[sessionNumber - 1];
+    if (!code) return null;
+    const index = WEEKDAY_CODES.indexOf(code as (typeof WEEKDAY_CODES)[number]);
+    return index < 0 ? null : index;
+  };
+
+  // Un bloque es un TRAMO CONTIGUO de semanas con la misma etiqueta. Las
+  // etiquetas se repiten a lo largo del año (Hipertrofia vuelve tres veces),
+  // así que agrupar por etiqueta juntaría semanas separadas por meses.
+  const blocks: PlanBlock[] = [];
+  let currentBlock: PlanBlock | null = null;
+  let previousLabel: string | null = null;
   let currentBlockId: string | null = null;
 
   for (const row of periodization) {
-    if (!blockMap.has(row.block_label)) {
-      blockOrder.push(row.block_label);
-      blockMap.set(row.block_label, {
-        id: row.block_label,
+    if (currentBlock === null || row.block_label !== previousLabel) {
+      currentBlock = {
+        id: `${row.block_label}#${row.week_number}`,
         name: row.block_label,
         tag: row.block_label,
         weeks: [],
-      });
+        kind: 'work',
+      };
+      blocks.push(currentBlock);
+      previousLabel = row.block_label;
     }
-    if (row.week_number === currentWeek) currentBlockId = row.block_label;
+    // El testeo gana sobre la descarga: un tramo con RM se pinta como testeo.
+    if (row.is_rm_test) currentBlock.kind = 'test';
+    else if (row.is_deload && currentBlock.kind !== 'test') currentBlock.kind = 'deload';
 
-    const block = blockMap.get(row.block_label)!;
+    if (row.week_number === currentWeek) currentBlockId = currentBlock.id;
+
     const sessions: PlanSession[] = dayIndices.map((dow, i) => {
       const focus = focusByDay[dow];
       const title = focus ? `Día ${i + 1} · ${focus}` : `Día ${i + 1}`;
@@ -126,15 +159,17 @@ export async function buildPlan(userId: string): Promise<PlanPayload> {
         exerciseCount: slotsByDay[dow] ?? 0,
         estimatedMin,
         done: doneSet.has(`${row.week_number}-${dow}`),
+        weekday: weekdayForSession(i + 1),
       };
     });
-    block.weeks.push({ weekNumber: row.week_number, sessions });
+    currentBlock.weeks.push({ weekNumber: row.week_number, sessions });
   }
 
   return {
     totalWeeks: periodization.length,
     currentBlockId,
     currentWeekNumber: currentWeek,
-    blocks: blockOrder.map((id) => blockMap.get(id)!),
+    blocks,
+    startDate,
   };
 }
