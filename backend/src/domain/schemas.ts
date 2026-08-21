@@ -279,11 +279,13 @@ export const skeletonApprovePayload = z.object({
     .optional(),
   // Muscle-group label shown as the day's subtitle. The coach can rename it
   // when they move a day's work around by hand.
+  // An empty focus clears the day's label (the row is deleted). Reordering
+  // days has to be able to move a blank label onto a day that had one.
   day_focus: z
     .array(
       z.object({
         day_of_week: z.number().int().min(1).max(7),
-        focus: z.string().trim().min(1).max(120),
+        focus: z.string().trim().max(120),
       })
     )
     .max(7)

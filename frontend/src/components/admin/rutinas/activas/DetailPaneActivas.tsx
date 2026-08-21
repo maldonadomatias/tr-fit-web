@@ -9,7 +9,11 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import {
+  arrayMove,
+  SortableContext,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +21,13 @@ import { useActiveRutina, useApplyRutinaEdits } from '@/hooks/useAdminRutina';
 import { useAlerts } from '@/hooks/useAlerts';
 import type { SlotOverride } from '@/components/admin/rutinas/EditSlotPopover';
 import type { ApplyEditsInput, Exercise, RutinaSlot } from '@/types/api';
-import { DayCard } from './DayCard';
+import {
+  DayCard,
+  dayDragId,
+  dayFromDragId,
+  isDayDragId,
+  remapDaysForMove,
+} from './DayCard';
 import { ChangeTrainingDaysDialog } from './ChangeTrainingDaysDialog';
 
 export function DetailPaneActivas({
@@ -43,7 +53,7 @@ export function DetailPaneActivas({
     Object.keys(overrides).length > 0 ||
     deleted.size > 0 ||
     addedIds.size > 0 ||
-    Object.keys(focusEdits).length > 0 ||
+    changedFocus().length > 0 ||
     orderDirty;
 
   useEffect(() => {
@@ -136,6 +146,18 @@ export function DetailPaneActivas({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
+  // Day cards and slots share one DndContext, and a day card's center beats
+  // any slot's. Only ever collide a drag against droppables of its own kind.
+  function collisionDetection(args: Parameters<typeof closestCenter>[0]) {
+    const draggingDay = isDayDragId(String(args.active.id));
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter(
+        (container) => isDayDragId(String(container.id)) === draggingDay
+      ),
+    });
+  }
+
   function resetDraft() {
     setOverrides({});
     setOrder(null);
@@ -174,6 +196,19 @@ export function DetailPaneActivas({
 
   function onFocusChange(dayOfWeek: number, focus: string) {
     setFocusEdits((current) => ({ ...current, [dayOfWeek]: focus }));
+  }
+
+  /** Staged labels that differ from what the server already has. */
+  function changedFocus() {
+    const serverFocus = new Map(
+      (rutina?.days ?? []).map((day) => [day.day_of_week, day.focus ?? ''])
+    );
+    return Object.entries(focusEdits)
+      .map(([day, focus]) => ({
+        day_of_week: Number(day),
+        focus: focus.trim(),
+      }))
+      .filter((day) => day.focus !== (serverFocus.get(day.day_of_week) ?? ''));
   }
 
   function onDelete(slotId: string) {
@@ -220,11 +255,60 @@ export function DetailPaneActivas({
     setAddedIds((ids) => new Set(ids).add(newSlot.id));
   }
 
+  /**
+   * Session ordinals, ascending. Reordering days rotates which day sits on
+   * which ordinal — the ordinal itself never moves, the contents do.
+   */
+  function draftDays() {
+    return Array.from(
+      new Set([
+        ...(rutina?.days ?? []).map((day) => day.day_of_week),
+        ...draftSlots.map((slot) => slot.day_of_week),
+      ])
+    ).sort((a, b) => a - b);
+  }
+
+  function reorderDays(activeDay: number, overDay: number) {
+    const remap = remapDaysForMove(draftDays(), activeDay, overDay);
+    if (!remap) return;
+
+    setOrder(
+      [...(order ?? serverSlots)]
+        .map((slot) => ({
+          ...slot,
+          day_of_week: remap.get(slot.day_of_week) ?? slot.day_of_week,
+        }))
+        // Stable: keeps each day's existing slot order intact.
+        .sort((a, b) => a.day_of_week - b.day_of_week)
+    );
+    setOrderDirty(true);
+
+    // The label lives on the ordinal in skeleton_days, so it has to travel
+    // with the day or the subtitles stay behind.
+    const serverFocus = new Map(
+      (rutina?.days ?? []).map((day) => [day.day_of_week, day.focus])
+    );
+    setFocusEdits((current) => {
+      const next = { ...current };
+      for (const [sourceDay, targetDay] of remap) {
+        next[targetDay] =
+          current[sourceDay] ?? serverFocus.get(sourceDay) ?? '';
+      }
+      return next;
+    });
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     if (!event.over) return;
     const activeId = String(event.active.id);
     const overId = String(event.over.id);
     if (activeId === overId) return;
+
+    if (isDayDragId(activeId)) {
+      reorderDays(dayFromDragId(activeId), dayFromDragId(overId));
+      return;
+    }
+
     const movingIndex = draftSlots.findIndex((slot) => slot.id === activeId);
     const targetIndex = draftSlots.findIndex((slot) => slot.id === overId);
     if (movingIndex < 0 || targetIndex < 0) return;
@@ -296,14 +380,9 @@ export function DetailPaneActivas({
       slot_order: slotOrder,
       deleted_slot_ids: [...deleted],
       added_slots: addedSlots,
-      // Blank labels are dropped: the API requires a non-empty focus, and an
-      // empty subtitle is what "no focus row" already renders as.
-      day_focus: Object.entries(focusEdits)
-        .filter(([, focus]) => focus.trim() !== '')
-        .map(([day, focus]) => ({
-          day_of_week: Number(day),
-          focus: focus.trim(),
-        })),
+      // Blank clears the label server-side. Unchanged labels are dropped so a
+      // day reorder (which restages every label) does not send no-op rows.
+      day_focus: changedFocus(),
     };
 
     try {
@@ -358,17 +437,13 @@ export function DetailPaneActivas({
   const dayFocus = new Map(
     rutina.days.map((day) => [day.day_of_week, day.focus])
   );
-  const days = Array.from(
-    new Set([
-      ...rutina.days.map((day) => day.day_of_week),
-      ...draftSlots.map((slot) => slot.day_of_week),
-    ])
-  ).sort((a, b) => a - b);
+  const days = draftDays();
+  const trainedDays = new Set(rutina.trained_days_this_week ?? []);
   const changeCount =
     Object.keys(overrides).filter((id) => !deleted.has(id)).length +
     [...addedIds].filter((id) => !deleted.has(id)).length +
     deleted.size +
-    Object.keys(focusEdits).length +
+    changedFocus().length +
     (orderDirty ? 1 : 0);
 
   return (
@@ -400,28 +475,47 @@ export function DetailPaneActivas({
             sesión.
           </div>
         )}
+        {trainedDays.size > 0 && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              El atleta ya entrenó{' '}
+              {trainedDays.size === 1 ? 'el día' : 'los días'}{' '}
+              {[...trainedDays].sort((a, b) => a - b).join(', ')} de esta
+              semana. Si reordenás, esos lugares siguen contando como hechos
+              para lo que pase a ocuparlos: mejor reordenar arrancando la
+              semana.
+            </span>
+          </div>
+        )}
       </header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-6 pb-10 lg:px-7">
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={collisionDetection}
           onDragEnd={handleDragEnd}
         >
-          {days.map((day) => (
-            <DayCard
-              key={day}
-              dayOfWeek={day}
-              daysSpecific={rutina.profile.days_specific}
-              focus={focusEdits[day] ?? dayFocus.get(day) ?? null}
-              slots={slotsByDay.get(day) ?? []}
-              flaggedExerciseIds={flaggedExerciseIds}
-              editedSlotIds={editedSlotIds}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onAdd={onAdd}
-              onFocusChange={onFocusChange}
-            />
-          ))}
+          <SortableContext
+            items={days.map(dayDragId)}
+            strategy={verticalListSortingStrategy}
+          >
+            {days.map((day) => (
+              <DayCard
+                key={day}
+                dayOfWeek={day}
+                daysSpecific={rutina.profile.days_specific}
+                focus={focusEdits[day] ?? dayFocus.get(day) ?? null}
+                slots={slotsByDay.get(day) ?? []}
+                trained={trainedDays.has(day)}
+                flaggedExerciseIds={flaggedExerciseIds}
+                editedSlotIds={editedSlotIds}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onAdd={onAdd}
+                onFocusChange={onFocusChange}
+              />
+            ))}
+          </SortableContext>
         </DndContext>
       </div>
       {hasDraftChanges && (

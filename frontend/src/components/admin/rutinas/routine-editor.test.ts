@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { dayHeading, nextAvailableSlotIndex } from './activas/DayCard';
+import {
+  dayHeading,
+  nextAvailableSlotIndex,
+  remapDaysForMove,
+} from './activas/DayCard';
 import { resolvePrescription } from './TabRutina';
 import { parseRoutineDraft } from './routine-draft';
 import type { RutinaSlot } from '@/types/api';
@@ -17,6 +21,32 @@ const slot = (overrides: Partial<RutinaSlot> = {}): RutinaSlot => ({
   exercise_name: 'Press',
   muscle_group: 'Pecho',
   ...overrides,
+});
+
+describe('day reordering', () => {
+  it('pulls a later day to the front and shifts the rest back', () => {
+    // Coach drags Día 3 (piernas) onto Día 1: [1,2,3,4] -> contents [3,1,2,4].
+    const remap = remapDaysForMove([1, 2, 3, 4], 3, 1);
+    expect([...(remap ?? [])].sort()).toEqual([
+      [1, 2],
+      [2, 3],
+      [3, 1],
+      [4, 4],
+    ]);
+  });
+
+  it('keeps the ordinals themselves 1..N', () => {
+    const days = [1, 2, 3];
+    const remap = remapDaysForMove(days, 1, 3);
+    expect([...(remap ?? []).values()].sort()).toEqual(days);
+    expect([...(remap ?? []).keys()].sort()).toEqual(days);
+  });
+
+  it('is a no-op when the day does not move or is unknown', () => {
+    expect(remapDaysForMove([1, 2, 3], 2, 2)).toBeNull();
+    expect(remapDaysForMove([1, 2, 3], 9, 1)).toBeNull();
+    expect(remapDaysForMove([1, 2, 3], 1, 9)).toBeNull();
+  });
 });
 
 describe('routine editor regressions', () => {

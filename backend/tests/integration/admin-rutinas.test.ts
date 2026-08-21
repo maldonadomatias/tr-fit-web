@@ -511,6 +511,63 @@ describe('POST /api/admin/rutinas/atleta/:athleteId/apply-edits', () => {
     ]);
   });
 
+  it('swaps two whole days: slots and labels move together', async () => {
+    const { athleteId, skeletonId, tok } = await setupActiveRutina();
+    // Day 2 has no label, so the swap must clear day 1's rather than leave it.
+    await pool.query(
+      `DELETE FROM skeleton_days WHERE skeleton_id = $1 AND day_of_week = 2`,
+      [skeletonId],
+    );
+    await pool.query(
+      `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
+       VALUES ($1, 1, 'Pecho')
+       ON CONFLICT (skeleton_id, day_of_week) DO UPDATE SET focus = 'Pecho'`,
+      [skeletonId],
+    );
+
+    const before = await pool.query<{
+      id: string;
+      day_of_week: number;
+      slot_index: number;
+    }>(
+      `SELECT id, day_of_week, slot_index FROM skeleton_slots
+        WHERE skeleton_id = $1 ORDER BY day_of_week, slot_index`,
+      [skeletonId],
+    );
+
+    const r = await request(app)
+      .post(`/api/admin/rutinas/atleta/${athleteId}/apply-edits`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        slot_order: before.rows.map((slot) => ({
+          slot_id: slot.id,
+          day_of_week: slot.day_of_week === 1 ? 2 : 1,
+          slot_index: slot.slot_index,
+        })),
+        day_focus: [
+          { day_of_week: 1, focus: '' },
+          { day_of_week: 2, focus: 'Pecho' },
+        ],
+      });
+    expect(r.status).toBe(204);
+
+    const after = await pool.query<{ id: string; day_of_week: number }>(
+      `SELECT id, day_of_week FROM skeleton_slots WHERE skeleton_id = $1`,
+      [skeletonId],
+    );
+    const dayById = new Map(after.rows.map((slot) => [slot.id, slot.day_of_week]));
+    for (const slot of before.rows) {
+      expect(dayById.get(slot.id)).toBe(slot.day_of_week === 1 ? 2 : 1);
+    }
+
+    const days = await pool.query<{ day_of_week: number; focus: string }>(
+      `SELECT day_of_week, focus FROM skeleton_days
+        WHERE skeleton_id = $1 ORDER BY day_of_week`,
+      [skeletonId],
+    );
+    expect(days.rows).toEqual([{ day_of_week: 2, focus: 'Pecho' }]);
+  });
+
   it('204 applies override + add + delete + reorder in one call', async () => {
     const { athleteId, skeletonId, tok } = await setupActiveRutina();
     const slotsR = await pool.query<{

@@ -152,6 +152,15 @@ export async function applySlotEdits(
   opts: SlotEditOptions
 ): Promise<void> {
   for (const day of opts.dayFocus ?? []) {
+    if (day.focus === '') {
+      // Blank clears the label. Deleting is what "no focus" already renders as,
+      // and reordering days needs to move a blank onto a day that had one.
+      await client.query(
+        `DELETE FROM skeleton_days WHERE skeleton_id = $1 AND day_of_week = $2`,
+        [skeletonId, day.day_of_week]
+      );
+      continue;
+    }
     await client.query(
       `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
        VALUES ($1, $2, $3)

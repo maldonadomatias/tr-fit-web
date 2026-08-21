@@ -369,6 +369,8 @@ export interface ActiveRutinaDetail {
     days_specific: string[] | null;
   };
   has_active_session: boolean;
+  /** Session ordinals already finished in the current program week. */
+  trained_days_this_week?: number[];
 }
 
 export interface ActiveRutinaResponse {

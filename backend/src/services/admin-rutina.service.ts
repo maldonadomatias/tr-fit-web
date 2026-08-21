@@ -86,6 +86,13 @@ export interface RutinaDetail {
     days_specific: string[] | null;
   };
   has_active_session: boolean;
+  /**
+   * Session ordinals the athlete already finished in the current program week.
+   * Reordering days remaps ordinals, so days already logged this week keep
+   * counting as done for whatever now sits at that ordinal — the editor warns
+   * on these.
+   */
+  trained_days_this_week: number[];
 }
 
 export async function getPendingSkeletonId(
@@ -150,6 +157,16 @@ export async function getActiveRutina(
      ) AS exists`,
     [athleteId]
   );
+  const trainedR = await pool.query<{ day_of_week: number }>(
+    `SELECT DISTINCT l.day_of_week
+       FROM session_logs l
+       JOIN athlete_program_state s ON s.athlete_id = l.athlete_id
+      WHERE l.athlete_id = $1
+        AND l.program_week = COALESCE(s.current_week, 0)
+        AND l.finished_at IS NOT NULL
+      ORDER BY l.day_of_week`,
+    [athleteId]
+  );
 
   return {
     skeleton: skR.rows[0],
@@ -157,6 +174,7 @@ export async function getActiveRutina(
     days: daysR.rows,
     profile: profR.rows[0],
     has_active_session: sessR.rows[0].exists,
+    trained_days_this_week: trainedR.rows.map((r) => r.day_of_week),
   };
 }
 

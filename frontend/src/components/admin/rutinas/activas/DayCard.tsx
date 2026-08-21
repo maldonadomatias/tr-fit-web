@@ -1,9 +1,12 @@
-import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useState, type CSSProperties } from 'react';
+import { GripVertical, Plus } from 'lucide-react';
 import {
+  arrayMove,
   SortableContext,
+  useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { ExerciseSwapDialog } from './ExerciseSwapDialog';
 import { SlotRow } from './SlotRow';
@@ -19,6 +22,39 @@ const DAY_LABEL: Record<string, string> = {
   sab: 'Sábado',
   dom: 'Domingo',
 };
+
+/** dnd-kit id for a whole day card, kept apart from the slots' uuids. */
+const DAY_DRAG_PREFIX = 'day:';
+
+export function dayDragId(dayOfWeek: number) {
+  return `${DAY_DRAG_PREFIX}${dayOfWeek}`;
+}
+
+export function isDayDragId(id: string) {
+  return id.startsWith(DAY_DRAG_PREFIX);
+}
+
+export function dayFromDragId(id: string) {
+  return Number(id.slice(DAY_DRAG_PREFIX.length));
+}
+
+/**
+ * Moving `activeDay` onto `overDay` rotates which day sits on which ordinal:
+ * the ordinals stay 1..N in place, the contents shift. Returns oldDay ->
+ * newOrdinal, or null when the move is a no-op.
+ */
+export function remapDaysForMove(
+  days: number[],
+  activeDay: number,
+  overDay: number
+): Map<number, number> | null {
+  const from = days.indexOf(activeDay);
+  const to = days.indexOf(overDay);
+  if (from < 0 || to < 0 || from === to) return null;
+  // moved[i] is the day that ends up occupying ordinal days[i].
+  const moved = arrayMove(days, from, to);
+  return new Map(moved.map((day, i) => [day, days[i]]));
+}
 
 /**
  * `day_of_week` in skeletons is the session ordinal (Día 1..N), not a calendar
@@ -39,6 +75,7 @@ interface DayCardProps {
   daysSpecific: string[] | null;
   focus: string | null;
   slots: RutinaSlot[];
+  trained?: boolean;
   flaggedExerciseIds: Set<number>;
   editedSlotIds: Set<string>;
   onEdit(slotId: string, payload: SlotOverride): void;
@@ -53,6 +90,7 @@ export function DayCard({
   daysSpecific,
   focus,
   slots,
+  trained = false,
   flaggedExerciseIds,
   editedSlotIds,
   onEdit,
@@ -62,19 +100,51 @@ export function DayCard({
 }: DayCardProps) {
   const nextIndex = nextAvailableSlotIndex(slots);
   const [addOpen, setAddOpen] = useState(false);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: dayDragId(dayOfWeek) });
+  const style: CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   return (
-    <section className="rounded-2xl border border-border bg-card">
+    <section
+      ref={setNodeRef}
+      style={style}
+      className="rounded-2xl border border-border bg-card"
+    >
       <header className="border-b border-border px-4 py-3 sm:px-5">
-        <h3 className="text-sm font-semibold">
-          {dayHeading(dayOfWeek, daysSpecific)}
-        </h3>
+        <div className="flex items-center gap-2">
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab text-muted-foreground hover:text-foreground"
+            aria-label={`Reordenar día ${dayOfWeek}`}
+          >
+            <GripVertical size={14} />
+          </button>
+          <h3 className="text-sm font-semibold">
+            {dayHeading(dayOfWeek, daysSpecific)}
+          </h3>
+          {trained ? (
+            <span className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Ya entrenado esta semana
+            </span>
+          ) : null}
+        </div>
         <input
           value={focus ?? ''}
           onChange={(e) => onFocusChange(dayOfWeek, e.target.value)}
           placeholder="Grupos musculares"
           aria-label={`Grupos musculares del día ${dayOfWeek}`}
-          className="w-full rounded-sm bg-transparent text-xs text-muted-foreground outline-none hover:bg-muted/50 focus:bg-muted/50"
+          className="ml-6 w-[calc(100%-1.5rem)] rounded-sm bg-transparent text-xs text-muted-foreground outline-none hover:bg-muted/50 focus:bg-muted/50"
         />
       </header>
       <div className="divide-y divide-border">
