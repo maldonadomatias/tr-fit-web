@@ -88,8 +88,10 @@ const COMPARATORS: Record<SortKey, (a: AdminUser, b: AdminUser) => number> = {
 
 const ATHLETE_ONLY: SortKey[] = ['membresia', 'vence', 'mes', 'cuota'];
 
-export function sortUsers(users: AdminUser[], sort: Sort | null): AdminUser[] {
-  if (!sort) return users;
+/** What the retired Suscripciones page always did: soonest expiry first. */
+export const DEFAULT_SORT: Sort = { key: 'vence', dir: 'asc' };
+
+export function sortUsers(users: AdminUser[], sort: Sort): AdminUser[] {
   const cmp = COMPARATORS[sort.key];
   const sign = sort.dir === 'asc' ? 1 : -1;
   const athleteOnly = ATHLETE_ONLY.includes(sort.key);
@@ -117,15 +119,16 @@ export default function Users() {
   const [role, setRole] = useState<RoleKey>('all');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [sort, setSort] = useState<Sort | null>(null);
+  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
 
-  // First click sorts ascending (A→Z, soonest expiry, cheapest fee), second
-  // flips it, third clears back to the API order.
+  // First click on a column sorts ascending (A→Z, soonest expiry, cheapest
+  // fee, unpaid first); clicking the active column flips the direction.
   function toggleSort(key: SortKey) {
-    setSort((cur) => {
-      if (cur?.key !== key) return { key, dir: 'asc' };
-      return cur.dir === 'asc' ? { key, dir: 'desc' } : null;
-    });
+    setSort((cur) =>
+      cur.key === key
+        ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    );
   }
 
   const q = useAdminUsers({});
@@ -158,14 +161,14 @@ export default function Users() {
 
   const pager = usePagination(sorted, {
     pageSize: 25,
-    filterKey: `${status}|${role}|${search}|${sort?.key ?? ''}${sort?.dir ?? ''}`,
+    filterKey: `${status}|${role}|${search}|${sort.key}${sort.dir}`,
   });
 
   function clearFilters() {
     setStatus('all');
     setRole('all');
     setSearch('');
-    setSort(null);
+    setSort(DEFAULT_SORT);
   }
 
   return (
@@ -313,7 +316,7 @@ function UsersTable({
 }: {
   users: AdminUser[];
   onOpen: (u: AdminUser) => void;
-  sort: Sort | null;
+  sort: Sort;
   onSort: (key: SortKey) => void;
 }) {
   const registerPayment = useRegisterPayment();
@@ -422,13 +425,13 @@ function SortHead({
   children,
 }: {
   sortKey: SortKey;
-  sort: Sort | null;
+  sort: Sort;
   onSort: (key: SortKey) => void;
   className?: string;
   align?: 'left' | 'right';
   children: ReactNode;
 }) {
-  const active = sort?.key === sortKey ? sort.dir : null;
+  const active = sort.key === sortKey ? sort.dir : null;
   const Icon =
     active === 'asc' ? ArrowUp : active === 'desc' ? ArrowDown : ChevronsUpDown;
   return (
