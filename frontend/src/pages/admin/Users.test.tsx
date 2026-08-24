@@ -49,6 +49,17 @@ const staff: AdminUser = {
   paid_until: null,
 };
 
+const rechazada: AdminUser = {
+  ...base,
+  id: 'a4',
+  email: 'carla@test.local',
+  name: 'Carla Rechazada',
+  status: 'rejected',
+  membership_status: 'cancelled',
+  monthly_fee_ars: 21000,
+  paid_until: '2026-01-01T00:00:00.000Z',
+};
+
 const mocks = vi.hoisted(() => ({ users: [] as AdminUser[] }));
 
 vi.mock('@/hooks/useAdminUsers', () => ({
@@ -102,10 +113,10 @@ describe('sortUsers', () => {
     const b = { ...base, id: 'y', name: 'Bruno' } as AdminUser;
     const c = { ...base, id: 'z', name: 'Ana' } as AdminUser;
     expect(
-      nombres(sortUsers([b, a, c], { key: 'usuario', dir: 'asc' }))
+      nombres(sortUsers([b, a, c], [{ key: 'usuario', dir: 'asc' }]))
     ).toEqual(['Ana', 'ánabel', 'Bruno']);
     expect(
-      nombres(sortUsers([b, a, c], { key: 'usuario', dir: 'desc' }))
+      nombres(sortUsers([b, a, c], [{ key: 'usuario', dir: 'desc' }]))
     ).toEqual(['Bruno', 'ánabel', 'Ana']);
   });
 
@@ -113,23 +124,23 @@ describe('sortUsers', () => {
     const caro = { ...base, id: 'c', name: 'Caro', monthly_fee_ars: 30000 };
     const barato = { ...base, id: 'b', name: 'Barato', monthly_fee_ars: 21000 };
     expect(
-      nombres(sortUsers([caro, barato], { key: 'cuota', dir: 'asc' }))
+      nombres(sortUsers([caro, barato], [{ key: 'cuota', dir: 'asc' }]))
     ).toEqual(['Barato', 'Caro']);
     expect(
-      nombres(sortUsers([barato, caro], { key: 'cuota', dir: 'desc' }))
+      nombres(sortUsers([barato, caro], [{ key: 'cuota', dir: 'desc' }]))
     ).toEqual(['Caro', 'Barato']);
   });
 
   it('puts the most urgent expiry first, and lapsed before upcoming', () => {
     const lejos = { ...base, id: 'l', name: 'Lejos' };
     expect(
-      nombres(sortUsers([lejos, vencida], { key: 'vence', dir: 'asc' }))
+      nombres(sortUsers([lejos, vencida], [{ key: 'vence', dir: 'asc' }]))
     ).toEqual(['Bruno Vencido', 'Lejos']);
   });
 
   it('keeps staff at the bottom of athlete-only columns in both directions', () => {
     for (const dir of ['asc', 'desc'] as const) {
-      const out = sortUsers([staff, base, vencida], { key: 'cuota', dir });
+      const out = sortUsers([staff, base, vencida], [{ key: 'cuota', dir }]);
       expect(out[out.length - 1].name).toBe('Coach Staff');
     }
   });
@@ -137,10 +148,63 @@ describe('sortUsers', () => {
   it('breaks ties by name so the order never jumps around', () => {
     const z = { ...base, id: 'z', name: 'Zulema' };
     const a = { ...base, id: 'a', name: 'Abril' };
-    expect(nombres(sortUsers([z, a], { key: 'estado', dir: 'asc' }))).toEqual([
-      'Abril',
-      'Zulema',
+    expect(nombres(sortUsers([z, a], [{ key: 'estado', dir: 'asc' }]))).toEqual(
+      ['Abril', 'Zulema']
+    );
+  });
+});
+
+describe('sortUsers — rechazados', () => {
+  it('sinks rejected accounts in every column and direction', () => {
+    for (const key of ['usuario', 'estado', 'vence', 'cuota'] as const) {
+      for (const dir of ['asc', 'desc'] as const) {
+        const out = sortUsers([rechazada, vencida, base], [{ key, dir }]);
+        expect(out[out.length - 1].name).toBe('Carla Rechazada');
+      }
+    }
+  });
+
+  it('still sorts them among themselves when they are all there is', () => {
+    const otra = { ...rechazada, id: 'a5', name: 'Aaron Rechazado' };
+    const out = sortUsers([rechazada, otra], [{ key: 'usuario', dir: 'asc' }]);
+    expect(out.map((u) => u.name)).toEqual([
+      'Aaron Rechazado',
+      'Carla Rechazada',
     ]);
+  });
+});
+
+describe('sortUsers — dos criterios', () => {
+  // Same status, different expiry: the second criterion decides.
+  const pendiente = (id: string, name: string, paid_until: string) =>
+    ({ ...base, id, name, status: 'pending', paid_until }) as AdminUser;
+
+  it('breaks the first criterion ties with the second', () => {
+    const tarde = pendiente('t', 'Tarde', '2026-12-31T00:00:00.000Z');
+    const pronto = pendiente('p', 'Pronto', '2026-09-01T00:00:00.000Z');
+    const aprobado = { ...base, id: 'ap', name: 'Aprobado' };
+    const out = sortUsers(
+      [aprobado, tarde, pronto],
+      [
+        { key: 'estado', dir: 'asc' },
+        { key: 'vence', dir: 'asc' },
+      ]
+    );
+    // pending before approved, and inside pending the soonest expiry first
+    expect(out.map((u) => u.name)).toEqual(['Pronto', 'Tarde', 'Aprobado']);
+  });
+
+  it('lets each criterion carry its own direction', () => {
+    const tarde = pendiente('t', 'Tarde', '2026-12-31T00:00:00.000Z');
+    const pronto = pendiente('p', 'Pronto', '2026-09-01T00:00:00.000Z');
+    const out = sortUsers(
+      [pronto, tarde],
+      [
+        { key: 'estado', dir: 'asc' },
+        { key: 'vence', dir: 'desc' },
+      ]
+    );
+    expect(out.map((u) => u.name)).toEqual(['Tarde', 'Pronto']);
   });
 });
 
@@ -151,7 +215,7 @@ describe('Usuarios — orden por defecto y clicks', () => {
     expect(screen.getAllByRole('row')[1].textContent).toContain(
       'Bruno Vencido'
     );
-    expect(DEFAULT_SORT).toEqual({ key: 'vence', dir: 'asc' });
+    expect(DEFAULT_SORT).toEqual([{ key: 'vence', dir: 'asc' }]);
   });
 
   it('flips direction when the active column is clicked again', async () => {
@@ -169,5 +233,41 @@ describe('Usuarios — orden por defecto y clicks', () => {
     expect(firstRow()).toContain('Caro');
     await user.click(header());
     expect(firstRow()).toContain('Barato');
+  });
+
+  it('adds a second criterion on shift+click and ranks the headers', async () => {
+    const user = userEvent.setup();
+    // Alphabetically Ana < Zoe, so only the expiry criterion can put Zoe on
+    // top — the name tie-break alone would not.
+    const tarde = {
+      ...base,
+      id: 't',
+      name: 'Ana Tarde',
+      status: 'pending',
+      paid_until: '2026-12-31T00:00:00.000Z',
+    } as AdminUser;
+    const pronto = {
+      ...base,
+      id: 'p',
+      name: 'Zoe Pronto',
+      status: 'pending',
+      paid_until: '2026-09-01T00:00:00.000Z',
+    } as AdminUser;
+    const aprobado = { ...base, id: 'a', name: 'Aprobado' };
+    renderUsers([aprobado, tarde, pronto]);
+
+    const firstRow = () => screen.getAllByRole('row')[1].textContent ?? '';
+    const header = (name: RegExp) => screen.getByRole('button', { name });
+
+    await user.click(header(/Estado/));
+    expect(firstRow()).toContain('Ana Tarde'); // pending, name tie-break
+
+    await user.keyboard('{Shift>}');
+    await user.click(header(/Vence el/));
+    await user.keyboard('{/Shift}');
+    expect(firstRow()).toContain('Zoe Pronto'); // now expiry breaks the tie
+
+    expect(header(/Estado/).textContent).toContain('1');
+    expect(header(/Vence el/).textContent).toContain('2');
   });
 });
