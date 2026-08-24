@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminUser } from '@/types/api';
-import Users from './Users';
+import Users, { sortUsers } from './Users';
 
 const base: AdminUser = {
   id: 'a1',
@@ -90,5 +91,77 @@ describe('Usuarios — columnas de membresía', () => {
     const row = within(rowOf('Coach Staff'));
     expect(row.getByText(/sin membresía/i)).toBeTruthy();
     expect(row.queryByRole('button', { name: /Registrar pago/ })).toBeNull();
+  });
+});
+
+describe('sortUsers', () => {
+  const nombres = (us: AdminUser[]) => us.map((u) => u.name);
+
+  it('sorts by name ignoring case and accents', () => {
+    const a = { ...base, id: 'x', name: 'ánabel' } as AdminUser;
+    const b = { ...base, id: 'y', name: 'Bruno' } as AdminUser;
+    const c = { ...base, id: 'z', name: 'Ana' } as AdminUser;
+    expect(
+      nombres(sortUsers([b, a, c], { key: 'usuario', dir: 'asc' }))
+    ).toEqual(['Ana', 'ánabel', 'Bruno']);
+    expect(
+      nombres(sortUsers([b, a, c], { key: 'usuario', dir: 'desc' }))
+    ).toEqual(['Bruno', 'ánabel', 'Ana']);
+  });
+
+  it('sorts by fee low to high, then high to low', () => {
+    const caro = { ...base, id: 'c', name: 'Caro', monthly_fee_ars: 30000 };
+    const barato = { ...base, id: 'b', name: 'Barato', monthly_fee_ars: 21000 };
+    expect(
+      nombres(sortUsers([caro, barato], { key: 'cuota', dir: 'asc' }))
+    ).toEqual(['Barato', 'Caro']);
+    expect(
+      nombres(sortUsers([barato, caro], { key: 'cuota', dir: 'desc' }))
+    ).toEqual(['Caro', 'Barato']);
+  });
+
+  it('puts the most urgent expiry first, and lapsed before upcoming', () => {
+    const lejos = { ...base, id: 'l', name: 'Lejos' };
+    expect(
+      nombres(sortUsers([lejos, vencida], { key: 'vence', dir: 'asc' }))
+    ).toEqual(['Bruno Vencido', 'Lejos']);
+  });
+
+  it('keeps staff at the bottom of athlete-only columns in both directions', () => {
+    for (const dir of ['asc', 'desc'] as const) {
+      const out = sortUsers([staff, base, vencida], { key: 'cuota', dir });
+      expect(out[out.length - 1].name).toBe('Coach Staff');
+    }
+  });
+
+  it('breaks ties by name so the order never jumps around', () => {
+    const z = { ...base, id: 'z', name: 'Zulema' };
+    const a = { ...base, id: 'a', name: 'Abril' };
+    expect(nombres(sortUsers([z, a], { key: 'estado', dir: 'asc' }))).toEqual([
+      'Abril',
+      'Zulema',
+    ]);
+  });
+});
+
+describe('Usuarios — click en el encabezado', () => {
+  it('cycles ascending → descending → unsorted', async () => {
+    const user = userEvent.setup();
+    const caro = { ...base, id: 'c', name: 'Caro', monthly_fee_ars: 30000 };
+    const medio = { ...base, id: 'm', name: 'Medio', monthly_fee_ars: 26000 };
+    const barato = { ...base, id: 'b', name: 'Barato', monthly_fee_ars: 21000 };
+    // Incoming order starts on "Medio" so it matches neither asc nor desc.
+    renderUsers([medio, caro, barato]);
+
+    const header = () => screen.getByRole('button', { name: /Cuota/ });
+    const firstRow = () => screen.getAllByRole('row')[1].textContent ?? '';
+
+    expect(firstRow()).toContain('Medio');
+    await user.click(header());
+    expect(firstRow()).toContain('Barato');
+    await user.click(header());
+    expect(firstRow()).toContain('Caro');
+    await user.click(header());
+    expect(firstRow()).toContain('Medio');
   });
 });
