@@ -213,7 +213,6 @@ describe('advanceReps — legacy range/pyramid schemes unchanged', () => {
     ['10 a 12', { newReps: '4 a 6', bumpWeight: true }],
     ['10x10x10', { newReps: '12x12x12', bumpWeight: false }],
     ['12x12x12', { newReps: '10x10x10', bumpWeight: true }],
-    ['10 - 8 - 6', { newReps: '12 - 10 - 8', bumpWeight: true }],
     ['10x8x6x8x10', { newReps: '8x6x4x6x8', bumpWeight: true }],
   ])('%s -> %o', (input, expected) => {
     expect(advanceReps(input, opts)).toEqual(expected);
@@ -221,6 +220,15 @@ describe('advanceReps — legacy range/pyramid schemes unchanged', () => {
 });
 
 describe('advanceReps — unknown pattern holds', () => {
+  it('holds dash pyramids instead of bumping the weight', () => {
+    // The coach means "weight climbs per set"; one kg per exercise can't say
+    // that, so the scheme must not auto-progress. He edits it by hand.
+    expect(advanceReps('10 - 8 - 6', { threshold: 12, resetReps: 6 })).toEqual({
+      newReps: '10 - 8 - 6',
+      bumpWeight: false,
+    });
+  });
+
   it('passes through unchanged, no bump', () => {
     expect(advanceReps('AMRAP', { threshold: 12, resetReps: 6 })).toEqual({
       newReps: 'AMRAP',
