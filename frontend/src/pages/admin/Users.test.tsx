@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminUser } from '@/types/api';
-import Users, { sortUsers } from './Users';
+import Users, { DEFAULT_SORT, sortUsers } from './Users';
 
 const base: AdminUser = {
   id: 'a1',
@@ -144,24 +144,30 @@ describe('sortUsers', () => {
   });
 });
 
-describe('Usuarios — click en el encabezado', () => {
-  it('cycles ascending → descending → unsorted', async () => {
+describe('Usuarios — orden por defecto y clicks', () => {
+  it('lands sorted by soonest expiry, like the old Suscripciones page', () => {
+    const lejos = { ...base, id: 'l', name: 'Lejos' };
+    renderUsers([lejos, vencida]);
+    expect(screen.getAllByRole('row')[1].textContent).toContain(
+      'Bruno Vencido'
+    );
+    expect(DEFAULT_SORT).toEqual({ key: 'vence', dir: 'asc' });
+  });
+
+  it('flips direction when the active column is clicked again', async () => {
     const user = userEvent.setup();
     const caro = { ...base, id: 'c', name: 'Caro', monthly_fee_ars: 30000 };
-    const medio = { ...base, id: 'm', name: 'Medio', monthly_fee_ars: 26000 };
     const barato = { ...base, id: 'b', name: 'Barato', monthly_fee_ars: 21000 };
-    // Incoming order starts on "Medio" so it matches neither asc nor desc.
-    renderUsers([medio, caro, barato]);
+    renderUsers([caro, barato]);
 
     const header = () => screen.getByRole('button', { name: /Cuota/ });
     const firstRow = () => screen.getAllByRole('row')[1].textContent ?? '';
 
-    expect(firstRow()).toContain('Medio');
     await user.click(header());
     expect(firstRow()).toContain('Barato');
     await user.click(header());
     expect(firstRow()).toContain('Caro');
     await user.click(header());
-    expect(firstRow()).toContain('Medio');
+    expect(firstRow()).toContain('Barato');
   });
 });
