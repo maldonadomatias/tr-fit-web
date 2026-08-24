@@ -89,12 +89,14 @@ const COMPARATORS: Record<SortKey, (a: AdminUser, b: AdminUser) => number> = {
 const ATHLETE_ONLY: SortKey[] = ['membresia', 'vence', 'mes', 'cuota'];
 
 /** What the retired Suscripciones page always did: soonest expiry first. */
-export const DEFAULT_SORT: Sort = { key: 'vence', dir: 'asc' };
+export const DEFAULT_SORT: Sort[] = [{ key: 'vence', dir: 'asc' }];
 
-export function sortUsers(users: AdminUser[], sort: Sort): AdminUser[] {
-  const cmp = COMPARATORS[sort.key];
-  const sign = sort.dir === 'asc' ? 1 : -1;
-  const athleteOnly = ATHLETE_ONLY.includes(sort.key);
+/**
+ * Sorts by every criterion in order: the first decides, the rest break its
+ * ties. Rejected accounts and staff sink regardless of the criteria.
+ */
+export function sortUsers(users: AdminUser[], sorts: Sort[]): AdminUser[] {
+  const athleteOnly = sorts.some((s) => ATHLETE_ONLY.includes(s.key));
   return [...users].sort((a, b) => {
     // Rejected accounts are nobody's next action: they sink in every column
     // and both directions. The Rechazados filter is how you go look at them.
@@ -106,8 +108,12 @@ export function sortUsers(users: AdminUser[], sort: Sort): AdminUser[] {
       const bIs = b.role === 'athlete';
       if (aIs !== bIs) return aIs ? -1 : 1; // staff last, both directions
     }
+    for (const { key, dir } of sorts) {
+      const out = COMPARATORS[key](a, b) * (dir === 'asc' ? 1 : -1);
+      if (out !== 0) return out;
+    }
     // Ties keep a stable, readable order instead of whatever the API returned.
-    return cmp(a, b) * sign || COMPARATORS.usuario(a, b);
+    return COMPARATORS.usuario(a, b);
   });
 }
 
@@ -124,16 +130,27 @@ export default function Users() {
   const [role, setRole] = useState<RoleKey>('all');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  const [sorts, setSorts] = useState<Sort[]>(DEFAULT_SORT);
 
-  // First click on a column sorts ascending (A→Z, soonest expiry, cheapest
-  // fee, unpaid first); clicking the active column flips the direction.
-  function toggleSort(key: SortKey) {
-    setSort((cur) =>
-      cur.key === key
-        ? { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' }
-        : { key, dir: 'asc' }
-    );
+  /**
+   * Plain click: sort by this column alone, or flip it if it is already the
+   * primary (secondary criteria are kept — you are refining, not restarting).
+   * Shift+click: add it as the next criterion, or flip it if already in play.
+   */
+  function toggleSort(key: SortKey, additive: boolean) {
+    setSorts((cur) => {
+      const flip = (s: Sort): Sort => ({
+        key: s.key,
+        dir: s.dir === 'asc' ? 'desc' : 'asc',
+      });
+      const at = cur.findIndex((s) => s.key === key);
+      if (additive) {
+        if (at === -1) return [...cur, { key, dir: 'asc' }];
+        return cur.map((s, i) => (i === at ? flip(s) : s));
+      }
+      if (at === 0) return cur.map((s, i) => (i === 0 ? flip(s) : s));
+      return [{ key, dir: 'asc' }];
+    });
   }
 
   const q = useAdminUsers({});
@@ -162,18 +179,20 @@ export default function Users() {
     });
   }, [users, status, role, search]);
 
-  const sorted = useMemo(() => sortUsers(filtered, sort), [filtered, sort]);
+  const sorted = useMemo(() => sortUsers(filtered, sorts), [filtered, sorts]);
 
   const pager = usePagination(sorted, {
     pageSize: 25,
-    filterKey: `${status}|${role}|${search}|${sort.key}${sort.dir}`,
+    filterKey: `${status}|${role}|${search}|${sorts
+      .map((s) => s.key + s.dir)
+      .join(',')}`,
   });
 
   function clearFilters() {
     setStatus('all');
     setRole('all');
     setSearch('');
-    setSort(DEFAULT_SORT);
+    setSorts(DEFAULT_SORT);
   }
 
   return (
@@ -229,7 +248,7 @@ export default function Users() {
             <UsersTable
               users={pager.pageItems}
               onOpen={(u) => navigate(`/admin/users/${u.id}`)}
-              sort={sort}
+              sorts={sorts}
               onSort={toggleSort}
             />
             <Pagination
@@ -316,13 +335,13 @@ function FilterBar({
 function UsersTable({
   users,
   onOpen,
-  sort,
+  sorts,
   onSort,
 }: {
   users: AdminUser[];
   onOpen: (u: AdminUser) => void;
-  sort: Sort;
-  onSort: (key: SortKey) => void;
+  sorts: Sort[];
+  onSort: (key: SortKey, additive: boolean) => void;
 }) {
   const registerPayment = useRegisterPayment();
   const [charging, setCharging] = useState<AdminUser | null>(null);
@@ -333,12 +352,12 @@ function UsersTable({
       <TableHeader>
         <TableRow className="border-b">
           <TableHead className="w-7"></TableHead>
-          <SortHead sortKey="usuario" sort={sort} onSort={onSort}>
+          <SortHead sortKey="usuario" sorts={sorts} onSort={onSort}>
             Usuario
           </SortHead>
           <SortHead
             sortKey="estado"
-            sort={sort}
+            sorts={sorts}
             onSort={onSort}
             className="w-[112px]"
           >
@@ -346,7 +365,7 @@ function UsersTable({
           </SortHead>
           <SortHead
             sortKey="membresia"
-            sort={sort}
+            sorts={sorts}
             onSort={onSort}
             className="w-[124px]"
           >
@@ -354,7 +373,7 @@ function UsersTable({
           </SortHead>
           <SortHead
             sortKey="vence"
-            sort={sort}
+            sorts={sorts}
             onSort={onSort}
             className="w-[128px]"
           >
@@ -362,7 +381,7 @@ function UsersTable({
           </SortHead>
           <SortHead
             sortKey="mes"
-            sort={sort}
+            sorts={sorts}
             onSort={onSort}
             className="w-[168px]"
           >
@@ -370,7 +389,7 @@ function UsersTable({
           </SortHead>
           <SortHead
             sortKey="cuota"
-            sort={sort}
+            sorts={sorts}
             onSort={onSort}
             className="w-[104px]"
             align="right"
@@ -423,20 +442,21 @@ function UsersTable({
 /** Header cell that toggles sorting on click. Non-sortable columns keep TableHead. */
 function SortHead({
   sortKey,
-  sort,
+  sorts,
   onSort,
   className,
   align = 'left',
   children,
 }: {
   sortKey: SortKey;
-  sort: Sort;
-  onSort: (key: SortKey) => void;
+  sorts: Sort[];
+  onSort: (key: SortKey, additive: boolean) => void;
   className?: string;
   align?: 'left' | 'right';
   children: ReactNode;
 }) {
-  const active = sort.key === sortKey ? sort.dir : null;
+  const at = sorts.findIndex((s) => s.key === sortKey);
+  const active = at === -1 ? null : sorts[at].dir;
   const Icon =
     active === 'asc' ? ArrowUp : active === 'desc' ? ArrowDown : ChevronsUpDown;
   return (
@@ -452,7 +472,8 @@ function SortHead({
     >
       <button
         type="button"
-        onClick={() => onSort(sortKey)}
+        onClick={(e) => onSort(sortKey, e.shiftKey)}
+        title="Shift+click para ordenar también por esta columna"
         className={cn(
           'group/sort flex w-full items-center gap-1 hover:text-foreground',
           align === 'right' && 'justify-end'
@@ -468,6 +489,12 @@ function SortHead({
               : 'text-muted-foreground/40 group-hover/sort:text-muted-foreground'
           )}
         />
+        {/* Rank only matters once a second criterion is in play. */}
+        {at !== -1 && sorts.length > 1 && (
+          <span className="font-mono text-[9px] font-semibold text-muted-foreground">
+            {at + 1}
+          </span>
+        )}
       </button>
     </TableHead>
   );
