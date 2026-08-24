@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import pool from '../db/connect.js';
 import { resolveUnit } from './equipment-units.service.js';
+import { FEE_EXPR } from './platform-fee.service.js';
 
 const BCRYPT_COST = 10;
 
@@ -808,19 +809,6 @@ export interface AdminStats {
   verified_pct: number;
 }
 
-// Per-student MRR contribution. Uses the student's real custom fee from users
-// when set, falling back to the hardcoded tier price. Mirrors the
-// frontend `feeOf = monthly_fee_ars ?? TIER_PRICE[tier]` logic.
-function priceCase(alias = 's', feeAlias = 'u'): string {
-  return `COALESCE(${feeAlias}.monthly_fee_ars,
-          CASE
-            WHEN ${alias}.tier = 'basico'  THEN ${TIER_PRICE_ARS.basico}
-            WHEN ${alias}.tier = 'full'    THEN ${TIER_PRICE_ARS.full}
-            WHEN ${alias}.tier = 'premium' THEN ${TIER_PRICE_ARS.premium}
-            ELSE 0
-          END)`;
-}
-
 export async function getStats(): Promise<AdminStats> {
   const signupsRes = await pool.query<{
     cur: string;
@@ -872,128 +860,47 @@ export async function getStats(): Promise<AdminStats> {
   const verifiedPct =
     totalApproved > 0 ? Math.round((verifiedCount / totalApproved) * 100) : 0;
 
-  const activeRes = await pool.query<{ cur: string; prev: string }>(
-    `WITH latest AS (
-       SELECT DISTINCT ON (athlete_id) athlete_id, tier, status, created_at
-         FROM subscriptions
-         ORDER BY athlete_id, created_at DESC
+  // Live membership state — "vigente hoy" is the paid_until clock, not the dead
+  // MercadoPago `subscriptions` table these KPIs used to read. That table only
+  // ever moved when someone pressed the legacy "Crear suscripción" button
+  // (removed), so MRR never dropped when an athlete failed to renew.
+  const liveRes = await pool.query<{ n: string; mrr: string; churned: string }>(
+    `WITH athlete AS (
+       SELECT u.id,
+              ${FEE_EXPR} AS fee,
+              m.status, m.paid_until
+         FROM users u
+         LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
+         JOIN memberships m ON m.user_id = u.id
+        WHERE u.role = 'athlete' AND u.status = 'approved'
      ),
-     latest_30d_ago AS (
-       SELECT DISTINCT ON (athlete_id) athlete_id, status
-         FROM subscriptions
-        WHERE created_at < NOW() - INTERVAL '30 days'
-        ORDER BY athlete_id, created_at DESC
+     vigente AS (
+       SELECT * FROM athlete
+        WHERE status NOT IN ('cancelled', 'paused')
+          AND (paid_until = 'infinity' OR paid_until >= NOW())
      )
      SELECT
-       (SELECT COUNT(*) FROM latest WHERE status = 'authorized') AS cur,
-       (SELECT COUNT(*) FROM latest_30d_ago WHERE status = 'authorized') AS prev`
+       (SELECT COUNT(*) FROM vigente) AS n,
+       (SELECT COALESCE(SUM(fee), 0) FROM vigente) AS mrr,
+       (SELECT COUNT(*) FROM athlete
+         WHERE status IN ('expired', 'cancelled')
+           AND paid_until >= NOW() - INTERVAL '30 days'
+           AND paid_until <  NOW()) AS churned`
   );
-  const activeSubs = Number(activeRes.rows[0]?.cur ?? 0);
-  const activeSubsPrev = Number(activeRes.rows[0]?.prev ?? 0);
-  const activeSubsDelta = activeSubs - activeSubsPrev;
+  const activeSubs = Number(liveRes.rows[0]?.n ?? 0);
+  const mrr = Number(liveRes.rows[0]?.mrr ?? 0);
+  const churned = Number(liveRes.rows[0]?.churned ?? 0);
+  const churnBase = activeSubs + churned;
+  const churnPct = churnBase > 0 ? (churned / churnBase) * 100 : 0;
 
-  const mrrRes = await pool.query<{ mrr: string; mrr_prev: string }>(
-    `WITH latest AS (
-       SELECT DISTINCT ON (athlete_id) athlete_id, tier, status
-         FROM subscriptions
-         ORDER BY athlete_id, created_at DESC
-     ),
-     latest_prev AS (
-       SELECT DISTINCT ON (athlete_id) athlete_id, tier, status
-         FROM subscriptions
-        WHERE created_at < NOW() - INTERVAL '30 days'
-        ORDER BY athlete_id, created_at DESC
-     )
-     SELECT
-       COALESCE((SELECT SUM(${priceCase('s', 'u')})
-                   FROM latest s
-                   LEFT JOIN users u ON u.id = s.athlete_id
-                  WHERE s.status = 'authorized'), 0) AS mrr,
-       COALESCE((SELECT SUM(${priceCase('s', 'u')})
-                   FROM latest_prev s
-                   LEFT JOIN users u ON u.id = s.athlete_id
-                  WHERE s.status = 'authorized'), 0) AS mrr_prev`
-  );
-  const mrr = Number(mrrRes.rows[0]?.mrr ?? 0);
-  const mrrPrev = Number(mrrRes.rows[0]?.mrr_prev ?? 0);
-  const mrrDeltaPct =
-    mrrPrev > 0 ? ((mrr - mrrPrev) / mrrPrev) * 100 : mrr > 0 ? 100 : 0;
-
-  const mrrTrendRes = await pool.query<{ mrr: string }>(
-    `WITH months AS (
-       SELECT generate_series(
-         date_trunc('month', NOW() - INTERVAL '11 months'),
-         date_trunc('month', NOW()),
-         INTERVAL '1 month'
-       ) AS m
-     )
-     SELECT COALESCE((
-       SELECT SUM(${priceCase('s', 'u')})
-         FROM (
-           SELECT DISTINCT ON (athlete_id) athlete_id, tier, status
-             FROM subscriptions
-            WHERE created_at < (months.m + INTERVAL '1 month')
-            ORDER BY athlete_id, created_at DESC
-         ) s
-         LEFT JOIN users u ON u.id = s.athlete_id
-        WHERE s.status = 'authorized'
-     ), 0)::text AS mrr
-     FROM months
-     ORDER BY months.m`
-  );
-  const mrrTrend = mrrTrendRes.rows.map((r) => Number(r.mrr));
-
-  const churnRes = await pool.query<{
-    cancelled: string;
-    active_start: string;
-    cancelled_prev: string;
-    active_start_prev: string;
-  }>(
-    `WITH cur_cancelled AS (
-       SELECT COUNT(*) AS n
-         FROM subscriptions
-        WHERE status = 'cancelled'
-          AND updated_at >= NOW() - INTERVAL '30 days'
-     ),
-     active_start AS (
-       SELECT COUNT(*) AS n FROM (
-         SELECT DISTINCT ON (athlete_id) athlete_id, status
-           FROM subscriptions
-          WHERE created_at < NOW() - INTERVAL '30 days'
-          ORDER BY athlete_id, created_at DESC
-       ) s
-       WHERE s.status = 'authorized'
-     ),
-     prev_cancelled AS (
-       SELECT COUNT(*) AS n
-         FROM subscriptions
-        WHERE status = 'cancelled'
-          AND updated_at >= NOW() - INTERVAL '60 days'
-          AND updated_at <  NOW() - INTERVAL '30 days'
-     ),
-     active_start_prev AS (
-       SELECT COUNT(*) AS n FROM (
-         SELECT DISTINCT ON (athlete_id) athlete_id, status
-           FROM subscriptions
-          WHERE created_at < NOW() - INTERVAL '60 days'
-          ORDER BY athlete_id, created_at DESC
-       ) s
-       WHERE s.status = 'authorized'
-     )
-     SELECT
-       (SELECT n FROM cur_cancelled) AS cancelled,
-       (SELECT n FROM active_start) AS active_start,
-       (SELECT n FROM prev_cancelled) AS cancelled_prev,
-       (SELECT n FROM active_start_prev) AS active_start_prev`
-  );
-  const cancelled = Number(churnRes.rows[0]?.cancelled ?? 0);
-  const activeStart = Number(churnRes.rows[0]?.active_start ?? 0);
-  const cancelledPrev = Number(churnRes.rows[0]?.cancelled_prev ?? 0);
-  const activeStartPrev = Number(churnRes.rows[0]?.active_start_prev ?? 0);
-  const churnPct = activeStart > 0 ? (cancelled / activeStart) * 100 : 0;
-  const churnPrevPct =
-    activeStartPrev > 0 ? (cancelledPrev / activeStartPrev) * 100 : 0;
-  const churnDeltaPp = churnPct - churnPrevPct;
+  // ponytail: no history table for memberships, so month-over-month deltas and
+  // the 12-month sparkline aren't reconstructible — paid_until is overwritten
+  // on every renewal. Left empty rather than faked; add a monthly snapshot
+  // (like platform_fee_history) if the trend is worth having.
+  const activeSubsDelta = 0;
+  const mrrDeltaPct = 0;
+  const mrrTrend: number[] = [];
+  const churnDeltaPp = 0;
 
   return {
     signups_30d: cur,

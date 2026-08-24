@@ -151,7 +151,9 @@ function billingTodayISO(todayISO?: string): string {
   });
 }
 
-const FEE_EXPR = `COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)`;
+/** Per-athlete monthly fee. Assumes `u` = users, `ap` = athlete_profiles.
+ * Shared with admin.service's dashboard KPIs so both price an athlete the same. */
+export const FEE_EXPR = `COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)`;
 
 /**
  * Estimated pool: approved athletes with a membership that is still on the

@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { MEMBERSHIP_LABELS } from '@/components/admin/ConfirmPaymentDialog';
 import type { AdminUser } from '@/types/api';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,6 @@ const LABELS: Record<string, string> = {
   '/admin': 'Resumen',
   '/admin/pending': 'Pendientes',
   '/admin/users': 'Usuarios',
-  '/admin/subscriptions': 'Suscripciones',
   '/admin/activity': 'Actividad',
 };
 
@@ -162,13 +162,9 @@ export function filterAdminUsers(users: AdminUser[], query: string) {
   const needle = query.trim().toLowerCase();
   if (!needle) return [];
   return users.filter((user) =>
-    [
-      user.id,
-      user.email,
-      user.name,
-      user.subscription_tier,
-      user.subscription_status,
-    ].some((value) => value?.toLowerCase().includes(needle))
+    [user.id, user.email, user.name, user.membership_status].some((value) =>
+      value?.toLowerCase().includes(needle)
+    )
   );
 }
 
@@ -222,8 +218,11 @@ function GlobalSearchDialog({
                   {user.email} · {user.id}
                 </span>
               </span>
-              <span className="text-xs capitalize text-muted-foreground">
-                {user.subscription_tier ?? 'sin suscripción'}
+              <span className="text-xs text-muted-foreground">
+                {user.membership_status
+                  ? (MEMBERSHIP_LABELS[user.membership_status] ??
+                    user.membership_status)
+                  : 'sin membresía'}
               </span>
             </button>
           ))}
