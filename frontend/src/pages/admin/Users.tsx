@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Plus, Search } from 'lucide-react';
+import { Download, Plus, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -18,12 +18,19 @@ import { RoleBadge } from '@/components/admin/RoleBadge';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { MembershipBadge } from '@/components/admin/MembershipBadge';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
+import { ConfirmPaymentDialog } from '@/components/admin/ConfirmPaymentDialog';
 import { Pagination } from '@/components/admin/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { useAdminUsers } from '@/hooks/useAdminUsers';
-import { fmtShortDate } from '@/lib/format';
+import { useAdminUsers, useRegisterPayment } from '@/hooks/useAdminUsers';
+import { fmtARS, fmtShortDate } from '@/lib/format';
+import { expiryInfo, isPaidThisMonth, monthLabel } from '@/lib/subscription';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import type { AdminUser, Role, UserStatus } from '@/types/api';
+
+/** Mirrors the backend FEE_EXPR fallback so both price an athlete the same. */
+const DEFAULT_FEE_ARS = 25000;
+const feeOf = (u: AdminUser) => u.monthly_fee_ars ?? DEFAULT_FEE_ARS;
 
 type StatusKey = UserStatus | 'all';
 type RoleKey = Role | 'all';
@@ -115,7 +122,7 @@ export default function Users() {
         onClear={clearFilters}
       />
 
-      <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className="overflow-x-auto rounded-2xl border bg-card">
         {q.isLoading ? (
           <UsersTableSkeleton />
         ) : filtered.length === 0 ? (
@@ -214,38 +221,72 @@ function UsersTable({
   users: AdminUser[];
   onOpen: (u: AdminUser) => void;
 }) {
+  const registerPayment = useRegisterPayment();
+  const [charging, setCharging] = useState<AdminUser | null>(null);
   return (
     /* table-fixed: every other column is pinned, so Usuario absorbs all the
        leftover width instead of being squeezed to the minimum. */
-    <Table className="min-w-[920px] table-fixed">
+    <Table className="min-w-[1120px] table-fixed">
       <TableHeader>
         <TableRow className="border-b">
           <TableHead className="w-7"></TableHead>
           <TableHead>
             <ColLabel>Usuario</ColLabel>
           </TableHead>
-          <TableHead className="w-[96px]">
-            <ColLabel>Rol</ColLabel>
-          </TableHead>
           <TableHead className="w-[112px]">
             <ColLabel>Estado</ColLabel>
           </TableHead>
-          <TableHead className="w-[200px]">
+          <TableHead className="w-[124px]">
             <ColLabel>Membresía</ColLabel>
           </TableHead>
           <TableHead className="w-[128px]">
-            <ColLabel>Última sesión</ColLabel>
+            <ColLabel>Vence el</ColLabel>
+          </TableHead>
+          <TableHead className="w-[168px]">
+            <ColLabel>Mes = {monthLabel()}</ColLabel>
           </TableHead>
           <TableHead className="w-[104px] text-right">
-            <ColLabel>Alta</ColLabel>
+            <ColLabel>Cuota</ColLabel>
+          </TableHead>
+          <TableHead className="w-[176px] text-right">
+            <ColLabel>Cobrar</ColLabel>
           </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {users.map((u) => (
-          <UserRow key={u.id} user={u} onOpen={() => onOpen(u)} />
+          <UserRow
+            key={u.id}
+            user={u}
+            onOpen={() => onOpen(u)}
+            onCharge={() => setCharging(u)}
+          />
         ))}
       </TableBody>
+      {charging && (
+        <ConfirmPaymentDialog
+          open
+          user={charging}
+          amount={feeOf(charging)}
+          pending={registerPayment.isPending}
+          onClose={() => setCharging(null)}
+          onConfirm={() =>
+            registerPayment.mutate(
+              { id: charging.id, amount: feeOf(charging), method: 'transfer' },
+              {
+                onSuccess: () => {
+                  setCharging(null);
+                  toast.success('Pago registrado. Acceso habilitado.');
+                },
+                onError: (e) =>
+                  toast.error(
+                    `No se pudo registrar el pago: ${(e as Error).message}`
+                  ),
+              }
+            )
+          }
+        />
+      )}
     </Table>
   );
 }
@@ -258,8 +299,17 @@ function ColLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
+function UserRow({
+  user,
+  onOpen,
+  onCharge,
+}: {
+  user: AdminUser;
+  onOpen: () => void;
+  onCharge: () => void;
+}) {
   const pending = user.status === 'pending';
+  const isAthlete = user.role === 'athlete';
   return (
     <TableRow
       onClick={onOpen}
@@ -280,8 +330,11 @@ function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
         <div className="flex items-center gap-2.5">
           <Avatar name={user.name ?? user.email} brand={pending} />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">
-              {user.name ?? user.email.split('@')[0]}
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-semibold">
+                {user.name ?? user.email.split('@')[0]}
+              </span>
+              {!isAthlete && <RoleBadge role={user.role} />}
             </div>
             <div className="truncate text-xs text-muted-foreground">
               <span className="font-mono">{user.email}</span>
@@ -295,36 +348,99 @@ function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
         </div>
       </TableCell>
       <TableCell>
-        <RoleBadge role={user.role} />
-      </TableCell>
-      <TableCell>
         <StatusBadge status={user.status} />
       </TableCell>
-      <TableCell>
-        {user.role === 'athlete' ? (
-          <div className="flex items-center gap-2">
+      {isAthlete ? (
+        <>
+          <TableCell>
             <MembershipBadge status={user.membership_status} />
-            {user.paid_until && (
-              <span className="font-mono tabular-nums text-xs text-muted-foreground">
-                {fmtShortDate(user.paid_until)}
-              </span>
-            )}
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell>
-        <span className="font-mono tabular-nums text-xs text-muted-foreground">
-          {user.last_session_at ? fmtShortDate(user.last_session_at) : 'nunca'}
-        </span>
-      </TableCell>
-      <TableCell className="text-right">
-        <span className="font-mono tabular-nums text-xs text-muted-foreground">
-          {fmtShortDate(user.created_at)}
-        </span>
-      </TableCell>
+          </TableCell>
+          <TableCell>
+            <VenceCell paidUntil={user.paid_until} />
+          </TableCell>
+          <TableCell>
+            <MonthPaidBadge paid={isPaidThisMonth(user.paid_until)} />
+          </TableCell>
+          <TableCell className="text-right">
+            <span className="font-mono tabular-nums text-xs font-semibold">
+              {fmtARS(feeOf(user))}
+            </span>
+          </TableCell>
+          <TableCell
+            className="text-right"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button variant="outline" size="sm" onClick={onCharge}>
+              <RefreshCw data-icon="inline-start" />
+              Registrar pago
+            </Button>
+          </TableCell>
+        </>
+      ) : (
+        <TableCell colSpan={5}>
+          <span className="text-xs text-muted-foreground">
+            Cuenta de staff — sin membresía
+          </span>
+        </TableCell>
+      )}
     </TableRow>
+  );
+}
+
+const URGENT_TEXT: Partial<
+  Record<ReturnType<typeof expiryInfo>['urgency'], string>
+> = {
+  expired: 'VENCIÓ',
+  today: 'VENCE HOY',
+  tomorrow: 'VENCE MAÑANA',
+};
+
+/** Expiry with urgency colouring — recovered from the retired Suscripciones page. */
+function VenceCell({ paidUntil }: { paidUntil: string | null }) {
+  const info = expiryInfo(paidUntil);
+  if (info.urgency === 'infinity') {
+    return (
+      <span className="font-mono text-xs text-muted-foreground">
+        Sin vencimiento
+      </span>
+    );
+  }
+  const label = URGENT_TEXT[info.urgency];
+  return (
+    <div className="flex flex-col">
+      <span
+        className={cn(
+          'font-mono tabular-nums text-xs',
+          label
+            ? 'font-bold uppercase tracking-wide text-destructive'
+            : info.urgency === 'soon'
+              ? 'font-semibold text-amber-600'
+              : 'text-muted-foreground'
+        )}
+      >
+        {label ?? fmtShortDate(paidUntil)}
+      </span>
+      {label && (
+        <span className="font-mono tabular-nums text-[10px] text-muted-foreground">
+          {fmtShortDate(paidUntil)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MonthPaidBadge({ paid }: { paid: boolean }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-md px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide',
+        paid
+          ? 'bg-emerald-500/15 text-emerald-600'
+          : 'bg-destructive/15 text-destructive'
+      )}
+    >
+      {paid ? 'Pagado' : 'No pagado'}
+    </span>
   );
 }
 
