@@ -1,6 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Plus, RefreshCw, Search } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronsUpDown,
+  Download,
+  Plus,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -28,6 +36,74 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { AdminUser, Role, UserStatus } from '@/types/api';
 
+export type SortKey =
+  | 'usuario'
+  | 'estado'
+  | 'membresia'
+  | 'vence'
+  | 'mes'
+  | 'cuota';
+export type SortDir = 'asc' | 'desc';
+export interface Sort {
+  key: SortKey;
+  dir: SortDir;
+}
+
+// Status and membership sort by how much they need attention, not alphabet:
+// "expired" before "active" is what the coach is actually looking for.
+const STATUS_ORDER: Record<string, number> = {
+  pending: 0,
+  approved: 1,
+  rejected: 2,
+};
+const MEMBERSHIP_ORDER: Record<string, number> = {
+  expired: 0,
+  expiring: 1,
+  paused: 2,
+  active: 3,
+  cancelled: 4,
+};
+
+const nameOf = (u: AdminUser) => u.name ?? u.email;
+
+/**
+ * Comparators per column, ascending. Non-athletes have no membership data, so
+ * they always sink to the bottom of those columns regardless of direction.
+ */
+const COMPARATORS: Record<SortKey, (a: AdminUser, b: AdminUser) => number> = {
+  usuario: (a, b) =>
+    nameOf(a).localeCompare(nameOf(b), 'es-AR', { sensitivity: 'base' }),
+  estado: (a, b) =>
+    (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9),
+  membresia: (a, b) =>
+    (MEMBERSHIP_ORDER[a.membership_status ?? ''] ?? 9) -
+    (MEMBERSHIP_ORDER[b.membership_status ?? ''] ?? 9),
+  vence: (a, b) =>
+    expiryInfo(a.paid_until).sortKey - expiryInfo(b.paid_until).sortKey,
+  mes: (a, b) =>
+    Number(isPaidThisMonth(a.paid_until)) -
+    Number(isPaidThisMonth(b.paid_until)),
+  cuota: (a, b) => feeOf(a) - feeOf(b),
+};
+
+const ATHLETE_ONLY: SortKey[] = ['membresia', 'vence', 'mes', 'cuota'];
+
+export function sortUsers(users: AdminUser[], sort: Sort | null): AdminUser[] {
+  if (!sort) return users;
+  const cmp = COMPARATORS[sort.key];
+  const sign = sort.dir === 'asc' ? 1 : -1;
+  const athleteOnly = ATHLETE_ONLY.includes(sort.key);
+  return [...users].sort((a, b) => {
+    if (athleteOnly) {
+      const aIs = a.role === 'athlete';
+      const bIs = b.role === 'athlete';
+      if (aIs !== bIs) return aIs ? -1 : 1; // staff last, both directions
+    }
+    // Ties keep a stable, readable order instead of whatever the API returned.
+    return cmp(a, b) * sign || COMPARATORS.usuario(a, b);
+  });
+}
+
 /** Mirrors the backend FEE_EXPR fallback so both price an athlete the same. */
 const DEFAULT_FEE_ARS = 25000;
 const feeOf = (u: AdminUser) => u.monthly_fee_ars ?? DEFAULT_FEE_ARS;
@@ -41,9 +117,19 @@ export default function Users() {
   const [role, setRole] = useState<RoleKey>('all');
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [sort, setSort] = useState<Sort | null>(null);
+
+  // First click sorts ascending (A→Z, soonest expiry, cheapest fee), second
+  // flips it, third clears back to the API order.
+  function toggleSort(key: SortKey) {
+    setSort((cur) => {
+      if (cur?.key !== key) return { key, dir: 'asc' };
+      return cur.dir === 'asc' ? { key, dir: 'desc' } : null;
+    });
+  }
 
   const q = useAdminUsers({});
-  const users = q.data ?? [];
+  const users = useMemo(() => q.data ?? [], [q.data]);
 
   const counts = useMemo(
     () => ({
@@ -68,15 +154,18 @@ export default function Users() {
     });
   }, [users, status, role, search]);
 
-  const pager = usePagination(filtered, {
+  const sorted = useMemo(() => sortUsers(filtered, sort), [filtered, sort]);
+
+  const pager = usePagination(sorted, {
     pageSize: 25,
-    filterKey: `${status}|${role}|${search}`,
+    filterKey: `${status}|${role}|${search}|${sort?.key ?? ''}${sort?.dir ?? ''}`,
   });
 
   function clearFilters() {
     setStatus('all');
     setRole('all');
     setSearch('');
+    setSort(null);
   }
 
   return (
@@ -132,6 +221,8 @@ export default function Users() {
             <UsersTable
               users={pager.pageItems}
               onOpen={(u) => navigate(`/admin/users/${u.id}`)}
+              sort={sort}
+              onSort={toggleSort}
             />
             <Pagination
               page={pager.page}
@@ -217,9 +308,13 @@ function FilterBar({
 function UsersTable({
   users,
   onOpen,
+  sort,
+  onSort,
 }: {
   users: AdminUser[];
   onOpen: (u: AdminUser) => void;
+  sort: Sort | null;
+  onSort: (key: SortKey) => void;
 }) {
   const registerPayment = useRegisterPayment();
   const [charging, setCharging] = useState<AdminUser | null>(null);
@@ -230,24 +325,50 @@ function UsersTable({
       <TableHeader>
         <TableRow className="border-b">
           <TableHead className="w-7"></TableHead>
-          <TableHead>
-            <ColLabel>Usuario</ColLabel>
-          </TableHead>
-          <TableHead className="w-[112px]">
-            <ColLabel>Estado</ColLabel>
-          </TableHead>
-          <TableHead className="w-[124px]">
-            <ColLabel>Membresía</ColLabel>
-          </TableHead>
-          <TableHead className="w-[128px]">
-            <ColLabel>Vence el</ColLabel>
-          </TableHead>
-          <TableHead className="w-[168px]">
-            <ColLabel>Mes = {monthLabel()}</ColLabel>
-          </TableHead>
-          <TableHead className="w-[104px] text-right">
-            <ColLabel>Cuota</ColLabel>
-          </TableHead>
+          <SortHead sortKey="usuario" sort={sort} onSort={onSort}>
+            Usuario
+          </SortHead>
+          <SortHead
+            sortKey="estado"
+            sort={sort}
+            onSort={onSort}
+            className="w-[112px]"
+          >
+            Estado
+          </SortHead>
+          <SortHead
+            sortKey="membresia"
+            sort={sort}
+            onSort={onSort}
+            className="w-[124px]"
+          >
+            Membresía
+          </SortHead>
+          <SortHead
+            sortKey="vence"
+            sort={sort}
+            onSort={onSort}
+            className="w-[128px]"
+          >
+            Vence el
+          </SortHead>
+          <SortHead
+            sortKey="mes"
+            sort={sort}
+            onSort={onSort}
+            className="w-[168px]"
+          >
+            Mes = {monthLabel()}
+          </SortHead>
+          <SortHead
+            sortKey="cuota"
+            sort={sort}
+            onSort={onSort}
+            className="w-[104px]"
+            align="right"
+          >
+            Cuota
+          </SortHead>
           <TableHead className="w-[176px] text-right">
             <ColLabel>Cobrar</ColLabel>
           </TableHead>
@@ -291,7 +412,60 @@ function UsersTable({
   );
 }
 
-function ColLabel({ children }: { children: React.ReactNode }) {
+/** Header cell that toggles sorting on click. Non-sortable columns keep TableHead. */
+function SortHead({
+  sortKey,
+  sort,
+  onSort,
+  className,
+  align = 'left',
+  children,
+}: {
+  sortKey: SortKey;
+  sort: Sort | null;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  align?: 'left' | 'right';
+  children: ReactNode;
+}) {
+  const active = sort?.key === sortKey ? sort.dir : null;
+  const Icon =
+    active === 'asc' ? ArrowUp : active === 'desc' ? ArrowDown : ChevronsUpDown;
+  return (
+    <TableHead
+      className={className}
+      aria-sort={
+        active === 'asc'
+          ? 'ascending'
+          : active === 'desc'
+            ? 'descending'
+            : 'none'
+      }
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          'group/sort flex w-full items-center gap-1 hover:text-foreground',
+          align === 'right' && 'justify-end'
+        )}
+      >
+        <ColLabel>{children}</ColLabel>
+        <Icon
+          size={11}
+          className={cn(
+            'shrink-0',
+            active
+              ? 'text-foreground'
+              : 'text-muted-foreground/40 group-hover/sort:text-muted-foreground'
+          )}
+        />
+      </button>
+    </TableHead>
+  );
+}
+
+function ColLabel({ children }: { children: ReactNode }) {
   return (
     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
       {children}
