@@ -207,9 +207,14 @@ function KpiRow({
           </span>
         }
         value={fmtARS(stats.mrr_estimated)}
-        delta={fmtDelta(stats.mrr_delta_pct, { suffix: '%' })}
+        delta={
+          stats.mrr_delta_pct !== 0
+            ? fmtDelta(stats.mrr_delta_pct, { suffix: '%' })
+            : undefined
+        }
         deltaTone={stats.mrr_delta_pct >= 0 ? 'up' : 'down'}
         trend={stats.mrr_trend}
+        sub="cuotas de membresías vigentes hoy"
       />
     </div>
   );
@@ -364,21 +369,13 @@ function TierDistCard({
           <span className="font-mono tabular-nums">
             {stats.churn_pct.toFixed(1)}%
           </span>{' '}
-          churn ·{' '}
-          <span
-            className={cn(
-              'font-mono tabular-nums',
-              stats.churn_delta_pp <= 0 ? 'text-brand' : 'text-destructive'
-            )}
-          >
-            {fmtDelta(stats.churn_delta_pp, { suffix: 'pp' })}
-          </span>
+          churn 30 d
         </span>
         <Link
-          to="/admin/subscriptions"
+          to="/admin/users"
           className="text-xs text-muted-foreground hover:text-foreground"
         >
-          Detalle <ChevronRight size={12} className="inline -mt-0.5" />
+          Ver alumnos <ChevronRight size={12} className="inline -mt-0.5" />
         </Link>
       </div>
     </div>

@@ -5,12 +5,12 @@ import type { AdminUser } from '@/types/api';
 const user = {
   id: 'abc-123',
   email: 'ana@example.com',
-  subscription_tier: 'premium',
+  membership_status: 'active',
   name: 'Ana',
 } as AdminUser;
 
 describe('global admin search', () => {
-  it.each(['abc-123', 'ANA@EXAMPLE', 'premium'])(
+  it.each(['abc-123', 'ANA@EXAMPLE', 'active'])(
     'finds users by %s',
     (query) => {
       expect(filterAdminUsers([user], query)).toEqual([user]);

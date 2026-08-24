@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ClipboardList,
   Clock,
-  CreditCard,
   Dumbbell,
   Home as HomeIcon,
   LogOut,
@@ -96,12 +95,6 @@ export function Sidebar({
           icon: Dumbbell,
           to: '/admin/exercises',
           matchPrefixes: ['/admin/exercises'],
-        },
-        {
-          key: 'subs',
-          label: 'Suscripciones',
-          icon: CreditCard,
-          to: '/admin/subscriptions',
         },
         {
           key: 'rutinas',

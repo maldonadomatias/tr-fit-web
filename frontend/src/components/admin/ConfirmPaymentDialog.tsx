@@ -108,6 +108,12 @@ export function ConfirmPaymentDialog({
             </dd>
           </div>
         </dl>
+        {user.status === 'rejected' && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-400">
+            Esta cuenta está dada de baja. Registrar el pago la reactiva: vuelve
+            a tener acceso y el monto cuenta como cobrado del mes.
+          </p>
+        )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={pending}>
             Cancelar

@@ -38,8 +38,7 @@ import {
 import { Avatar } from '@/components/admin/Avatar';
 import { RoleBadge } from '@/components/admin/RoleBadge';
 import { StatusBadge } from '@/components/admin/StatusBadge';
-import { TierBadge } from '@/components/admin/TierBadge';
-import { SubStatusBadge } from '@/components/admin/SubStatusBadge';
+import { MembershipBadge } from '@/components/admin/MembershipBadge';
 import { Segmented } from '@/components/admin/Segmented';
 import { Donut } from '@/components/admin/Donut';
 import { Timeline, type TimelineEntry } from '@/components/admin/Timeline';
@@ -146,7 +145,7 @@ export default function UserDetail() {
           { key: 'progresion', label: 'Progresión' },
           { key: 'rm', label: 'RM / Pesos' },
           { key: 'estado', label: 'Estado de la cuenta' },
-          { key: 'suscripcion', label: 'Suscripción' },
+          { key: 'suscripcion', label: 'Membresía' },
           {
             key: 'actividad',
             label: 'Actividad',
@@ -163,7 +162,7 @@ export default function UserDetail() {
       {tab === 'progresion' && <ProgresionTab user={user} />}
       {tab === 'rm' && <RmTab user={user} />}
       {tab === 'estado' && <EstadoTab user={user} isSelf={isSelf} />}
-      {tab === 'suscripcion' && <SuscripcionTab user={user} />}
+      {tab === 'suscripcion' && <MembresiaTab user={user} />}
       {tab === 'actividad' && <ActividadTab user={user} />}
       {tab === 'peligro' && (
         <PeligroTab
@@ -279,11 +278,8 @@ function IdentityCard({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <RoleBadge role={user.role} />
               <StatusBadge status={user.status} />
-              {user.subscription_tier && (
-                <>
-                  <TierBadge tier={user.subscription_tier} />
-                  <SubStatusBadge status={user.subscription_status} />
-                </>
+              {user.role === 'athlete' && (
+                <MembershipBadge status={user.membership_status} />
               )}
             </div>
           </div>
@@ -395,26 +391,25 @@ function ResumenTab({ user }: { user: AdminUser }) {
           <div className="border-b border-border p-[18px]">
             <Eyebrow variant="muted">Plan actual</Eyebrow>
             <div className="mt-1 text-[17px] font-semibold tracking-tight">
-              Suscripción
+              Membresía
             </div>
           </div>
           <div className="p-[18px]">
-            {user.subscription_tier ? (
+            {user.membership_status ? (
               <div className="flex flex-wrap items-center gap-4">
-                <TierBadge tier={user.subscription_tier} />
-                <SubStatusBadge status={user.subscription_status} />
-                {user.current_period_end && (
-                  <span className="text-xs text-muted-foreground">
-                    Próxima renovación{' '}
-                    <span className="font-mono tabular-nums text-foreground">
-                      {fmtShortDate(user.current_period_end)}
-                    </span>
+                <MembershipBadge status={user.membership_status} />
+                <span className="text-xs text-muted-foreground">
+                  Pagado hasta{' '}
+                  <span className="font-mono tabular-nums text-foreground">
+                    {user.paid_until
+                      ? fmtShortDate(user.paid_until)
+                      : 'sin vencimiento'}
                   </span>
-                )}
+                </span>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">
-                Este usuario no tiene suscripción activa.
+                Este usuario no tiene membresía — no puede iniciar sesión.
               </div>
             )}
           </div>
@@ -785,7 +780,7 @@ function MembresiaCard({ user }: { user: AdminUser }) {
   );
 }
 
-function SuscripcionTab({ user }: { user: AdminUser }) {
+function MembresiaTab({ user }: { user: AdminUser }) {
   const setFee = useSetMonthlyFee(user.id);
   const [cuota, setCuota] = useState(String(user.monthly_fee_ars ?? 25000));
 
@@ -793,58 +788,9 @@ function SuscripcionTab({ user }: { user: AdminUser }) {
     setCuota(String(user.monthly_fee_ars ?? 25000));
   }, [user.monthly_fee_ars]);
 
-  const hasSub = !!user.subscription_tier;
-
   return (
     <div className="flex flex-col gap-4">
       <MembresiaCard user={user} />
-      <div className="rounded-2xl border bg-card p-[22px]">
-        <Eyebrow variant="muted">Estado actual</Eyebrow>
-        {hasSub && user.subscription_tier && user.subscription_status ? (
-          <div className="mt-3 flex flex-wrap items-center gap-4">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Plan
-              </div>
-              <div className="mt-1">
-                <TierBadge tier={user.subscription_tier} />
-              </div>
-            </div>
-            <div className="h-9 w-px bg-border" />
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Estado
-              </div>
-              <div className="mt-1">
-                <SubStatusBadge status={user.subscription_status} />
-              </div>
-            </div>
-            {user.current_period_end && (
-              <>
-                <div className="h-9 w-px bg-border" />
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    Próxima renovación
-                  </div>
-                  <div className="mt-1 font-mono tabular-nums font-semibold">
-                    {fmtShortDate(user.current_period_end)}
-                  </div>
-                </div>
-              </>
-            )}
-            <div className="ml-auto">
-              <Button variant="outline" size="sm">
-                <ExternalLink data-icon="inline-start" />
-                Ver en MercadoPago
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-2 text-sm text-muted-foreground">
-            Sin suscripción activa.
-          </div>
-        )}
-      </div>
 
       <div className="rounded-2xl border bg-card">
         <div className="border-b border-border p-[18px]">

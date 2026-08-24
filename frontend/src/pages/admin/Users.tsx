@@ -16,8 +16,7 @@ import { Segmented } from '@/components/admin/Segmented';
 import { Avatar } from '@/components/admin/Avatar';
 import { RoleBadge } from '@/components/admin/RoleBadge';
 import { StatusBadge } from '@/components/admin/StatusBadge';
-import { TierBadge } from '@/components/admin/TierBadge';
-import { SubStatusBadge } from '@/components/admin/SubStatusBadge';
+import { MembershipBadge } from '@/components/admin/MembershipBadge';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { Pagination } from '@/components/admin/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -232,7 +231,7 @@ function UsersTable({
             <ColLabel>Estado</ColLabel>
           </TableHead>
           <TableHead className="w-[200px]">
-            <ColLabel>Suscripción</ColLabel>
+            <ColLabel>Membresía</ColLabel>
           </TableHead>
           <TableHead className="w-[128px]">
             <ColLabel>Última sesión</ColLabel>
@@ -302,10 +301,14 @@ function UserRow({ user, onOpen }: { user: AdminUser; onOpen: () => void }) {
         <StatusBadge status={user.status} />
       </TableCell>
       <TableCell>
-        {user.subscription_tier ? (
+        {user.role === 'athlete' ? (
           <div className="flex items-center gap-2">
-            <TierBadge tier={user.subscription_tier} />
-            <SubStatusBadge status={user.subscription_status} />
+            <MembershipBadge status={user.membership_status} />
+            {user.paid_until && (
+              <span className="font-mono tabular-nums text-xs text-muted-foreground">
+                {fmtShortDate(user.paid_until)}
+              </span>
+            )}
           </div>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>

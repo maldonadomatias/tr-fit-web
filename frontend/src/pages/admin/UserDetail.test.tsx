@@ -122,7 +122,7 @@ describe('user detail monthly fee', () => {
     const user = userEvent.setup();
     renderUserDetail();
 
-    await user.click(screen.getByRole('tab', { name: 'Suscripción' }));
+    await user.click(screen.getByRole('tab', { name: 'Membresía' }));
 
     const input = screen.getByRole('spinbutton');
     expect(input).toHaveAttribute('min', '0');
@@ -145,7 +145,7 @@ describe('user detail register payment', () => {
     const user = userEvent.setup();
     renderUserDetail();
 
-    await user.click(screen.getByRole('tab', { name: 'Suscripción' }));
+    await user.click(screen.getByRole('tab', { name: 'Membresía' }));
     await user.click(screen.getByRole('button', { name: /Registrar pago/i }));
 
     // The click must only open the dialog — booking revenue and granting
