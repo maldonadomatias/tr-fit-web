@@ -97,12 +97,17 @@ export const DEFAULT_SORT: Sort[] = [{ key: 'vence', dir: 'asc' }];
  */
 export function sortUsers(users: AdminUser[], sorts: Sort[]): AdminUser[] {
   const athleteOnly = sorts.some((s) => ATHLETE_ONLY.includes(s.key));
+  // Rejected accounts are nobody's next action, so they sink — EXCEPT when
+  // sorting by Estado, which is the one column whose whole job is to order by
+  // that. Pinning them there would leave the column unable to reorder
+  // anything: with no pending users, approved-vs-rejected is all it has.
+  const sinkRejected = !sorts.some((s) => s.key === 'estado');
   return [...users].sort((a, b) => {
-    // Rejected accounts are nobody's next action: they sink in every column
-    // and both directions. The Rechazados filter is how you go look at them.
-    const aOut = a.status === 'rejected';
-    const bOut = b.status === 'rejected';
-    if (aOut !== bOut) return aOut ? 1 : -1;
+    if (sinkRejected) {
+      const aOut = a.status === 'rejected';
+      const bOut = b.status === 'rejected';
+      if (aOut !== bOut) return aOut ? 1 : -1;
+    }
     if (athleteOnly) {
       const aIs = a.role === 'athlete';
       const bIs = b.role === 'athlete';

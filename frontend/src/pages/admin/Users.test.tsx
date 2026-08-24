@@ -156,12 +156,33 @@ describe('sortUsers', () => {
 
 describe('sortUsers — rechazados', () => {
   it('sinks rejected accounts in every column and direction', () => {
-    for (const key of ['usuario', 'estado', 'vence', 'cuota'] as const) {
+    for (const key of ['usuario', 'vence', 'mes', 'cuota'] as const) {
       for (const dir of ['asc', 'desc'] as const) {
         const out = sortUsers([rechazada, vencida, base], [{ key, dir }]);
         expect(out[out.length - 1].name).toBe('Carla Rechazada');
       }
     }
+  });
+
+  it('lets the Estado column reorder them — that is what it is for', () => {
+    // Regression: sinking rejected everywhere left Estado unable to reorder
+    // anything, since there are no pending users in practice.
+    const asc = sortUsers([rechazada, base], [{ key: 'estado', dir: 'asc' }]);
+    expect(asc.map((u) => u.name)).toEqual(['Ana Atleta', 'Carla Rechazada']);
+    const desc = sortUsers([base, rechazada], [{ key: 'estado', dir: 'desc' }]);
+    expect(desc.map((u) => u.name)).toEqual(['Carla Rechazada', 'Ana Atleta']);
+  });
+
+  it('unpins them when Estado is a secondary criterion too', () => {
+    const desc = sortUsers(
+      [base, rechazada],
+      [
+        { key: 'cuota', dir: 'asc' },
+        { key: 'estado', dir: 'desc' },
+      ]
+    );
+    // cuota decides first (21000 < 28000), so the rejected row leads.
+    expect(desc[0].name).toBe('Carla Rechazada');
   });
 
   it('still sorts them among themselves when they are all there is', () => {
