@@ -49,6 +49,17 @@ const staff: AdminUser = {
   paid_until: null,
 };
 
+const rechazada: AdminUser = {
+  ...base,
+  id: 'a4',
+  email: 'carla@test.local',
+  name: 'Carla Rechazada',
+  status: 'rejected',
+  membership_status: 'cancelled',
+  monthly_fee_ars: 21000,
+  paid_until: '2026-01-01T00:00:00.000Z',
+};
+
 const mocks = vi.hoisted(() => ({ users: [] as AdminUser[] }));
 
 vi.mock('@/hooks/useAdminUsers', () => ({
@@ -140,6 +151,26 @@ describe('sortUsers', () => {
     expect(nombres(sortUsers([z, a], { key: 'estado', dir: 'asc' }))).toEqual([
       'Abril',
       'Zulema',
+    ]);
+  });
+});
+
+describe('sortUsers — rechazados', () => {
+  it('sinks rejected accounts in every column and direction', () => {
+    for (const key of ['usuario', 'estado', 'vence', 'cuota'] as const) {
+      for (const dir of ['asc', 'desc'] as const) {
+        const out = sortUsers([rechazada, vencida, base], { key, dir });
+        expect(out[out.length - 1].name).toBe('Carla Rechazada');
+      }
+    }
+  });
+
+  it('still sorts them among themselves when they are all there is', () => {
+    const otra = { ...rechazada, id: 'a5', name: 'Aaron Rechazado' };
+    const out = sortUsers([rechazada, otra], { key: 'usuario', dir: 'asc' });
+    expect(out.map((u) => u.name)).toEqual([
+      'Aaron Rechazado',
+      'Carla Rechazada',
     ]);
   });
 });

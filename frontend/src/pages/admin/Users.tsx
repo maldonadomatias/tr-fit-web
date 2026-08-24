@@ -96,6 +96,11 @@ export function sortUsers(users: AdminUser[], sort: Sort): AdminUser[] {
   const sign = sort.dir === 'asc' ? 1 : -1;
   const athleteOnly = ATHLETE_ONLY.includes(sort.key);
   return [...users].sort((a, b) => {
+    // Rejected accounts are nobody's next action: they sink in every column
+    // and both directions. The Rechazados filter is how you go look at them.
+    const aOut = a.status === 'rejected';
+    const bOut = b.status === 'rejected';
+    if (aOut !== bOut) return aOut ? 1 : -1;
     if (athleteOnly) {
       const aIs = a.role === 'athlete';
       const bIs = b.role === 'athlete';
