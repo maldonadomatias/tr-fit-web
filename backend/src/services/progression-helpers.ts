@@ -9,6 +9,14 @@ export const PESOS_SVEND = [5, 10, 20] as const;
 
 export const REPS_SIMPLES = ['6', '8', '10', '12'] as const;
 
+/**
+ * Dash pyramids ("10 - 8 - 6") are deliberately absent: the coach writes them
+ * meaning the WEIGHT climbs set to set, which this model can't hold — there is
+ * one kg per exercise, not one per set. Rotating them here also bumped that
+ * single weight, which read as a random jump. They now fall through to the
+ * `hold` at the end of advanceReps and the coach edits them by hand at
+ * approval time.
+ */
 export const ADVANCE_REPS: Record<string, string> = {
   '4 a 6': '6 a 8',
   '6 a 8': '8 a 10',
@@ -16,19 +24,11 @@ export const ADVANCE_REPS: Record<string, string> = {
   '10 a 12': '4 a 6', // bumps weight
   '10x10x10': '12x12x12',
   '12x12x12': '10x10x10', // bumps weight
-  '12 - 10 - 8': '8 - 6 - 4',
-  '8 - 6 - 4': '10 - 8 - 6',
-  '10 - 8 - 6': '12 - 10 - 8', // bumps weight
   '8x6x4x6x8': '10x8x6x8x10',
   '10x8x6x8x10': '8x6x4x6x8', // bumps weight
 };
 
-const REP_BUMP_TRIGGERS = new Set([
-  '10 a 12',
-  '12x12x12',
-  '10 - 8 - 6',
-  '10x8x6x8x10',
-]);
+const REP_BUMP_TRIGGERS = new Set(['10 a 12', '12x12x12', '10x8x6x8x10']);
 
 export const EJERCICIOS_HASTA_15 = new Set([
   'Face Pull parado con Soga',
