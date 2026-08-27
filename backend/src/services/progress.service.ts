@@ -143,25 +143,49 @@ export interface WeightVsSuggestedRow {
   delta_pct: string | null;
 }
 
+/**
+ * "Peso usado vs sugerido" por ejercicio.
+ *
+ * Dos reglas cuidan que la comparación sea manzana contra manzana; sin ellas
+ * el delta daba negativo para cualquier atleta que estuviera progresando:
+ *
+ *  1. Sólo la serie de trabajo. Un dropset registra varias filas con el mismo
+ *     `set_index` y `drop_index` 1,2,3…, donde 2+ son por definición más
+ *     livianas (ver migración 042). Promediarlas contra un sugerido que es el
+ *     peso tope hundía el promedio.
+ *  2. Sólo series hechas bajo la sugerencia vigente (`started_at >= updated_at`).
+ *     `athlete_exercise_weights` no guarda histórico: sólo el valor actual. Si
+ *     se promediaban 4 semanas contra la sugerencia de hoy, y el cron semanal
+ *     la había subido en el medio, el atleta aparecía "por debajo" justamente
+ *     por haber progresado.
+ *
+ * `weeks` sigue siendo el techo de la ventana: nunca se mira más atrás que eso,
+ * aunque la sugerencia lleve más tiempo sin cambiar.
+ */
 export async function listWeightVsSuggested(
   athleteId: string,
   weeks: number,
 ): Promise<WeightVsSuggestedRow[]> {
   const r = await pool.query<WeightVsSuggestedRow>(
-    `WITH used AS (
+    `WITH suggested AS (
+       SELECT exercise_id,
+              COALESCE(current_value, current_weight_kg) AS suggested_kg,
+              updated_at
+         FROM athlete_exercise_weights
+        WHERE athlete_id = $1
+     ),
+     used AS (
        SELECT s.exercise_id, AVG(COALESCE(s.value, s.weight_kg)) AS avg_used_kg
          FROM set_logs s
          JOIN session_logs sl ON sl.id = s.session_log_id
+         JOIN suggested sg ON sg.exercise_id = s.exercise_id
         WHERE sl.athlete_id = $1
           AND s.completed = TRUE
           AND COALESCE(s.value, s.weight_kg) IS NOT NULL
+          AND (s.drop_index IS NULL OR s.drop_index = 1)
           AND sl.started_at > now() - ($2 || ' weeks')::interval
+          AND sl.started_at >= sg.updated_at
         GROUP BY s.exercise_id
-     ),
-     suggested AS (
-       SELECT exercise_id, COALESCE(current_value, current_weight_kg) AS suggested_kg
-         FROM athlete_exercise_weights
-        WHERE athlete_id = $1
      )
      SELECT u.exercise_id,
             e.name AS exercise_name,
@@ -173,7 +197,7 @@ export async function listWeightVsSuggested(
              END)::text AS delta_pct
        FROM used u
        JOIN exercises e ON e.id = u.exercise_id
-       LEFT JOIN suggested sg ON sg.exercise_id = u.exercise_id
+       JOIN suggested sg ON sg.exercise_id = u.exercise_id
       ORDER BY ABS(COALESCE((u.avg_used_kg - sg.suggested_kg) / NULLIF(sg.suggested_kg, 0) * 100, 0)) DESC
       LIMIT 10`,
     [athleteId, String(weeks)],
