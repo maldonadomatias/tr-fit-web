@@ -30,10 +30,9 @@ export async function buildTodaySession(
 ): Promise<SessionItem[]> {
   const stateR = await pool.query<{
     current_week: number;
-    rm_test_blocking: boolean;
     active_skeleton_id: string | null;
   }>(
-    `SELECT current_week, rm_test_blocking, active_skeleton_id
+    `SELECT current_week, active_skeleton_id
        FROM athlete_program_state WHERE athlete_id = $1`,
     [athleteId]
   );
@@ -41,7 +40,11 @@ export async function buildTodaySession(
     throw new TodayBlockedError('awaiting_review');
   }
   const state = stateR.rows[0];
-  if (state.rm_test_blocking) throw new TodayBlockedError('rm_test_required');
+  // La semana de testeo (is_rm_test / is_amrap) SE ENTRENA: el testeo ES la
+  // sesión. `rm_test_blocking` cortaba acá, y como el único camino para
+  // limpiarlo (cargar los RM) vive dentro de esa sesión, el atleta quedaba
+  // trabado para siempre en la semana 10. La bandera queda como marcador
+  // informativo; el flag por ítem 'rm_test' es lo que pide el registro del RM.
 
   const cfgR = await pool.query<PeriodizationConfig>(
     `SELECT * FROM periodization_config WHERE week_number = $1`,

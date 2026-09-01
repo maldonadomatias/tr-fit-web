@@ -188,3 +188,105 @@ it('getActive returns null when no session, returns session id otherwise', async
 
 // Reference SessionError to keep import used.
 void SessionError;
+
+async function setWeek(athleteId: string, week: number) {
+  await pool.query(
+    `UPDATE athlete_program_state SET current_week = $1 WHERE athlete_id = $2`,
+    [week, athleteId],
+  );
+}
+
+// La semana 20 es AMRAP: el atleta hace UNA serie al 85% y anota cuántas reps
+// le salieron. Nada en la app postea a /athlete/amrap, así que el RM teórico
+// se deriva de los sets que ya quedaron logueados.
+it('finishSession derives the AMRAP 1RM on an is_amrap week', async () => {
+  const { ath, principalId } = await setupAthlete();
+  await setWeek(ath, 20);
+  const { sessionId } = await startSession(ath, randomUUID(), { force: true });
+  await logSet(sessionId, ath, {
+    exercise_id: principalId, set_index: 1,
+    unit: 'kg', value: 100, reps: 6, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await finishSession(sessionId, ath, 'normal');
+
+  const rm = await pool.query<{ value_kg: string; amrap_weight: string; amrap_reps: number }>(
+    `SELECT value_kg::text, amrap_weight::text, amrap_reps
+       FROM rm_tests
+      WHERE athlete_id = $1 AND exercise_id = $2 AND program_week = 20`,
+    [ath, principalId],
+  );
+  expect(rm.rowCount).toBe(1);
+  expect(Number(rm.rows[0].amrap_weight)).toBe(100);
+  expect(rm.rows[0].amrap_reps).toBe(6);
+  // Epley: 100 × (1 + 6/30) = 120, redondeado según el equipamiento.
+  expect(Number(rm.rows[0].value_kg)).toBeGreaterThanOrEqual(117.5);
+  expect(Number(rm.rows[0].value_kg)).toBeLessThanOrEqual(122.5);
+});
+
+it('finishSession keeps the best AMRAP set when several were logged', async () => {
+  const { ath, principalId } = await setupAthlete();
+  await setWeek(ath, 20);
+  const { sessionId } = await startSession(ath, randomUUID(), { force: true });
+  // 100×6 → e1RM 120 ; 90×4 → e1RM 102. Gana el primero.
+  await logSet(sessionId, ath, {
+    exercise_id: principalId, set_index: 1,
+    unit: 'kg', value: 90, reps: 4, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await logSet(sessionId, ath, {
+    exercise_id: principalId, set_index: 2,
+    unit: 'kg', value: 100, reps: 6, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await finishSession(sessionId, ath, 'normal');
+
+  const rm = await pool.query<{ amrap_weight: string; amrap_reps: number }>(
+    `SELECT amrap_weight::text, amrap_reps FROM rm_tests
+      WHERE athlete_id = $1 AND exercise_id = $2 AND program_week = 20`,
+    [ath, principalId],
+  );
+  expect(Number(rm.rows[0].amrap_weight)).toBe(100);
+  expect(rm.rows[0].amrap_reps).toBe(6);
+});
+
+it('finishSession does not record an AMRAP on a normal week', async () => {
+  const { ath, principalId } = await setupAthlete();
+  await setWeek(ath, 3);
+  const { sessionId } = await startSession(ath, randomUUID(), { force: true });
+  await logSet(sessionId, ath, {
+    exercise_id: principalId, set_index: 1,
+    unit: 'kg', value: 100, reps: 6, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await finishSession(sessionId, ath, 'normal');
+
+  const rm = await pool.query(
+    `SELECT 1 FROM rm_tests WHERE athlete_id = $1 AND program_week = 20`,
+    [ath],
+  );
+  expect(rm.rowCount).toBe(0);
+});
+
+it('finishSession ignores accessories and uncompleted sets on an AMRAP week', async () => {
+  const { ath, accesorioId, principalId } = await setupAthlete();
+  await setWeek(ath, 20);
+  const { sessionId } = await startSession(ath, randomUUID(), { force: true });
+  await logSet(sessionId, ath, {
+    exercise_id: accesorioId, set_index: 1,
+    unit: 'kg', value: 40, reps: 12, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await logSet(sessionId, ath, {
+    exercise_id: principalId, set_index: 1,
+    unit: 'kg', value: 100, reps: 6, completed: false,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await finishSession(sessionId, ath, 'normal');
+
+  const rm = await pool.query(
+    `SELECT 1 FROM rm_tests WHERE athlete_id = $1 AND program_week = 20`,
+    [ath],
+  );
+  expect(rm.rowCount).toBe(0);
+});

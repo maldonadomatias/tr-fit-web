@@ -44,6 +44,13 @@ async function setProgramWeek(athleteId: string, week: number) {
   );
 }
 
+async function setRmBlocking(athleteId: string, blocking: boolean) {
+  await pool.query(
+    `UPDATE athlete_program_state SET rm_test_blocking = $1 WHERE athlete_id = $2`,
+    [blocking, athleteId],
+  );
+}
+
 async function setWeight(
   athleteId: string, exerciseId: number, weight: number, reps?: string,
 ) {
@@ -100,6 +107,30 @@ it('rm_test flag on week 10 even without RM', async () => {
   const principal = session.find((s) => s.role === 'principal')!;
   expect(principal.flag).toBe('rm_test');
   expect(principal.suggested_value).toBeNull();
+});
+
+// El bloqueo de la semana de testeo era un deadlock: rm_test_blocking cortaba
+// la sesión antes de construirla, y la única forma de limpiarlo (cargar los RM)
+// vivía adentro de esa misma sesión. La semana de testeo SE ENTRENA.
+it('builds the week-10 session even with rm_test_blocking = TRUE', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 10);
+  await setRmBlocking(ath, true);
+  const session = await buildTodaySession(ath, 1);
+  expect(session.length).toBeGreaterThan(0);
+  const principal = session.find((s) => s.role === 'principal')!;
+  expect(principal.flag).toBe('rm_test');
+  expect(principal.suggested_value).toBeNull();
+  expect(principal.series).toBe(1);
+  expect(principal.reps).toBe('1');
+});
+
+it('still throws awaiting_review with rm_test_blocking = TRUE but no skeleton', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  await expect(buildTodaySession(ath, 1)).rejects.toBeInstanceOf(TodayBlockedError);
 });
 
 it('uses casilleros (athlete_exercise_weights) for principal in week 3', async () => {
@@ -173,19 +204,6 @@ it('profile equipment-units override stale AEW.unit and drop suggested value', a
   const item = session.find((s) => s.exercise.id === poleaId)!;
   expect(item.unit).toBe('ladrillos');
   expect(item.suggested_value).toBeNull();
-});
-
-it('blocks with rm_test_required when state.rm_test_blocking=true', async () => {
-  const coach = await createAdmin();
-  const ath = await createAthlete(coach);
-  await setup4DaySkeleton(ath, coach);
-  await pool.query(
-    `UPDATE athlete_program_state SET rm_test_blocking = TRUE WHERE athlete_id = $1`,
-    [ath],
-  );
-  await expect(buildTodaySession(ath, 1)).rejects.toMatchObject({
-    reason: 'rm_test_required',
-  });
 });
 
 it('serves a mistagged warm-up slot as calentamiento (bug 2026-07-04 safety net)', async () => {

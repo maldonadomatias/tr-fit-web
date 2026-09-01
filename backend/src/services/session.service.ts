@@ -6,6 +6,8 @@ import {
 } from './engine.service.js';
 import { dominantGroupByDay } from './day-focus.service.js';
 import { runWeeklyProgressionForAthlete } from './progression.service.js';
+import { recordAmrap } from './rm.service.js';
+import logger from '../utils/logger.js';
 
 export class SessionError extends Error {
   constructor(public reason:
@@ -259,6 +261,63 @@ export async function getActive(
 }
 
 /**
+ * Semana AMRAP (`periodization_config.is_amrap`): el testeo ES la sesión — una
+ * serie al 85% del RM y las reps que salgan. Nada en la app postea a
+ * /athlete/amrap, así que el RM teórico se deriva de los sets que el atleta ya
+ * logueó. Sale de `set_logs`, que es por donde pasan todos los sets, también
+ * los que llegaron tarde por la cola de sync offline.
+ *
+ * Corre ANTES de `closeWeekIfComplete`: esa progresión puede mover
+ * `current_week` a la 21 y dejar la semana de testeo sin registrar.
+ *
+ * Best-effort: la sesión ya está commiteada y `recordAmrap` es un upsert por
+ * (atleta, ejercicio, semana), así que se puede reintentar sin duplicar.
+ */
+async function recordAmrapIfTestingWeek(
+  sessionId: string,
+  athleteId: string,
+): Promise<void> {
+  const cfgR = await pool.query<{ is_amrap: boolean }>(
+    `SELECT p.is_amrap
+       FROM athlete_program_state s
+       JOIN periodization_config p ON p.week_number = s.current_week
+      WHERE s.athlete_id = $1`,
+    [athleteId],
+  );
+  if (!cfgR.rows[0]?.is_amrap) return;
+
+  // Mejor serie por ejercicio principal, ordenada por Epley crudo. El redondeo
+  // por equipamiento lo hace recordAmrap; acá sólo hace falta el ranking.
+  const bestR = await pool.query<{
+    exercise_id: number; weight: string; reps: number;
+  }>(
+    `SELECT DISTINCT ON (sl.exercise_id)
+            sl.exercise_id,
+            COALESCE(sl.value, sl.weight_kg)::text AS weight,
+            sl.reps
+       FROM set_logs sl
+       JOIN exercises e ON e.id = sl.exercise_id
+      WHERE sl.session_log_id = $1
+        AND sl.completed = TRUE
+        AND e.is_principal = TRUE
+        AND COALESCE(sl.value, sl.weight_kg) > 0
+        AND sl.reps > 0
+      ORDER BY sl.exercise_id,
+               COALESCE(sl.value, sl.weight_kg) * (1 + sl.reps / 30.0) DESC`,
+    [sessionId],
+  );
+
+  for (const row of bestR.rows) {
+    await recordAmrap({
+      athleteId,
+      exerciseId: row.exercise_id,
+      weightUsed: Number(row.weight),
+      reps: row.reps,
+    });
+  }
+}
+
+/**
  * Cierra la semana de programa cuando el atleta terminó TODOS sus días.
  *
  * `current_week` la subía sólo el cron de los domingos, así que completar la
@@ -401,6 +460,11 @@ export async function finishSession(
 
   // Fuera de la transacción a propósito: la progresión toma su propia conexión
   // y un advisory lock, y no tiene que poder tumbar un finish ya commiteado.
+  try {
+    await recordAmrapIfTestingWeek(sessionId, athleteId);
+  } catch (e) {
+    logger.error({ err: e, sessionId, athleteId }, 'amrap derivation failed');
+  }
   await closeWeekIfComplete(athleteId);
   return summary;
 }

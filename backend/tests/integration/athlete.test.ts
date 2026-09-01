@@ -71,3 +71,59 @@ it('POST /api/athlete/rm — records RM', async () => {
   expect(r.status).toBe(201);
   expect(typeof r.body.rmId).toBe('string');
 });
+
+async function setProgramWeek(athleteId: string, week: number) {
+  await pool.query(
+    `UPDATE athlete_program_state SET current_week = $1 WHERE athlete_id = $2`,
+    [week, athleteId]
+  );
+}
+
+// La app no tiene una fuente confiable de la semana de programa adentro de la
+// sesión, y rm_tests está keyeada por program_week: que la elija el servidor.
+it('POST /api/athlete/rm — derives week from program state when omitted', async () => {
+  const { ath, coach, skeletonId, pid } = await setup();
+  await approveSkeleton(skeletonId, coach);
+  await setProgramWeek(ath, 10);
+  const tok = signToken({ id: ath, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/athlete/rm')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ exercise_id: pid, value_kg: 100 });
+  expect(r.status).toBe(201);
+  const row = await pool.query<{ program_week: number }>(
+    `SELECT program_week FROM rm_tests WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, pid]
+  );
+  expect(row.rows[0].program_week).toBe(10);
+});
+
+it('POST /api/athlete/rm — derives week 30 too', async () => {
+  const { ath, coach, skeletonId, pid } = await setup();
+  await approveSkeleton(skeletonId, coach);
+  await setProgramWeek(ath, 30);
+  const tok = signToken({ id: ath, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/athlete/rm')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ exercise_id: pid, value_kg: 100 });
+  expect(r.status).toBe(201);
+  const row = await pool.query<{ program_week: number }>(
+    `SELECT program_week FROM rm_tests WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, pid]
+  );
+  expect(row.rows[0].program_week).toBe(30);
+});
+
+it('POST /api/athlete/rm — 400 when the current week is not a testing week', async () => {
+  const { ath, coach, skeletonId, pid } = await setup();
+  await approveSkeleton(skeletonId, coach);
+  await setProgramWeek(ath, 7);
+  const tok = signToken({ id: ath, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/athlete/rm')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ exercise_id: pid, value_kg: 100 });
+  expect(r.status).toBe(400);
+  expect(r.body.error).toBe('week_not_testable');
+});
