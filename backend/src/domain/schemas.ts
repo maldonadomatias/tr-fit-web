@@ -216,7 +216,10 @@ export type ProfileUpdatePayload = z.infer<typeof profileUpdatePayload>;
 export const rmPayload = z.object({
   exercise_id: z.number().int().positive(),
   value_kg: z.number().min(1).max(500),
-  week: z.union([z.literal(10), z.literal(20), z.literal(30)]),
+  // Opcional: la app no conoce la semana de programa de forma confiable, y
+  // rm_tests está keyeada por program_week. Cuando falta, la ruta la deriva
+  // de athlete_program_state. Clientes viejos la siguen mandando explícita.
+  week: z.union([z.literal(10), z.literal(20), z.literal(30)]).optional(),
 });
 
 export const amrapPayload = z.object({

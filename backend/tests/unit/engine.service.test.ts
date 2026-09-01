@@ -163,12 +163,11 @@ function seedBuildSession(
   pushHandler(
     (s) =>
       s.startsWith(
-        'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+        'SELECT current_week, active_skeleton_id FROM athlete_program_state'
       ),
     [
       {
         current_week: 1,
-        rm_test_blocking: false,
         active_skeleton_id: 'sk-excl',
       },
     ]
@@ -294,9 +293,9 @@ function seedMissingRmSession(aewRow: object | null) {
   pushHandler(
     (s) =>
       s.startsWith(
-        'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+        'SELECT current_week, active_skeleton_id FROM athlete_program_state'
       ),
-    [{ current_week: 2, rm_test_blocking: false, active_skeleton_id: 'sk-rm' }]
+    [{ current_week: 2, active_skeleton_id: 'sk-rm' }]
   );
   // 2. periodization_config — pct_rm branch, no amrap, no rm_test
   pushHandler(
@@ -414,12 +413,11 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
     pushHandler(
       (s) =>
         s.startsWith(
-          'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+          'SELECT current_week, active_skeleton_id FROM athlete_program_state'
         ),
       [
         {
           current_week: 1,
-          rm_test_blocking: false,
           active_skeleton_id: 'sk-acc',
         },
       ]
@@ -524,12 +522,11 @@ describe('buildTodaySession — warm-up role safety net (bug 2026-07-04)', () =>
     pushHandler(
       (s) =>
         s.startsWith(
-          'SELECT current_week, rm_test_blocking, active_skeleton_id FROM athlete_program_state'
+          'SELECT current_week, active_skeleton_id FROM athlete_program_state'
         ),
       [
         {
           current_week: 1,
-          rm_test_blocking: false,
           active_skeleton_id: 'sk-warm',
         },
       ]

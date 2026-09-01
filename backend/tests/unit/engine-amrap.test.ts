@@ -40,8 +40,8 @@ const EX = {
 
 function baseHandlers(rm10: number | null) {
   handlers.length = 0;
-  handlers.push((s) => s.startsWith('SELECT current_week, rm_test_blocking')
-    ? { rows: [{ current_week: 20, rm_test_blocking: false, active_skeleton_id: 'sk-1' }], rowCount: 1 } : null);
+  handlers.push((s) => s.startsWith('SELECT current_week, active_skeleton_id')
+    ? { rows: [{ current_week: 20, active_skeleton_id: 'sk-1' }], rowCount: 1 } : null);
   handlers.push((s) => s.startsWith('SELECT * FROM periodization_config')
     ? { rows: [WEEK20], rowCount: 1 } : null);
   handlers.push((s) => s.startsWith('SELECT * FROM skeleton_slots')

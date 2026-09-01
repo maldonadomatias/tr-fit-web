@@ -243,15 +243,38 @@ router.get('/skeleton/active', async (req, res) => {
   });
 });
 
+const TESTING_WEEKS = [10, 20, 30] as const;
+type TestingWeek = (typeof TESTING_WEEKS)[number];
+
+function isTestingWeek(week: number | null | undefined): week is TestingWeek {
+  return TESTING_WEEKS.includes(week as TestingWeek);
+}
+
 router.post('/rm', async (req, res) => {
   const parsed = rmPayload.safeParse(req.body);
   if (!parsed.success)
     return res.status(400).json({ error: 'invalid_payload' });
+
+  // Sin `week` explícita mandamos la del estado del programa: el servidor es
+  // el dueño de current_week, y una semana equivocada acá corrompe las cargas
+  // prescritas de todo el bloque siguiente.
+  let week = parsed.data.week;
+  if (week === undefined) {
+    const stateR = await pool.query<{ current_week: number | null }>(
+      `SELECT current_week FROM athlete_program_state WHERE athlete_id = $1`,
+      [req.user!.id]
+    );
+    const currentWeek = stateR.rows[0]?.current_week ?? null;
+    if (!isTestingWeek(currentWeek))
+      return res.status(400).json({ error: 'week_not_testable' });
+    week = currentWeek;
+  }
+
   const out = await recordRm({
     athleteId: req.user!.id,
     exerciseId: parsed.data.exercise_id,
     valueKg: parsed.data.value_kg,
-    week: parsed.data.week,
+    week,
   });
   res.status(201).json(out);
 });
