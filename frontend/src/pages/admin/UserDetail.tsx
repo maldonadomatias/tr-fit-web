@@ -1157,26 +1157,36 @@ const RM_WEEK_LABEL: Record<number, string> = {
   30: 'Semana 30',
 };
 
+// Un ejercicio con dropset devuelve DOS filas (series rectas y dropset), así
+// que la identidad de la fila que se está editando es el par, no el ejercicio.
+function rowKey(w: AthleteExerciseWeight): string {
+  return `${w.exercise_id}:${w.scheme}`;
+}
+
 function WeightsCard({ user }: { user: AdminUser }) {
   const q = useAthleteWeights(user.id);
   const setWeight = useSetAthleteWeight(user.id);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [value, setValue] = useState('');
   const weights = q.data ?? [];
 
   function startEdit(w: AthleteExerciseWeight) {
-    setEditId(w.exercise_id);
+    setEditId(rowKey(w));
     setValue(w.current_value == null ? '' : String(w.current_value));
   }
 
-  async function save(exercise_id: number) {
+  async function save(w: AthleteExerciseWeight) {
     const v = Number(value);
     if (!v || v <= 0 || v > 1000) {
       toast.error('Peso inválido (entre 0 y 1000)');
       return;
     }
     try {
-      await setWeight.mutateAsync({ exercise_id, current_value: v });
+      await setWeight.mutateAsync({
+        exercise_id: w.exercise_id,
+        current_value: v,
+        scheme: w.scheme,
+      });
       toast.success('Peso actualizado');
       setEditId(null);
     } catch {
@@ -1201,7 +1211,8 @@ function WeightsCard({ user }: { user: AdminUser }) {
         </div>
         <p className="mt-1.5 text-xs text-muted-foreground">
           El valor que la app prescribe en la rutina. Cambialo a mano si hay que
-          ajustar un ejercicio puntual.
+          ajustar un ejercicio puntual. Un ejercicio con dropset lleva dos
+          cargas separadas: la de las series rectas y la del dropset.
         </p>
       </div>
 
@@ -1212,12 +1223,19 @@ function WeightsCard({ user }: { user: AdminUser }) {
       ) : (
         <div className="divide-y divide-border">
           {weights.map((w) => {
-            const editing = editId === w.exercise_id;
+            const editing = editId === rowKey(w);
             return (
-              <div key={w.exercise_id} className="p-[18px]">
+              <div key={rowKey(w)} className="p-[18px]">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-[13px] font-semibold">
-                    {w.exercise_name}
+                  <div className="flex items-center gap-2">
+                    <div className="text-[13px] font-semibold">
+                      {w.exercise_name}
+                    </div>
+                    {w.scheme === 'dropset' && (
+                      <span className="rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Dropset
+                      </span>
+                    )}
                   </div>
                   {!editing && (
                     <div className="flex items-center gap-3">
@@ -1254,7 +1272,7 @@ function WeightsCard({ user }: { user: AdminUser }) {
                     <button
                       type="button"
                       disabled={setWeight.isPending}
-                      onClick={() => save(w.exercise_id)}
+                      onClick={() => save(w)}
                       className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
                     >
                       Guardar

@@ -111,6 +111,7 @@ describe('GET/PUT /api/admin/users/:id/weights', () => {
         exercise_name: seeded.name,
         current_value: 40,
         unit: 'kg',
+        scheme: 'normal',
       },
     ]);
   });

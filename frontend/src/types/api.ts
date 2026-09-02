@@ -192,6 +192,7 @@ export interface AthleteExerciseWeight {
   exercise_name: string;
   current_value: number | null;
   unit: string;
+  scheme: 'normal' | 'dropset';
 }
 
 export interface AthleteRm {

@@ -2,6 +2,7 @@ import pool from '../db/connect.js';
 import {
   resolveAccessoryReps,
   roundWeightForEquipment,
+  weightScheme,
 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
@@ -91,12 +92,14 @@ export async function buildTodaySession(
 
   const wR = await pool.query<{
     exercise_id: number;
+    scheme: string;
     current_weight_kg: number | null;
     current_value: number | null;
     unit: 'kg' | 'ladrillos' | null;
     current_reps_text: string | null;
   }>(
     `SELECT exercise_id,
+            scheme,
             COALESCE(current_value, current_weight_kg) AS current_value,
             unit,
             current_weight_kg,
@@ -105,7 +108,12 @@ export async function buildTodaySession(
       WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])`,
     [athleteId, exerciseIds]
   );
-  const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));
+  // Una carga por (ejercicio, esquema): el dropset del mismo ejercicio lleva la
+  // suya. La clave se arma con la prescripción del SLOT, no con el estado
+  // guardado, así que es estable aunque `current_reps_text` esté viejo.
+  const wByEx = new Map(
+    wR.rows.map((r) => [`${r.exercise_id}:${r.scheme}`, r])
+  );
 
   let rmByEx = new Map<number, number>();
   // AMRAP weeks also resolve a prescribed weight from the RM source, so load
@@ -133,7 +141,7 @@ async function buildItem(
   slot: SkeletonSlot & { _override?: WeeklyOverride },
   exById: Map<number, Exercise>,
   wByEx: Map<
-    number,
+    string,
     {
       current_value: number | null;
       unit: 'kg' | 'ladrillos' | null;
@@ -144,7 +152,14 @@ async function buildItem(
   cfg: PeriodizationConfig
 ): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
-  const w = wByEx.get(slot.exercise_id);
+  // Accesorios: el bucket sale de la prescripción del slot (038), con el
+  // default del bloque como fallback. Principales y calentamientos son siempre
+  // 'normal' — no tienen esquema de dropset.
+  const scheme =
+    slot.role === 'accesorio'
+      ? weightScheme(slot.reps ?? cfg.accesorio_reps)
+      : 'normal';
+  const w = wByEx.get(`${slot.exercise_id}:${scheme}`);
   // Profile preference (athlete_equipment_units) is source of truth for unit.
   // Falls back to equipment default. Previously prioritized AEW.unit, which
   // froze the unit to whatever was logged first and ignored later profile

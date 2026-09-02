@@ -642,6 +642,7 @@ export interface AthleteWeightRow {
   exercise_name: string;
   current_value: number | null;
   unit: string;
+  scheme: 'normal' | 'dropset';
 }
 
 export async function listAthleteWeights(
@@ -652,15 +653,17 @@ export async function listAthleteWeights(
     exercise_name: string;
     current_value: string | null;
     unit: string;
+    scheme: 'normal' | 'dropset';
   }>(
     `SELECT w.exercise_id,
             e.name AS exercise_name,
             COALESCE(w.current_value, w.current_weight_kg)::text AS current_value,
-            COALESCE(w.unit, 'kg') AS unit
+            COALESCE(w.unit, 'kg') AS unit,
+            w.scheme
        FROM athlete_exercise_weights w
        JOIN exercises e ON e.id = w.exercise_id
       WHERE w.athlete_id = $1
-      ORDER BY e.name`,
+      ORDER BY e.name, w.scheme`,
     [athleteId]
   );
   return r.rows.map((row) => ({
@@ -668,12 +671,14 @@ export async function listAthleteWeights(
     exercise_name: row.exercise_name,
     current_value: row.current_value == null ? null : Number(row.current_value),
     unit: row.unit,
+    scheme: row.scheme,
   }));
 }
 
 export interface SetAthleteWeightInput {
   exerciseId: number;
   currentValue: number;
+  scheme?: 'normal' | 'dropset';
 }
 
 export async function setAthleteWeight(
@@ -681,6 +686,10 @@ export async function setAthleteWeight(
   input: SetAthleteWeightInput,
   actor: string
 ): Promise<AthleteWeightRow> {
+  // Sin scheme explícito se edita la carga de las series rectas: es la que ve
+  // el coach por default y la que existe para todos los ejercicios.
+  const scheme = input.scheme ?? 'normal';
+
   const exR = await pool.query<{
     id: number;
     name: string;
@@ -694,8 +703,8 @@ export async function setAthleteWeight(
   const prev = await pool.query<{ current_value: string | null }>(
     `SELECT COALESCE(current_value, current_weight_kg)::text AS current_value
        FROM athlete_exercise_weights
-      WHERE athlete_id = $1 AND exercise_id = $2`,
-    [athleteId, input.exerciseId]
+      WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = $3`,
+    [athleteId, input.exerciseId, scheme]
   );
   const from =
     prev.rows[0]?.current_value == null
@@ -704,15 +713,16 @@ export async function setAthleteWeight(
 
   await pool.query(
     `INSERT INTO athlete_exercise_weights
-       (athlete_id, exercise_id, current_weight_kg, current_value, unit, updated_by)
-     VALUES ($1, $2, $3, $3, $4, 'coach')
-     ON CONFLICT (athlete_id, exercise_id)
+       (athlete_id, exercise_id, current_weight_kg, current_value, unit,
+        updated_by, scheme)
+     VALUES ($1, $2, $3, $3, $4, 'coach', $5)
+     ON CONFLICT (athlete_id, exercise_id, scheme)
        DO UPDATE SET current_weight_kg = EXCLUDED.current_weight_kg,
                      current_value = EXCLUDED.current_value,
                      unit = EXCLUDED.unit,
                      updated_by = 'coach',
                      updated_at = NOW()`,
-    [athleteId, input.exerciseId, input.currentValue, unit]
+    [athleteId, input.exerciseId, input.currentValue, unit, scheme]
   );
 
   await logAudit({
@@ -726,6 +736,7 @@ export async function setAthleteWeight(
       exercise_name: exR.rows[0].name,
       from,
       to: input.currentValue,
+      scheme,
     },
   });
 
@@ -734,6 +745,7 @@ export async function setAthleteWeight(
     exercise_name: exR.rows[0].name,
     current_value: input.currentValue,
     unit,
+    scheme,
   };
 }
 

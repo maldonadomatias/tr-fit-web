@@ -81,14 +81,22 @@ export async function ensureMigrated(): Promise<void> {
                WHERE table_schema = 'public'
                  AND table_name = 'users'
                  AND column_name = 'monthly_fee_ars'
-            ) AS uf`
+            ) AS uf,
+            EXISTS (
+              SELECT 1
+                FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'athlete_exercise_weights'
+                 AND column_name = 'scheme'
+            ) AS aew_scheme`
   );
   if (
     !r.rows[0].e ||
     !r.rows[0].p ||
     !r.rows[0].f ||
     !r.rows[0].fp ||
-    !r.rows[0].uf
+    !r.rows[0].uf ||
+    !r.rows[0].aew_scheme
   ) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }

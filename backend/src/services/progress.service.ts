@@ -168,11 +168,12 @@ export async function listWeightVsSuggested(
 ): Promise<WeightVsSuggestedRow[]> {
   const r = await pool.query<WeightVsSuggestedRow>(
     `WITH suggested AS (
+       -- Una sola fila por ejercicio: el gráfico compara contra la carga normal.
        SELECT exercise_id,
               COALESCE(current_value, current_weight_kg) AS suggested_kg,
               updated_at
          FROM athlete_exercise_weights
-        WHERE athlete_id = $1
+        WHERE athlete_id = $1 AND scheme = 'normal'
      ),
      used AS (
        SELECT s.exercise_id, AVG(COALESCE(s.value, s.weight_kg)) AS avg_used_kg

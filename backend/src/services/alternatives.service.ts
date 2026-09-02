@@ -148,7 +148,9 @@ export async function toAlternativePayloads(
             COALESCE(current_value, current_weight_kg) AS current_value,
             unit
        FROM athlete_exercise_weights
-      WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])`,
+      -- El sugerido de un swap sale de la carga normal; el dropset lo ajusta el coach.
+      WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])
+        AND scheme = 'normal'`,
     [athleteId, exercises.map((e) => e.id)],
   );
   const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));

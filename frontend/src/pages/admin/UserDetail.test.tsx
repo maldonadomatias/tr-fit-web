@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,6 +81,7 @@ const weightMocks = vi.hoisted(() => ({
       exercise_name: 'Press banca',
       current_value: 40,
       unit: 'kg',
+      scheme: 'normal',
     },
   ],
 }));
@@ -254,7 +255,20 @@ describe('user detail exercise weights', () => {
       exercise_name: 'Press banca',
       current_value: 42.5,
       unit: 'kg',
+      scheme: 'normal',
     });
+  });
+
+  afterEach(() => {
+    weightMocks.weights = [
+      {
+        exercise_id: 7,
+        exercise_name: 'Press banca',
+        current_value: 40,
+        unit: 'kg',
+        scheme: 'normal',
+      },
+    ];
   });
 
   it('lets the coach change a working weight', async () => {
@@ -274,6 +288,51 @@ describe('user detail exercise weights', () => {
     expect(weightMocks.setWeight).toHaveBeenCalledWith({
       exercise_id: 7,
       current_value: 42.5,
+      scheme: 'normal',
+    });
+  });
+
+  it('lets the coach edit the dropset weight of an exercise separately', async () => {
+    weightMocks.weights = [
+      {
+        exercise_id: 1,
+        exercise_name: 'Pecho sentado en Mariposa',
+        current_value: 20,
+        unit: 'kg',
+        scheme: 'normal',
+      },
+      {
+        exercise_id: 1,
+        exercise_name: 'Pecho sentado en Mariposa',
+        current_value: 12,
+        unit: 'kg',
+        scheme: 'dropset',
+      },
+    ];
+
+    const user = userEvent.setup();
+    renderUserDetail();
+
+    await user.click(screen.getByRole('tab', { name: 'RM / Pesos' }));
+
+    expect(screen.getByText('20 kg')).toBeInTheDocument();
+    expect(screen.getByText('12 kg')).toBeInTheDocument();
+    expect(screen.getAllByText('Dropset')).toHaveLength(1);
+
+    const dropsetRow = screen.getByText('Dropset').closest('div.p-\\[18px\\]');
+    expect(dropsetRow).toBeTruthy();
+    await user.click(
+      within(dropsetRow as HTMLElement).getByRole('button', { name: 'Editar' })
+    );
+    const input = screen.getByRole('spinbutton');
+    await user.clear(input);
+    await user.type(input, '14');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(weightMocks.setWeight).toHaveBeenCalledWith({
+      exercise_id: 1,
+      current_value: 14,
+      scheme: 'dropset',
     });
   });
 });

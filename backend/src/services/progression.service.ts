@@ -5,6 +5,7 @@ import {
   applyIncrement,
   isExcludedFromAutoProgression,
   resolveAccessoryReps,
+  weightScheme,
 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
 import type { Exercise } from '../domain/types.js';
@@ -21,6 +22,7 @@ export interface ProgressionResult {
 
 export interface BumpRecord {
   exercise_id: number;
+  scheme: 'normal' | 'dropset';
   from_kg: number | null;
   to_kg: number | null;
   reps_from: string | null;
@@ -78,13 +80,20 @@ export async function runWeeklyProgressionForAthlete(
         ORDER BY e.id, (s.reps IS NULL), s.day_of_week, s.slot_index`,
       [state.active_skeleton_id]
     );
-    const seen = new Set<number>();
-    const accesorios = accR.rows.filter((r) => {
-      if (r.slot_role !== 'accesorio') return false;
-      if (seen.has(r.id)) return false;
-      seen.add(r.id);
-      return true;
-    });
+    // Un ejercicio puede aparecer con dos esquemas (10x10x10 y 3x10): cada uno
+    // lleva su propia carga y su propia escalera, así que se procesan por
+    // separado. Dentro de cada bucket sigue ganando el primer slot del ORDER BY
+    // (el que tiene reps explícitas, del día más temprano).
+    const seen = new Set<string>();
+    const accesorios = accR.rows
+      .filter((r) => r.slot_role === 'accesorio')
+      .map((r) => ({ ...r, scheme: weightScheme(r.slot_reps) }))
+      .filter((r) => {
+        const key = `${r.id}:${r.scheme}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
 
     const logsR = await client.query<{
       exercise_id: number;
@@ -119,8 +128,8 @@ export async function runWeeklyProgressionForAthlete(
         `SELECT COALESCE(current_value, current_weight_kg)::text AS current_value,
                 unit, current_reps_text
            FROM athlete_exercise_weights
-          WHERE athlete_id = $1 AND exercise_id = $2`,
-        [athleteId, ex.id]
+          WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = $3`,
+        [athleteId, ex.id, ex.scheme]
       );
       const w = wR.rows[0];
       if (!w) continue;
@@ -150,12 +159,13 @@ export async function runWeeklyProgressionForAthlete(
                 current_reps_text = $3,
                 updated_at = NOW(),
                 updated_by = 'progression_cron'
-          WHERE athlete_id = $4 AND exercise_id = $5`,
-        [newWeight, unit, adv.newReps, athleteId, ex.id]
+          WHERE athlete_id = $4 AND exercise_id = $5 AND scheme = $6`,
+        [newWeight, unit, adv.newReps, athleteId, ex.id, ex.scheme]
       );
 
       bumped.push({
         exercise_id: ex.id,
+        scheme: ex.scheme,
         from_kg: w.current_value === null ? null : Number(w.current_value),
         to_kg: newWeight,
         reps_from: currentReps,

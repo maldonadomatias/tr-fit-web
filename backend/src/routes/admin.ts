@@ -492,6 +492,7 @@ router.get('/users/:id/weights', async (req: Request, res: Response) => {
 const weightBody = z.object({
   exercise_id: z.number().int().positive(),
   current_value: z.number().positive().max(1000),
+  scheme: z.enum(['normal', 'dropset']).optional(),
 });
 
 router.put('/users/:id/weights', async (req: Request, res: Response) => {
@@ -506,6 +507,7 @@ router.put('/users/:id/weights', async (req: Request, res: Response) => {
       {
         exerciseId: parsed.data.exercise_id,
         currentValue: parsed.data.current_value,
+        scheme: parsed.data.scheme,
       },
       await actorEmail(req)
     );

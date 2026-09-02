@@ -337,6 +337,7 @@ describe('buildTodaySession — missing-RM principal fallback', () => {
   it('Case A: uses last logged weight as suggested_value and keeps missing_rm flag', async () => {
     seedMissingRmSession({
       exercise_id: exRM.id,
+      scheme: 'normal',
       current_value: 55,
       unit: 'kg',
       current_weight_kg: 55,
@@ -477,6 +478,7 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
     seedAccessory({ series: 2, reps: '10x10x10', descanso: '2 min' }, [
       {
         exercise_id: exA.id,
+        scheme: 'dropset',
         current_value: null,
         unit: null,
         current_weight_kg: null,
@@ -492,6 +494,7 @@ describe('buildTodaySession — per-accessory prescription (migration 038)', () 
     seedAccessory({ series: 2, reps: '10x10x10', descanso: '2 min' }, [
       {
         exercise_id: exA.id,
+        scheme: 'dropset',
         current_value: null,
         unit: null,
         current_weight_kg: null,

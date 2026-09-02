@@ -340,10 +340,13 @@ export async function approveSkeleton(
     // Seed athlete_exercise_weights with NULL for every distinct exercise in slots
     await client.query(
       `INSERT INTO athlete_exercise_weights
-         (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by)
-       SELECT $1, exercise_id, NULL, NULL, 'athlete_initial'
-       FROM (SELECT DISTINCT exercise_id FROM skeleton_slots WHERE skeleton_id = $2) s
-       ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
+         (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by, scheme)
+       SELECT $1, exercise_id, NULL, NULL, 'athlete_initial',
+              CASE WHEN reps ~ '^[[:space:]]*[0-9]+[[:space:]]*[x×][[:space:]]*[0-9]+[[:space:]]*[x×]'
+                   THEN 'dropset' ELSE 'normal' END
+         FROM (SELECT DISTINCT exercise_id, reps FROM skeleton_slots
+                WHERE skeleton_id = $2) s
+       ON CONFLICT (athlete_id, exercise_id, scheme) DO NOTHING`,
       [athleteId, skeletonId]
     );
 

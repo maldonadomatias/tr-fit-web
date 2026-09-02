@@ -18,6 +18,7 @@ export function useAthleteWeights(id: string | undefined) {
 export interface SetAthleteWeightInput {
   exercise_id: number;
   current_value: number;
+  scheme?: 'normal' | 'dropset';
 }
 
 export function useSetAthleteWeight(id: string) {

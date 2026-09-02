@@ -154,6 +154,26 @@ function repSchemeFamily(reps: string): RepSchemeFamily {
   return 'fixed';
 }
 
+export type WeightScheme = 'normal' | 'dropset';
+
+/**
+ * Bucket de carga al que pertenece una prescripción.
+ *
+ * El coach maneja dos escaleras distintas para el MISMO ejercicio: el dropset /
+ * superserie sube `10x10x10 → 12x12x12 → 10x10x10` (+carga recién ahí) y las
+ * series rectas suben `6→8→10→12→6` (+carga recién ahí). Cada una lleva su
+ * propio kg, así que el bucket es parte de la clave de
+ * `athlete_exercise_weights`. Las pirámides con `x` (`8x6x4x6x8`) entran acá
+ * también: son multi-drop.
+ */
+export function weightScheme(
+  reps: string | null | undefined
+): WeightScheme {
+  const value = reps?.trim();
+  if (!value) return 'normal';
+  return repSchemeFamily(value).startsWith('dropset:') ? 'dropset' : 'normal';
+}
+
 /**
  * Resolves the reps prescription for an accessory without letting stale
  * per-exercise progression erase a coach-authored per-slot scheme.

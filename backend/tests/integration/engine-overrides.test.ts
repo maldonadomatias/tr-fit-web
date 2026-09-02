@@ -114,7 +114,7 @@ it('reduce_intensity with weight_pct scales suggested_value', async () => {
     `INSERT INTO athlete_exercise_weights
        (athlete_id, exercise_id, current_value, current_weight_kg, unit, updated_by)
      VALUES ($1, $2, 100, 100, 'kg', 'progression_cron')
-     ON CONFLICT (athlete_id, exercise_id) DO UPDATE
+     ON CONFLICT (athlete_id, exercise_id, scheme) DO UPDATE
        SET current_value = 100, current_weight_kg = 100, unit = 'kg'`,
     [ath, exA],
   );
