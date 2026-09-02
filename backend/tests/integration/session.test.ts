@@ -290,3 +290,30 @@ it('finishSession ignores accessories and uncompleted sets on an AMRAP week', as
   );
   expect(rm.rowCount).toBe(0);
 });
+
+// El peso del primer drop de un 10x10x10 no puede pisar la carga de las series
+// rectas del mismo ejercicio (ni al revés).
+it('logSet seeds the dropset bucket when the set carries a drop_index', async () => {
+  const { ath, accesorioId } = await setupAthlete();
+  const { sessionId } = await startSession(ath, randomUUID());
+  await logSet(sessionId, ath, {
+    exercise_id: accesorioId, set_index: 1, drop_index: 1,
+    unit: 'kg', value: 12, reps: 10, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+  await logSet(sessionId, ath, {
+    exercise_id: accesorioId, set_index: 2,
+    unit: 'kg', value: 20, reps: 10, completed: true,
+    client_id: randomUUID(), client_ts: new Date().toISOString(),
+  });
+
+  const rows = await pool.query<{ scheme: string; current_value: string }>(
+    `SELECT scheme, current_value::text FROM athlete_exercise_weights
+      WHERE athlete_id = $1 AND exercise_id = $2 ORDER BY scheme`,
+    [ath, accesorioId],
+  );
+  const byScheme = new Map(rows.rows.map((r) => [r.scheme, Number(r.current_value)]));
+  expect(byScheme.get('dropset')).toBe(12);
+  expect(byScheme.get('normal')).toBe(20);
+});
+

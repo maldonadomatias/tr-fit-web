@@ -1,4 +1,5 @@
 import pool from '../db/connect.js';
+import { weightScheme } from './progression-helpers.js';
 import type { AthleteSkeleton, SkeletonSlot } from '../domain/types.js';
 import type {
   AdminSlotCreate,
@@ -255,7 +256,7 @@ async function seedAthleteExerciseWeight(
     `INSERT INTO athlete_exercise_weights
        (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by)
      VALUES ($1, $2, NULL, NULL, 'athlete_initial')
-     ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
+     ON CONFLICT (athlete_id, exercise_id, scheme) DO NOTHING`,
     [athleteId, exerciseId]
   );
 }
@@ -581,11 +582,13 @@ export async function applyEdits(
 
     await client.query(
       `INSERT INTO athlete_exercise_weights
-         (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by)
-       SELECT $1, exercise_id, NULL, NULL, 'athlete_initial'
-       FROM (SELECT DISTINCT exercise_id FROM skeleton_slots
-              WHERE skeleton_id = $2) s
-       ON CONFLICT (athlete_id, exercise_id) DO NOTHING`,
+         (athlete_id, exercise_id, current_weight_kg, current_reps_text, updated_by, scheme)
+       SELECT $1, exercise_id, NULL, NULL, 'athlete_initial',
+              CASE WHEN reps ~ '^[[:space:]]*[0-9]+[[:space:]]*[x×][[:space:]]*[0-9]+[[:space:]]*[x×]'
+                   THEN 'dropset' ELSE 'normal' END
+         FROM (SELECT DISTINCT exercise_id, reps FROM skeleton_slots
+                WHERE skeleton_id = $2) s
+       ON CONFLICT (athlete_id, exercise_id, scheme) DO NOTHING`,
       [athleteId, skeletonId]
     );
 
@@ -604,8 +607,8 @@ export async function applyEdits(
       await client.query(
         `UPDATE athlete_exercise_weights
             SET current_reps_text = $3, updated_at = NOW(), updated_by = 'coach'
-          WHERE athlete_id = $1 AND exercise_id = $2`,
-        [athleteId, exerciseId, reps]
+          WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = $4`,
+        [athleteId, exerciseId, reps, weightScheme(reps)]
       );
     }
 

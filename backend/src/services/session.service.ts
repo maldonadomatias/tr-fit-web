@@ -180,18 +180,22 @@ export async function logSet(
   // only the heaviest drop (drop_index = 1) seeds; the lighter drops (2, 3 …)
   // must not drag the suggestion down. Normal sets carry drop_index = NULL.
   const seedsWeight = payload.drop_index == null || payload.drop_index === 1;
+  // El bucket sale del propio set: un dropset/superserie loguea un drop_index
+  // por serie, un set normal lo manda en NULL. Así el peso del primer drop no
+  // pisa la carga de las series rectas del mismo ejercicio.
+  const scheme = payload.drop_index == null ? 'normal' : 'dropset';
   if (payload.completed && payload.value != null && seedsWeight) {
     await pool.query(
       `INSERT INTO athlete_exercise_weights
-         (athlete_id, exercise_id, current_weight_kg, current_value, unit, current_reps_text, updated_by)
-       VALUES ($1, $2, $3, $3, $4, NULL, 'athlete_correction')
-       ON CONFLICT (athlete_id, exercise_id) DO UPDATE SET
+         (athlete_id, exercise_id, current_weight_kg, current_value, unit, current_reps_text, updated_by, scheme)
+       VALUES ($1, $2, $3, $3, $4, NULL, 'athlete_correction', $5)
+       ON CONFLICT (athlete_id, exercise_id, scheme) DO UPDATE SET
          current_weight_kg = EXCLUDED.current_weight_kg,
          current_value = EXCLUDED.current_value,
          unit = EXCLUDED.unit,
          updated_by = 'athlete_correction',
          updated_at = NOW()`,
-      [athleteId, payload.exercise_id, payload.value, payload.unit],
+      [athleteId, payload.exercise_id, payload.value, payload.unit, scheme],
     );
   }
 

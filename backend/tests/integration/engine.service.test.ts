@@ -237,3 +237,71 @@ it('serves a mistagged warm-up slot as calentamiento (bug 2026-07-04 safety net)
   expect(warmup.series).toBe(1); // warm-up defaults, not the stored accessory scheme
   expect(warmup.suggested_value).toBeNull();
 });
+
+// El coach maneja el dropset y las series rectas del MISMO ejercicio como dos
+// cargas independientes. Antes compartían fila y el bump de una subía la otra.
+it('prescribes the dropset bucket weight for a dropset slot', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { accesorioId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 1);
+  // El slot del día 1 pasa a ser un dropset 10x10x10.
+  await pool.query(
+    `UPDATE skeleton_slots SET reps = '10x10x10'
+      WHERE exercise_id = $1 AND day_of_week = 1
+        AND skeleton_id = (SELECT active_skeleton_id FROM athlete_program_state
+                            WHERE athlete_id = $2)`,
+    [accesorioId, ath],
+  );
+  await pool.query(
+    `UPDATE athlete_exercise_weights SET current_weight_kg = 20, current_value = 20
+      WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = 'normal'`,
+    [ath, accesorioId],
+  );
+  await pool.query(
+    `INSERT INTO athlete_exercise_weights
+       (athlete_id, exercise_id, current_weight_kg, current_value, unit, updated_by, scheme)
+     VALUES ($1, $2, 12, 12, 'kg', 'coach', 'dropset')
+     ON CONFLICT (athlete_id, exercise_id, scheme) DO UPDATE
+       SET current_value = EXCLUDED.current_value,
+           current_weight_kg = EXCLUDED.current_weight_kg`,
+    [ath, accesorioId],
+  );
+
+  const session = await buildTodaySession(ath, 1);
+  const acc = session.find((s) => s.exercise.id === accesorioId)!;
+  expect(acc.reps).toBe('10x10x10');
+  expect(acc.suggested_value).toBe(12);
+});
+
+it('keeps the normal bucket for a plain slot of the same exercise', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { accesorioId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 1);
+  await pool.query(
+    `UPDATE skeleton_slots SET reps = '10x10x10'
+      WHERE exercise_id = $1 AND day_of_week = 1
+        AND skeleton_id = (SELECT active_skeleton_id FROM athlete_program_state
+                            WHERE athlete_id = $2)`,
+    [accesorioId, ath],
+  );
+  await pool.query(
+    `UPDATE athlete_exercise_weights SET current_weight_kg = 20, current_value = 20
+      WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = 'normal'`,
+    [ath, accesorioId],
+  );
+  await pool.query(
+    `INSERT INTO athlete_exercise_weights
+       (athlete_id, exercise_id, current_weight_kg, current_value, unit, updated_by, scheme)
+     VALUES ($1, $2, 12, 12, 'kg', 'coach', 'dropset')
+     ON CONFLICT (athlete_id, exercise_id, scheme) DO NOTHING`,
+    [ath, accesorioId],
+  );
+
+  // El día 2 sigue siendo el slot normal del mismo ejercicio.
+  const session = await buildTodaySession(ath, 2);
+  const acc = session.find((s) => s.exercise.id === accesorioId)!;
+  expect(acc.suggested_value).toBe(20);
+});
+
