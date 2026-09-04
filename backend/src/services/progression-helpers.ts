@@ -166,9 +166,7 @@ export type WeightScheme = 'normal' | 'dropset';
  * `athlete_exercise_weights`. Las pirámides con `x` (`8x6x4x6x8`) entran acá
  * también: son multi-drop.
  */
-export function weightScheme(
-  reps: string | null | undefined
-): WeightScheme {
+export function weightScheme(reps: string | null | undefined): WeightScheme {
   const value = reps?.trim();
   if (!value) return 'normal';
   return repSchemeFamily(value).startsWith('dropset:') ? 'dropset' : 'normal';
@@ -236,4 +234,64 @@ export function isExcludedFromAutoProgression(
   if (EJERCICIOS_PRINCIPAL.has(exerciseName)) return true;
   const g = muscleGroup.toLowerCase();
   return GRUPOS_EXCLUIDOS.some((p) => g.includes(p));
+}
+
+// ─── Gate de progresión (reps realizadas + RPE) ────────
+/** Ventana de RPE en la que el coach acepta progresar (9-10 bloquea). */
+export const RPE_MIN = 6;
+export const RPE_MAX = 8;
+
+export interface SetLogForGate {
+  completed: boolean;
+  reps: number | null;
+  rpe: number | null;
+  drop_index: number | null;
+}
+
+/**
+ * Reps objetivo de UNA serie según la prescripción y el drop (1-based).
+ * `null` = prescripción no numérica (tiempo, fallo, por lado…): no evaluable.
+ */
+export function targetRepsForSet(
+  prescription: string,
+  dropIndex: number | null
+): number | null {
+  const value = prescription.trim();
+  const nums = (value.match(/\d+/g) ?? []).map(Number);
+  if (nums.length === 0) return null;
+  const family = repSchemeFamily(value);
+  if (family === 'fixed') return null;
+  if (family === 'plain') return nums[0];
+  // Rango ("8 a 10"): doble progresión, se sube recién al tocar el techo.
+  if (family === 'range') return Math.max(...nums);
+  // Dropset / pirámide: cada drop tiene su propio objetivo.
+  return nums[(dropIndex ?? 1) - 1] ?? Math.max(...nums);
+}
+
+/**
+ * ¿La semana habilita progresión de reps/carga?
+ *
+ * No alcanza con que el alumno marque las series como hechas: el contador de
+ * reps de cada serie tiene que llegar al objetivo de esa serie, y todo RPE
+ * cargado tiene que caer en [6, 8]: 9 o 10 es demasiado duro para sumar. Series sin reps o con
+ * prescripción no numérica no se evalúan (no bloquean).
+ */
+export function qualifiesForProgression(
+  logs: SetLogForGate[],
+  prescription: string
+): boolean {
+  if (logs.length === 0 || !logs.every((l) => l.completed)) return false;
+
+  for (const l of logs) {
+    if (l.reps === null) continue;
+    const target = targetRepsForSet(prescription, l.drop_index);
+    if (target !== null && l.reps < target) return false;
+  }
+
+  // Una sola serie en RPE 9-10 ya dice que la carga quedó grande: alcanza para
+  // frenar la semana, no se promedia con las livianas.
+  for (const l of logs) {
+    if (l.rpe !== null && (l.rpe < RPE_MIN || l.rpe > RPE_MAX)) return false;
+  }
+  return true;
 }

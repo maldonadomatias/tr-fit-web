@@ -4,10 +4,12 @@ import {
   advanceReps,
   applyIncrement,
   isExcludedFromAutoProgression,
+  qualifiesForProgression,
   resolveAccessoryReps,
   weightScheme,
 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
+import type { SetLogForGate } from './progression-helpers.js';
 import type { Exercise } from '../domain/types.js';
 import logger from '../utils/logger.js';
 
@@ -98,16 +100,30 @@ export async function runWeeklyProgressionForAthlete(
     const logsR = await client.query<{
       exercise_id: number;
       completed: boolean;
+      reps: number | null;
+      rpe: string | null;
+      drop_index: number | null;
     }>(
-      `SELECT exercise_id, completed FROM set_logs
+      `SELECT exercise_id, completed, reps, rpe::float8::text AS rpe, drop_index
+         FROM set_logs
         WHERE athlete_id = $1 AND week = $2`,
       [athleteId, fromWeek]
     );
-    const logsByEx = new Map<number, boolean[]>();
+    // Cada bucket de carga lleva su propia escalera, así que también sus
+    // propias series: un drop_index NULL es serie recta, uno numerado es
+    // dropset/superserie.
+    const logsByKey = new Map<string, SetLogForGate[]>();
     for (const l of logsR.rows) {
-      const arr = logsByEx.get(l.exercise_id) ?? [];
-      arr.push(l.completed);
-      logsByEx.set(l.exercise_id, arr);
+      const scheme = l.drop_index == null ? 'normal' : 'dropset';
+      const key = `${l.exercise_id}:${scheme}`;
+      const arr = logsByKey.get(key) ?? [];
+      arr.push({
+        completed: l.completed,
+        reps: l.reps,
+        rpe: l.rpe === null ? null : Number(l.rpe),
+        drop_index: l.drop_index,
+      });
+      logsByKey.set(key, arr);
     }
 
     const totalSets = logsR.rows.length;
@@ -117,8 +133,8 @@ export async function runWeeklyProgressionForAthlete(
     const bumped: BumpRecord[] = [];
     for (const ex of accesorios) {
       if (isExcludedFromAutoProgression(ex.name, ex.muscle_group)) continue;
-      const arr = logsByEx.get(ex.id);
-      if (!arr || arr.length === 0 || !arr.every(Boolean)) continue;
+      const arr = logsByKey.get(`${ex.id}:${ex.scheme}`);
+      if (!arr || arr.length === 0 || !arr.every((l) => l.completed)) continue;
 
       const wR = await client.query<{
         current_value: string | null;
@@ -140,6 +156,10 @@ export async function runWeeklyProgressionForAthlete(
         w.current_reps_text,
         '8'
       );
+      // No alcanza con marcar las series como hechas: el contador de reps de
+      // cada serie tiene que llegar al objetivo y el RPE caer en [6, 8].
+      if (!qualifiesForProgression(arr, currentReps)) continue;
+
       const adv = advanceReps(currentReps, { threshold, resetReps });
 
       let newWeight: number | null =
