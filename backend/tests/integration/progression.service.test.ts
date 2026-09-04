@@ -89,8 +89,8 @@ it.each([
       [ath, accesorioId, currentReps]
     );
     await pool.query(
-      `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week, set_index, completed)
-     VALUES ($1, $2, 1, 1, 1, TRUE), ($1, $2, 1, 1, 2, TRUE)`,
+      `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week, set_index, completed, drop_index)
+     VALUES ($1, $2, 1, 1, 1, TRUE, 1), ($1, $2, 1, 1, 2, TRUE, 2)`,
       [ath, accesorioId]
     );
 
@@ -132,6 +132,32 @@ it('bumps accesorio reps when all sets completed (no weight bump on first rotati
   expect(Number(w.rows[0].w)).toBe(10);
   expect(Number(w.rows[0].cv)).toBe(10);
   expect(w.rows[0].unit).toBe('kg');
+});
+
+it('holds reps when the athlete logged fewer reps than the target', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { accesorioId } = await setup(coach, ath);
+  await pool.query(
+    `UPDATE athlete_exercise_weights
+        SET current_weight_kg = 10, current_value = 10, unit = 'kg', current_reps_text = '8'
+      WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, accesorioId]
+  );
+  // Marcó las 3 series como hechas pero el contador dice 8, 8 y 6.
+  await pool.query(
+    `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week, set_index, completed, reps)
+     VALUES ($1, $2, 1, 1, 1, TRUE, 8), ($1, $2, 1, 1, 2, TRUE, 8), ($1, $2, 1, 1, 3, TRUE, 6)`,
+    [ath, accesorioId]
+  );
+  await runWeeklyProgressionForAthlete(ath);
+  const w = await pool.query(
+    `SELECT current_reps_text, current_value::text AS cv
+       FROM athlete_exercise_weights WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, accesorioId]
+  );
+  expect(w.rows[0].current_reps_text).toBe('8');
+  expect(Number(w.rows[0].cv)).toBe(10);
 });
 
 it('bumps weight when reps rotation triggers it (10 a 12 -> 4 a 6)', async () => {
@@ -361,10 +387,10 @@ it('advances dropset and normal buckets independently for the same exercise', as
     [ath, accesorioId]
   );
   await pool.query(
-    `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week, set_index, completed)
-     VALUES ($1, $2, 1, 1, 1, TRUE), ($1, $2, 1, 1, 2, TRUE),
-            ($1, $2, 1, 2, 1, TRUE), ($1, $2, 1, 2, 2, TRUE),
-            ($1, $2, 1, 2, 3, TRUE)`,
+    `INSERT INTO set_logs (athlete_id, exercise_id, week, day_of_week, set_index, completed, drop_index)
+     VALUES ($1, $2, 1, 1, 1, TRUE, 1), ($1, $2, 1, 1, 2, TRUE, 2),
+            ($1, $2, 1, 2, 1, TRUE, NULL), ($1, $2, 1, 2, 2, TRUE, NULL),
+            ($1, $2, 1, 2, 3, TRUE, NULL)`,
     [ath, accesorioId]
   );
 
@@ -390,4 +416,3 @@ it('advances dropset and normal buckets independently for the same exercise', as
   expect(byScheme.get('dropset')).toEqual({ kg: 12.5, reps: '10x10x10' });
   expect(byScheme.get('normal')).toEqual({ kg: 20, reps: '10' });
 });
-
