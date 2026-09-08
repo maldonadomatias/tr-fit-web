@@ -8,6 +8,7 @@ import {
   type AlertType,
 } from '../domain/alert-actions.js';
 import { enqueueRegenJob } from './skeleton-regen.service.js';
+import { assertNotRmTestSwap } from './rm-swap-guard.js';
 
 export class AlertError extends Error {
   constructor(public reason: 'no_coach_assigned' | 'not_found' | 'forbidden') {
@@ -101,6 +102,8 @@ export interface CreateMachineAlertInput {
 export async function createMachineAlert(
   input: CreateMachineAlertInput,
 ): Promise<{ alertId: string }> {
+  await assertNotRmTestSwap(input.athleteId, input.exerciseId);
+
   const a = await pool.query<{ coach_id: string | null }>(
     `SELECT coach_id FROM athlete_profiles WHERE user_id = $1`,
     [input.athleteId],

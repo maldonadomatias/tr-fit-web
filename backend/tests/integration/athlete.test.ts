@@ -115,6 +115,36 @@ it('POST /api/athlete/rm — derives week 30 too', async () => {
   expect(row.rows[0].program_week).toBe(30);
 });
 
+it('POST /api/athlete/exclusions — 409 on an RM-test principal', async () => {
+  const { ath, coach, skeletonId, pid } = await setup();
+  await approveSkeleton(skeletonId, coach);
+  await setProgramWeek(ath, 10);
+  const tok = signToken({ id: ath, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/athlete/exclusions')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ exercise_id: pid });
+  expect(r.status).toBe(409);
+  expect(r.body.error).toBe('rm_test_locked');
+  const rows = await pool.query(
+    `SELECT 1 FROM athlete_excluded_exercises WHERE athlete_id = $1 AND exercise_id = $2`,
+    [ath, pid],
+  );
+  expect(rows.rowCount).toBe(0);
+});
+
+it('POST /api/athlete/exclusions — still allowed for an accessory in RM week', async () => {
+  const { ath, coach, skeletonId, aid } = await setup();
+  await approveSkeleton(skeletonId, coach);
+  await setProgramWeek(ath, 10);
+  const tok = signToken({ id: ath, role: 'athlete' });
+  const r = await request(app)
+    .post('/api/athlete/exclusions')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({ exercise_id: aid });
+  expect(r.status).not.toBe(409);
+});
+
 it('POST /api/athlete/rm — 400 when the current week is not a testing week', async () => {
   const { ath, coach, skeletonId, pid } = await setup();
   await approveSkeleton(skeletonId, coach);

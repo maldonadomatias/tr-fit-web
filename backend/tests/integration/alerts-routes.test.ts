@@ -175,6 +175,51 @@ it('GET /api/admin/alerts supports status=resolved filter', async () => {
   expect(r.body.items.find((a: { id: string }) => a.id === alertId)).toBeDefined();
 });
 
+it('POST /api/alerts sos_machine on an RM-test principal returns 409', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const ex = await pool.query<{ id: number; principal: boolean }>(
+    `(SELECT id, true AS principal FROM exercises WHERE is_principal = TRUE LIMIT 1)
+     UNION ALL
+     (SELECT id, false AS principal FROM exercises WHERE is_principal = FALSE LIMIT 1)`,
+  );
+  const pid = ex.rows.find((r) => r.principal)!.id;
+  const aid = ex.rows.find((r) => !r.principal)!.id;
+  const { createPendingSkeleton, approveSkeleton } = await import(
+    '../../src/services/skeleton.service.js'
+  );
+  const { skeletonId } = await createPendingSkeleton(
+    { athleteId: ath, generationPrompt: {}, generationRationale: 'r' },
+    {
+      rationale: 'r',
+      days: [1, 2, 3, 4].map((d) => ({
+        day_index: d,
+        focus: 'd',
+        slots: [
+          { slot_index: 1, exercise_id: pid, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
+          { slot_index: 2, exercise_id: aid, role: 'accesorio' as const, notes: null, series: null, reps: null, descanso: null },
+        ],
+      })),
+    },
+  );
+  await approveSkeleton(skeletonId, coach);
+  await pool.query(
+    `UPDATE athlete_program_state SET current_week = 10 WHERE athlete_id = $1`,
+    [ath],
+  );
+
+  const tok = signToken({ id: ath, role: 'athlete' });
+  const r = await request(app).post('/api/alerts')
+    .set('Authorization', `Bearer ${tok}`)
+    .send({
+      type: 'sos_machine',
+      exercise_id: pid,
+      payload: { switched_to_exercise_id: aid },
+    });
+  expect(r.status).toBe(409);
+  expect(r.body.error).toBe('rm_test_locked');
+});
+
 it('GET /api/exercises/:id/alternatives returns alternative or null', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);

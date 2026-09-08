@@ -234,4 +234,65 @@ describe('exclusions.service', () => {
     );
     expect(replacement?.id).toBe(exC.id);
   });
+
+  it('excludeExercise rejects a principal in RM-test week and does not persist', async () => {
+    const coachId = await insertUser('coach-excl-rm@test.local', 'admin');
+    await pool.query(
+      `INSERT INTO coach_profiles (user_id, name) VALUES ($1, 'Coach')`,
+      [coachId],
+    );
+    const athleteId = await insertUser('athlete-excl-rm@test.local', 'athlete');
+    await pool.query(
+      `INSERT INTO athlete_profiles
+         (user_id, name, gender, age, height_cm, weight_kg,
+          level, goal, days_per_week, equipment, injuries, coach_id,
+          phone, plan_interest, training_mode, commitment, exercise_minutes,
+          days_specific, referral_source)
+       VALUES ($1, 'Test Atleta RM', 'male', 25, 175, 75,
+               'medio', 'hipertrofia', 4, 'gym_completo', '{}', $2,
+               '+5491111111113', 'full', 'gym', 'normal', 60,
+               '{lun,mar,jue,sab}', 'google')`,
+      [athleteId, coachId],
+    );
+
+    const exA = await insertExercise({
+      name: `ExARM-${tag}`, muscleGroup: `mg-excl-rm-${tag}`, equipment: 'mancuerna',
+    });
+    insertedExerciseIds.push(exA.id);
+    const exB = await insertExercise({
+      name: `ExBRM-${tag}`, muscleGroup: `mg-excl-rm-${tag}`, equipment: 'mancuerna',
+    });
+    insertedExerciseIds.push(exB.id);
+
+    const { createPendingSkeleton, approveSkeleton } = await import(
+      '../../src/services/skeleton.service.js'
+    );
+    const { skeletonId } = await createPendingSkeleton(
+      { athleteId, generationPrompt: {}, generationRationale: 'r' },
+      {
+        rationale: 'r',
+        days: [1, 2, 3, 4].map((d) => ({
+          day_index: d,
+          focus: 'd',
+          slots: [
+            { slot_index: 1, exercise_id: exA.id, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
+            { slot_index: 2, exercise_id: exB.id, role: 'accesorio' as const, notes: null, series: null, reps: null, descanso: null },
+          ],
+        })),
+      },
+    );
+    await approveSkeleton(skeletonId, coachId);
+    await pool.query(
+      `UPDATE athlete_program_state SET current_week = 10 WHERE athlete_id = $1`,
+      [athleteId],
+    );
+
+    const { RmTestLockedError } = await import(
+      '../../src/services/rm-swap-guard.js'
+    );
+    await expect(excludeExercise(athleteId, exA.id)).rejects.toBeInstanceOf(
+      RmTestLockedError,
+    );
+    expect(await listExclusions(athleteId)).toHaveLength(0);
+  });
 });

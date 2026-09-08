@@ -38,6 +38,7 @@ import {
 } from '../services/exclusions.service.js';
 import { resetProgramForGymChange } from '../services/program-reset.service.js';
 import { toAlternativePayloads } from '../services/alternatives.service.js';
+import { RmTestLockedError } from '../services/rm-swap-guard.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -322,19 +323,26 @@ router.post('/exclusions', async (req, res) => {
         .map((n) => Number(n))
         .filter((n) => Number.isInteger(n) && n > 0)
     : [];
-  const { replacement } = await excludeExercise(
-    req.user!.id,
-    exerciseId,
-    sessionLogId,
-    routineExcludeIds
-  );
-  // The replacement logs in its own unit and at its own weight, not the
-  // excluded exercise's.
-  const [payload] = await toAlternativePayloads(
-    req.user!.id,
-    replacement ? [replacement] : []
-  );
-  res.json({ replacement: payload ?? null });
+  try {
+    const { replacement } = await excludeExercise(
+      req.user!.id,
+      exerciseId,
+      sessionLogId,
+      routineExcludeIds
+    );
+    // The replacement logs in its own unit and at its own weight, not the
+    // excluded exercise's.
+    const [payload] = await toAlternativePayloads(
+      req.user!.id,
+      replacement ? [replacement] : []
+    );
+    res.json({ replacement: payload ?? null });
+  } catch (e) {
+    if (e instanceof RmTestLockedError) {
+      return res.status(409).json({ error: 'rm_test_locked' });
+    }
+    throw e;
+  }
 });
 
 router.delete('/exclusions/:exerciseId', async (req, res) => {

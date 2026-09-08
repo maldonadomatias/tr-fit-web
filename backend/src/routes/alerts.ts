@@ -6,6 +6,7 @@ import { alertPayload } from '../domain/schemas.js';
 import {
   createPainAlert, createMachineAlert, AlertError,
 } from '../services/alert.service.js';
+import { RmTestLockedError } from '../services/rm-swap-guard.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -49,6 +50,9 @@ router.post('/', alertLimiter, async (req: Request, res: Response) => {
     }
     return res.status(400).json({ error: 'invalid_type' });
   } catch (e) {
+    if (e instanceof RmTestLockedError) {
+      return res.status(409).json({ error: 'rm_test_locked' });
+    }
     if (e instanceof AlertError) {
       if (e.reason === 'no_coach_assigned') return res.status(422).json({ error: 'no_coach_assigned' });
       if (e.reason === 'not_found') return res.status(404).json({ error: 'not_found' });

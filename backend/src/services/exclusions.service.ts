@@ -2,6 +2,7 @@ import pool from '../db/connect.js';
 import type { Exercise } from '../domain/types.js';
 import { findAlternative } from './alternatives.service.js';
 import { createNoMachineAlert } from './alert.service.js';
+import { assertNotRmTestSwap } from './rm-swap-guard.js';
 
 export interface ExclusionRow {
   exercise_id: number;
@@ -56,6 +57,8 @@ export async function excludeExercise(
       : null;
     return { replacement: repl };
   }
+
+  await assertNotRmTestSwap(athleteId, exerciseId);
 
   // Never pick a replacement already excluded, the target itself, or any other
   // exercise in today's routine (the athlete would otherwise train it twice).

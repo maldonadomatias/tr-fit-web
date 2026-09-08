@@ -296,3 +296,91 @@ it('resolve sos_machine with approve_switch inserts swap override using alert pa
   );
   expect(a.rows[0].resolution_action).toBe('approve_switch');
 });
+
+async function seedRmWeekPrincipal(
+  athleteId: string,
+  coachId: string,
+  principalId: number,
+  accessoryId: number,
+) {
+  const { createPendingSkeleton, approveSkeleton } = await import(
+    '../../src/services/skeleton.service.js'
+  );
+  const { skeletonId } = await createPendingSkeleton(
+    { athleteId, generationPrompt: {}, generationRationale: 'r' },
+    {
+      rationale: 'r',
+      days: [1, 2, 3, 4].map((d) => ({
+        day_index: d,
+        focus: 'd',
+        slots: [
+          {
+            slot_index: 1,
+            exercise_id: principalId,
+            role: 'principal' as const,
+            notes: null,
+            series: null,
+            reps: null,
+            descanso: null,
+          },
+          {
+            slot_index: 2,
+            exercise_id: accessoryId,
+            role: 'accesorio' as const,
+            notes: null,
+            series: null,
+            reps: null,
+            descanso: null,
+          },
+        ],
+      })),
+    },
+  );
+  await approveSkeleton(skeletonId, coachId);
+  await pool.query(
+    `UPDATE athlete_program_state SET current_week = 10 WHERE athlete_id = $1`,
+    [athleteId],
+  );
+}
+
+it('createMachineAlert rejects a swap of an RM-test principal', async () => {
+  const { coach, ath, exerciseId } = await setup();
+  const ex2 = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE id != $1 LIMIT 1`,
+    [exerciseId],
+  );
+  const accessoryId = ex2.rows[0].id;
+  await seedRmWeekPrincipal(ath, coach, exerciseId, accessoryId);
+
+  const { RmTestLockedError } = await import(
+    '../../src/services/rm-swap-guard.js'
+  );
+  await expect(
+    createMachineAlert({
+      athleteId: ath,
+      exerciseId,
+      switchedToExerciseId: accessoryId,
+    }),
+  ).rejects.toBeInstanceOf(RmTestLockedError);
+
+  const alerts = await listAlertsForCoach(coach, true);
+  expect(alerts).toHaveLength(0);
+});
+
+it('createMachineAlert still allows swap of an accessory in RM week', async () => {
+  const { coach, ath, exerciseId } = await setup();
+  const ex2 = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE id != $1 LIMIT 1`,
+    [exerciseId],
+  );
+  const accessoryId = ex2.rows[0].id;
+  await seedRmWeekPrincipal(ath, coach, exerciseId, accessoryId);
+
+  await createMachineAlert({
+    athleteId: ath,
+    exerciseId: accessoryId,
+    switchedToExerciseId: exerciseId,
+  });
+  const alerts = await listAlertsForCoach(coach, true);
+  expect(alerts).toHaveLength(1);
+});
