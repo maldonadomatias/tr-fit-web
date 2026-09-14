@@ -129,9 +129,32 @@ export async function buildTodaySession(
     rmByEx = new Map(rmR.rows.map((r) => [r.exercise_id, Number(r.value_kg)]));
   }
 
+  // RM week can list the same principal on two days (e.g. hip thrust Mon+Fri).
+  // The program week does not roll until Sunday, so a test already logged
+  // this week must not be asked again.
+  let alreadyTestedThisWeek = new Set<number>();
+  if (cfg.is_rm_test) {
+    const testedR = await pool.query<{ exercise_id: number }>(
+      `SELECT exercise_id
+         FROM rm_tests
+        WHERE athlete_id = $1 AND program_week = $2
+          AND exercise_id = ANY($3::int[])`,
+      [athleteId, state.current_week, exerciseIds]
+    );
+    alreadyTestedThisWeek = new Set(testedR.rows.map((r) => r.exercise_id));
+  }
+
   return Promise.all(
     effectiveSlots.map((slot) =>
-      buildItem(athleteId, slot, exById, wByEx, rmByEx, cfg)
+      buildItem(
+        athleteId,
+        slot,
+        exById,
+        wByEx,
+        rmByEx,
+        cfg,
+        alreadyTestedThisWeek
+      )
     )
   );
 }
@@ -149,7 +172,8 @@ async function buildItem(
     }
   >,
   rmByEx: Map<number, number>,
-  cfg: PeriodizationConfig
+  cfg: PeriodizationConfig,
+  alreadyTestedThisWeek: Set<number>
 ): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
   // Accesorios: el bucket sale de la prescripción del slot (038), con el
@@ -195,18 +219,35 @@ async function buildItem(
     );
   } else if (role === 'principal') {
     if (cfg.is_rm_test) {
-      item = baseItem(
-        exercise,
-        role,
-        slot.slot_index,
-        null,
-        unit,
-        cfg.principal_series,
-        cfg.principal_reps,
-        cfg.principal_descanso,
-        notes,
-        'rm_test'
-      );
+      if (alreadyTestedThisWeek.has(slot.exercise_id)) {
+        // Repeat day after the test: 3×8 with last working weight (or free
+        // choice if none is logged). Matches the coach-facing copy.
+        item = baseItem(
+          exercise,
+          role,
+          slot.slot_index,
+          aewValue,
+          unit,
+          3,
+          '8',
+          '3 min',
+          notes,
+          'rm_already_done'
+        );
+      } else {
+        item = baseItem(
+          exercise,
+          role,
+          slot.slot_index,
+          null,
+          unit,
+          cfg.principal_series,
+          cfg.principal_reps,
+          cfg.principal_descanso,
+          notes,
+          'rm_test'
+        );
+      }
     } else if (cfg.is_amrap) {
       const rm = rmByEx.get(slot.exercise_id);
       if (!rm) {
@@ -388,7 +429,7 @@ function baseItem(
   reps: string,
   descanso: string,
   notes: string | null,
-  flag?: 'rm_test' | 'missing_rm' | 'amrap'
+  flag?: 'rm_test' | 'missing_rm' | 'amrap' | 'rm_already_done'
 ): SessionItem {
   return {
     exercise: ex,

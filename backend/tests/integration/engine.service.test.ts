@@ -112,6 +112,49 @@ it('rm_test flag on week 10 even without RM', async () => {
 // El bloqueo de la semana de testeo era un deadlock: rm_test_blocking cortaba
 // la sesión antes de construirla, y la única forma de limpiarlo (cargar los RM)
 // vivía adentro de esa misma sesión. La semana de testeo SE ENTRENA.
+// Hip thrust (u otro principal) puede aparecer Lunes y Viernes en la misma
+// semana de testeo. El domingo avanza la semana: hasta entonces, un RM ya
+// cargado no se vuelve a pedir — se receta un 3×8 con el último peso.
+it('does not re-ask RM for an exercise already tested this week', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 10);
+  await setWeight(ath, principalId, 80);
+  await pool.query(
+    `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg)
+     VALUES ($1, $2, 10, 120)`,
+    [ath, principalId],
+  );
+  const session = await buildTodaySession(ath, 2);
+  const principal = session.find((s) => s.role === 'principal')!;
+  expect(principal.flag).toBe('rm_already_done');
+  expect(principal.series).toBe(3);
+  expect(principal.reps).toBe('8');
+  expect(principal.suggested_value).toBe(80);
+});
+
+it('still asks RM in week 10 when a different exercise was tested', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await setup4DaySkeleton(ath, coach);
+  const other = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE is_principal = TRUE AND id <> $1 LIMIT 1`,
+    [principalId],
+  );
+  await setProgramWeek(ath, 10);
+  await pool.query(
+    `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg)
+     VALUES ($1, $2, 10, 100)`,
+    [ath, other.rows[0].id],
+  );
+  const session = await buildTodaySession(ath, 1);
+  const principal = session.find((s) => s.role === 'principal')!;
+  expect(principal.flag).toBe('rm_test');
+  expect(principal.series).toBe(1);
+  expect(principal.reps).toBe('1');
+});
+
 it('builds the week-10 session even with rm_test_blocking = TRUE', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);

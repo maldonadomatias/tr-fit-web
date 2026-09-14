@@ -132,7 +132,7 @@ export interface SessionItem {
   modality: ExerciseModality;
   descanso: string;
   notes: string | null;
-  flag?: 'rm_test' | 'missing_rm' | 'amrap';
+  flag?: 'rm_test' | 'missing_rm' | 'amrap' | 'rm_already_done';
 }
 
 export interface RefreshToken {
