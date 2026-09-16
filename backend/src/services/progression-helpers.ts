@@ -227,6 +227,32 @@ export function advanceReps(
   return { newReps: currentReps, bumpWeight: false };
 }
 
+/**
+ * Per-drop suggested weights for a 10x10x10 / 12x12x12 (or longer) dropset.
+ *
+ * AEW only stores the heaviest drop. Reconstructing the rest as
+ * `heaviest - i * 2.5` is right for ladrillos (they drop by 1) and wrong for
+ * kg: athletes log 40-30-20 and the next session showed 40-37.5-35. When
+ * history exists, keep those gaps and apply the same delta weekly progression
+ * already applied to the heaviest (12x12x12 → 10x10x10 bumps 40 → 42.5, so
+ * every drop goes +2.5). No history → null; the client keeps its first-time
+ * fallback.
+ */
+export function suggestDropWeights(
+  dropCount: number,
+  suggested: number | null,
+  lastDrops: number[]
+): number[] | null {
+  if (dropCount < 1 || suggested == null || lastDrops.length === 0) return null;
+  const heaviest = lastDrops[0];
+  const delta = suggested - heaviest;
+  const lastKnown = lastDrops[lastDrops.length - 1];
+  return Array.from({ length: dropCount }, (_, i) => {
+    const base = i < lastDrops.length ? lastDrops[i] : lastKnown;
+    return Math.round((base + delta) * 100) / 100;
+  }).map((n) => Math.max(0, n));
+}
+
 export function isExcludedFromAutoProgression(
   exerciseName: string,
   muscleGroup: string

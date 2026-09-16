@@ -126,6 +126,9 @@ export interface SessionItem {
   role: SlotRole;
   slot_index: number;
   suggested_value: number | null;
+  // Dropset only: last session's per-drop weights (plus any weekly bump).
+  // Absent when the athlete has never logged this dropset.
+  suggested_drops?: number[];
   unit: 'kg' | 'ladrillos';
   series: number;
   reps: string;

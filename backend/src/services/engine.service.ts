@@ -2,6 +2,7 @@ import pool from '../db/connect.js';
 import {
   resolveAccessoryReps,
   roundWeightForEquipment,
+  suggestDropWeights,
   weightScheme,
 } from './progression-helpers.js';
 import { resolveUnit } from './equipment-units.service.js';
@@ -153,6 +154,8 @@ export async function buildTodaySession(
     alreadyTestedThisWeek = new Set(testedR.rows.map((r) => r.exercise_id));
   }
 
+  const lastDropsByEx = await loadLastDropWeights(athleteId, exerciseIds);
+
   return Promise.all(
     effectiveSlots.map((slot) =>
       buildItem(
@@ -162,10 +165,69 @@ export async function buildTodaySession(
         wByEx,
         rmByEx,
         cfg,
-        alreadyTestedThisWeek
+        alreadyTestedThisWeek,
+        lastDropsByEx
       )
     )
   );
+}
+
+/**
+ * Last completed dropset series per exercise, ordered by drop_index.
+ * AEW only keeps the heaviest; these gaps are what the next session prefills.
+ */
+async function loadLastDropWeights(
+  athleteId: string,
+  exerciseIds: number[]
+): Promise<Map<number, number[]>> {
+  if (exerciseIds.length === 0) return new Map();
+  const r = await pool.query<{
+    exercise_id: number;
+    drop_index: number;
+    value: string;
+  }>(
+    `WITH last_drop_series AS (
+       SELECT DISTINCT ON (exercise_id)
+              exercise_id, week, day_of_week, set_index
+         FROM set_logs
+        WHERE athlete_id = $1
+          AND exercise_id = ANY($2::int[])
+          AND drop_index IS NOT NULL
+          AND completed = TRUE
+          AND COALESCE(value, weight_kg) IS NOT NULL
+        ORDER BY exercise_id, logged_at DESC, week DESC, set_index DESC
+     )
+     SELECT sl.exercise_id,
+            sl.drop_index,
+            COALESCE(sl.value, sl.weight_kg)::text AS value
+       FROM set_logs sl
+       JOIN last_drop_series ls
+         ON sl.exercise_id = ls.exercise_id
+        AND sl.week = ls.week
+        AND sl.day_of_week = ls.day_of_week
+        AND sl.set_index = ls.set_index
+      WHERE sl.athlete_id = $1
+        AND sl.drop_index IS NOT NULL
+        AND sl.completed = TRUE
+        AND COALESCE(sl.value, sl.weight_kg) IS NOT NULL
+      ORDER BY sl.exercise_id, sl.drop_index`,
+    [athleteId, exerciseIds]
+  );
+  const byEx = new Map<number, number[]>();
+  for (const row of r.rows) {
+    const arr = byEx.get(row.exercise_id) ?? [];
+    arr[row.drop_index - 1] = Number(row.value);
+    byEx.set(row.exercise_id, arr);
+  }
+  for (const [id, arr] of byEx) {
+    byEx.set(
+      id,
+      arr.filter(
+        (v): v is number => typeof v === 'number' && Number.isFinite(v)
+      )
+    );
+  }
+  return byEx;
 }
 
 async function buildItem(
@@ -182,7 +244,8 @@ async function buildItem(
   >,
   rmByEx: Map<number, number>,
   cfg: PeriodizationConfig,
-  alreadyTestedThisWeek: Set<number>
+  alreadyTestedThisWeek: Set<number>,
+  lastDropsByEx: Map<number, number[]>
 ): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
   // Accesorios: el bucket sale de la prescripción del slot (038), con el
@@ -366,7 +429,17 @@ async function buildItem(
     );
   }
 
-  return applyOverride(item, slot._override, exercise);
+  item = applyOverride(item, slot._override, exercise);
+  if (weightScheme(item.reps) === 'dropset') {
+    const dropCount = (item.reps.match(/\d+/g) ?? []).length;
+    const suggestedDrops = suggestDropWeights(
+      dropCount,
+      item.suggested_value,
+      lastDropsByEx.get(exercise.id) ?? []
+    );
+    if (suggestedDrops) item = { ...item, suggested_drops: suggestedDrops };
+  }
+  return item;
 }
 
 /**

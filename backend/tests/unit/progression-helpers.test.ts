@@ -12,6 +12,7 @@ import {
   isExcludedFromAutoProgression,
   resolveAccessoryReps,
   roundWeightForEquipment,
+  suggestDropWeights,
 } from '../../src/services/progression-helpers.js';
 
 describe('roundToNearest25', () => {
@@ -273,6 +274,41 @@ describe('isExcludedFromAutoProgression', () => {
     expect(
       isExcludedFromAutoProgression('Curl Biceps con Mancuerna', 'biceps')
     ).toBe(false);
+  });
+});
+
+describe('suggestDropWeights', () => {
+  it('returns null without a logged drop history', () => {
+    expect(suggestDropWeights(3, 40, [])).toBeNull();
+  });
+
+  it('returns null when there is no suggested heaviest', () => {
+    expect(suggestDropWeights(3, null, [40, 30, 20])).toBeNull();
+  });
+
+  it('keeps the logged kg gaps when the heaviest did not bump', () => {
+    // Ticket #7: 40-30-20 must NOT collapse onto 2.5 steps (40-37.5-35).
+    expect(suggestDropWeights(3, 40, [40, 30, 20])).toEqual([40, 30, 20]);
+  });
+
+  it('adds the 12x12x12→10x10x10 bump to every drop, not just the heaviest', () => {
+    expect(suggestDropWeights(3, 42.5, [40, 30, 20])).toEqual([
+      42.5, 32.5, 22.5,
+    ]);
+  });
+
+  it('keeps 1-ladrillo gaps and applies a +1 bump to each drop', () => {
+    expect(suggestDropWeights(3, 9, [8, 7, 6])).toEqual([9, 8, 7]);
+  });
+
+  it('trims extra logged drops when the scheme has fewer', () => {
+    expect(suggestDropWeights(3, 40, [40, 30, 20, 10])).toEqual([40, 30, 20]);
+  });
+
+  it('pads a longer scheme from the last known drop', () => {
+    expect(suggestDropWeights(5, 42.5, [40, 30, 20])).toEqual([
+      42.5, 32.5, 22.5, 22.5, 22.5,
+    ]);
   });
 });
 
