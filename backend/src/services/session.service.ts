@@ -228,7 +228,9 @@ export async function getActive(
 
   let items: import('../domain/types.js').SessionItem[] = [];
   try {
-    items = await buildTodaySession(athleteId, row.day_of_week);
+    items = await buildTodaySession(athleteId, row.day_of_week, {
+      ignoreRmsOnOrAfter: row.started_at,
+    });
   } catch (e) {
     if (!(e instanceof TodayBlockedError)) throw e;
     // Allow stale active sessions to surface even if engine refuses to

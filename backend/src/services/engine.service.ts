@@ -27,7 +27,8 @@ export class TodayBlockedError extends Error {
 
 export async function buildTodaySession(
   athleteId: string,
-  dayOfWeek: number
+  dayOfWeek: number,
+  opts?: { ignoreRmsOnOrAfter?: Date | string | null }
 ): Promise<SessionItem[]> {
   const stateR = await pool.query<{
     current_week: number;
@@ -131,15 +132,23 @@ export async function buildTodaySession(
 
   // RM week can list the same principal on two days (e.g. hip thrust Mon+Fri).
   // The program week does not roll until Sunday, so a test already logged
-  // this week must not be asked again.
+  // this week must not be asked again — except the test logged DURING the
+  // in-progress session. GET /active rebuilds items; counting that RM turned
+  // the same day's 1×1 rm_test into 3×8 rm_already_done (ticket #6).
   let alreadyTestedThisWeek = new Set<number>();
   if (cfg.is_rm_test) {
     const testedR = await pool.query<{ exercise_id: number }>(
       `SELECT exercise_id
          FROM rm_tests
         WHERE athlete_id = $1 AND program_week = $2
-          AND exercise_id = ANY($3::int[])`,
-      [athleteId, state.current_week, exerciseIds]
+          AND exercise_id = ANY($3::int[])
+          AND ($4::timestamptz IS NULL OR tested_at < $4)`,
+      [
+        athleteId,
+        state.current_week,
+        exerciseIds,
+        opts?.ignoreRmsOnOrAfter ?? null,
+      ]
     );
     alreadyTestedThisWeek = new Set(testedR.rows.map((r) => r.exercise_id));
   }

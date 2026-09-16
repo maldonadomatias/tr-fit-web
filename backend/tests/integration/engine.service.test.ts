@@ -134,6 +134,25 @@ it('does not re-ask RM for an exercise already tested this week', async () => {
   expect(principal.suggested_value).toBe(80);
 });
 
+it('keeps the 1×1 RM test when that RM was logged after the session started', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 10);
+  await pool.query(
+    `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg, tested_at)
+     VALUES ($1, $2, 10, 90, '2026-09-16T12:05:00Z')`,
+    [ath, principalId],
+  );
+  const session = await buildTodaySession(ath, 1, {
+    ignoreRmsOnOrAfter: '2026-09-16T12:00:00Z',
+  });
+  const principal = session.find((s) => s.role === 'principal')!;
+  expect(principal.flag).toBe('rm_test');
+  expect(principal.series).toBe(1);
+  expect(principal.reps).toBe('1');
+});
+
 it('still asks RM in week 10 when a different exercise was tested', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);

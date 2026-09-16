@@ -131,6 +131,21 @@ describe('getActive', () => {
     expect(r.session?.current_slot_index).toBe(2); // items.length
   });
 
+  it('rebuilds items ignoring RMs logged at or after this session started', async () => {
+    pushHandler(
+      (s) => s.startsWith('SELECT id, day_of_week, started_at FROM session_logs'),
+      [{ id: 'sess-1', day_of_week: 1, started_at: '2026-05-13T10:00:00Z' }],
+    );
+    pushHandler(
+      (s) => s.startsWith('SELECT * FROM set_logs'),
+      [],
+    );
+    await getActive('athlete-1');
+    expect(mockBuildToday).toHaveBeenCalledWith('athlete-1', 1, {
+      ignoreRmsOnOrAfter: '2026-05-13T10:00:00Z',
+    });
+  });
+
   it('ignores incomplete sets when counting', async () => {
     pushHandler(
       (s) => s.startsWith('SELECT id, day_of_week, started_at FROM session_logs'),

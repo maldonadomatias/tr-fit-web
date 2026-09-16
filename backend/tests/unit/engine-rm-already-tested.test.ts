@@ -84,6 +84,7 @@ function baseHandlers(opts: {
   currentWeek?: number;
   alreadyTested?: boolean;
   aewKg?: number | null;
+  testedAt?: string;
 }) {
   handlers.length = 0;
   const week = opts.currentWeek ?? 10;
@@ -141,14 +142,19 @@ function baseHandlers(opts: {
         }
       : null
   );
-  handlers.push((s) =>
-    s.includes('FROM rm_tests')
-      ? {
-          rows: opts.alreadyTested ? [{ exercise_id: 7, value_kg: '120' }] : [],
-          rowCount: opts.alreadyTested ? 1 : 0,
-        }
-      : null
-  );
+  handlers.push((s, params) => {
+    if (!s.includes('FROM rm_tests')) return null;
+    if (!opts.alreadyTested) return { rows: [], rowCount: 0 };
+    const cutoff = params?.[3];
+    const testedAt = opts.testedAt ?? '2026-09-01T10:00:00Z';
+    if (cutoff && new Date(testedAt) >= new Date(String(cutoff))) {
+      return { rows: [], rowCount: 0 };
+    }
+    return {
+      rows: [{ exercise_id: 7, value_kg: '120', tested_at: testedAt }],
+      rowCount: 1,
+    };
+  });
 }
 
 describe('buildTodaySession — RM already tested this week', () => {
@@ -190,5 +196,37 @@ describe('buildTodaySession — RM already tested this week', () => {
     expect(principal.series).toBe(3);
     expect(principal.reps).toBe('8');
     expect(principal.suggested_value).toBe(90);
+  });
+
+  // Ticket #6: anotar el RM mid-session reconstruía el mismo día como 3×8
+  // rm_already_done (eso es para un día posterior de la semana). GET /active
+  // pasa started_at para no contar el test que se acaba de cargar.
+  it('still asks RM when the only test this week was logged after session start', async () => {
+    baseHandlers({
+      alreadyTested: true,
+      aewKg: 80,
+      testedAt: '2026-09-16T12:05:00Z',
+    });
+    const items = await buildTodaySession('athlete-1', 3, {
+      ignoreRmsOnOrAfter: '2026-09-16T12:00:00Z',
+    });
+    const principal = items.find((i) => i.role === 'principal')!;
+    expect(principal.flag).toBe('rm_test');
+    expect(principal.series).toBe(1);
+    expect(principal.reps).toBe('1');
+  });
+
+  it('still uses 3×8 when the RM was logged before this session', async () => {
+    baseHandlers({
+      alreadyTested: true,
+      aewKg: 80,
+      testedAt: '2026-09-14T10:00:00Z',
+    });
+    const items = await buildTodaySession('athlete-1', 3, {
+      ignoreRmsOnOrAfter: '2026-09-16T12:00:00Z',
+    });
+    const principal = items.find((i) => i.role === 'principal')!;
+    expect(principal.flag).toBe('rm_already_done');
+    expect(principal.series).toBe(3);
   });
 });
