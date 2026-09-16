@@ -2,7 +2,7 @@ import pool from '../db/connect.js';
 import { env } from '../config/env.js';
 import {
   advanceReps,
-  applyIncrement,
+  applySchemeIncrement,
   isExcludedFromAutoProgression,
   qualifiesForProgression,
   resolveAccessoryReps,
@@ -162,14 +162,14 @@ export async function runWeeklyProgressionForAthlete(
 
       const adv = advanceReps(currentReps, { threshold, resetReps });
 
+      // Resolve unit before the bump: dropset kg uses a 2.5 plate, ladrillos +1.
+      const unit = w.unit ?? (await resolveUnit(athleteId, ex.equipment));
+
       let newWeight: number | null =
         w.current_value === null ? null : Number(w.current_value);
       if (adv.bumpWeight && newWeight !== null) {
-        newWeight = applyIncrement(newWeight, ex);
+        newWeight = applySchemeIncrement(newWeight, ex, ex.scheme, unit);
       }
-
-      // Resolve unit: prefer stored unit, fall back to resolveUnit
-      const unit = w.unit ?? (await resolveUnit(athleteId, ex.equipment));
 
       await client.query(
         `UPDATE athlete_exercise_weights

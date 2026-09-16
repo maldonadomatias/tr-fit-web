@@ -8,6 +8,7 @@ import {
   GRUPOS_EXCLUIDOS,
   roundToNearest25,
   applyIncrement,
+  applySchemeIncrement,
   advanceReps,
   isExcludedFromAutoProgression,
   resolveAccessoryReps,
@@ -145,6 +146,42 @@ describe('applyIncrement — maquina/polea (+1)', () => {
         })
       )
     ).toBe(16);
+  });
+});
+
+describe('applySchemeIncrement — dropset kg uses a 2.5 plate', () => {
+  const remo = mockExercise({
+    name: 'Remo en Maquina Sentado',
+    equipment: 'maquina',
+    default_increment_kg: 1,
+  });
+
+  it('máquina dropset in kg: 40 -> 42.5 (not +1)', () => {
+    expect(applySchemeIncrement(40, remo, 'dropset', 'kg')).toBe(42.5);
+  });
+
+  it('máquina straight sets in kg stay +1', () => {
+    expect(applySchemeIncrement(40, remo, 'normal', 'kg')).toBe(41);
+  });
+
+  it('dropset in ladrillos stays +1', () => {
+    const polea = mockExercise({
+      name: 'Triceps con Soga en Polea Alta',
+      equipment: 'polea',
+      default_increment_kg: 1,
+    });
+    expect(applySchemeIncrement(8, polea, 'dropset', 'ladrillos')).toBe(9);
+  });
+
+  it('mancuerna dropset in kg still follows the dumbbell list', () => {
+    expect(
+      applySchemeIncrement(
+        12,
+        mockExercise({ name: 'Curl con Mancuerna', equipment: 'mancuerna' }),
+        'dropset',
+        'kg'
+      )
+    ).toBe(12.5);
   });
 });
 

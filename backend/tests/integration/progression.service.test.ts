@@ -416,3 +416,86 @@ it('advances dropset and normal buckets independently for the same exercise', as
   expect(byScheme.get('dropset')).toEqual({ kg: 12.5, reps: '10x10x10' });
   expect(byScheme.get('normal')).toEqual({ kg: 20, reps: '10' });
 });
+
+it('bumps a kg dropset on máquina by 2.5, not the +1 pin table', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const p = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE is_principal = TRUE ORDER BY id LIMIT 1`
+  );
+  const a = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises
+      WHERE is_principal = FALSE AND equipment = 'maquina'
+        AND name !~* 'prensa|jalon|face pull|flexion|fondos|mariposa|nordico|pantorrillas en maquina sentado'
+        AND muscle_group !~* 'abdomen|calentamiento|cardio|superserie'
+      ORDER BY id LIMIT 1`
+  );
+  const principalId = p.rows[0].id;
+  const accesorioId = a.rows[0].id;
+  const ai = {
+    rationale: 'r',
+    days: [1, 2, 3, 4].map((d) => ({
+      day_index: d,
+      focus: 'd',
+      slots: [
+        {
+          slot_index: 1,
+          exercise_id: principalId,
+          role: 'principal' as const,
+          notes: null,
+          series: null,
+          reps: null,
+          descanso: null,
+        },
+        {
+          slot_index: 2,
+          exercise_id: accesorioId,
+          role: 'accesorio' as const,
+          notes: null,
+          series: 2,
+          reps: '10x10x10',
+          descanso: '2 min',
+        },
+      ],
+    })),
+  };
+  const { skeletonId } = await createPendingSkeleton(
+    { athleteId: ath, generationPrompt: {}, generationRationale: '' },
+    ai
+  );
+  await approveSkeleton(skeletonId, coach);
+
+  await pool.query(
+    `INSERT INTO athlete_exercise_weights
+       (athlete_id, exercise_id, current_weight_kg, current_value, unit,
+        current_reps_text, updated_by, scheme)
+     VALUES ($1, $2, 40, 40, 'kg', '12x12x12', 'coach', 'dropset')
+     ON CONFLICT (athlete_id, exercise_id, scheme) DO UPDATE
+       SET current_value = EXCLUDED.current_value,
+           current_weight_kg = EXCLUDED.current_weight_kg,
+           current_reps_text = EXCLUDED.current_reps_text,
+           unit = EXCLUDED.unit`,
+    [ath, accesorioId]
+  );
+  await pool.query(
+    `INSERT INTO set_logs
+       (athlete_id, exercise_id, week, day_of_week, set_index, completed, drop_index)
+     VALUES ($1, $2, 1, 1, 1, TRUE, 1), ($1, $2, 1, 1, 1, TRUE, 2),
+            ($1, $2, 1, 1, 1, TRUE, 3)`,
+    [ath, accesorioId]
+  );
+
+  await runWeeklyProgressionForAthlete(ath);
+
+  const row = await pool.query<{
+    current_value: string;
+    current_reps_text: string | null;
+  }>(
+    `SELECT current_value::text, current_reps_text
+       FROM athlete_exercise_weights
+      WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = 'dropset'`,
+    [ath, accesorioId]
+  );
+  expect(Number(row.rows[0].current_value)).toBe(42.5);
+  expect(row.rows[0].current_reps_text).toBe('10x10x10');
+});

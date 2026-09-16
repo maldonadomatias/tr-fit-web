@@ -157,6 +157,29 @@ function repSchemeFamily(reps: string): RepSchemeFamily {
 export type WeightScheme = 'normal' | 'dropset';
 
 /**
+ * Weekly bump for one AEW bucket.
+ *
+ * Dropsets in kg on máquina/polea jump a 2.5 plate (the app stepper), not the
+ * +1 pin-stack table. Smith is already +2.5 via applyIncrement. Ladrillos and
+ * straight sets keep applyIncrement.
+ */
+export function applySchemeIncrement(
+  currentKg: number,
+  exercise: Exercise,
+  scheme: WeightScheme,
+  unit: string | null
+): number {
+  if (
+    scheme === 'dropset' &&
+    unit === 'kg' &&
+    (exercise.equipment === 'maquina' || exercise.equipment === 'polea')
+  ) {
+    return currentKg + 2.5;
+  }
+  return applyIncrement(currentKg, exercise);
+}
+
+/**
  * Bucket de carga al que pertenece una prescripción.
  *
  * El coach maneja dos escaleras distintas para el MISMO ejercicio: el dropset /
