@@ -19,8 +19,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useActiveRutina, useApplyRutinaEdits } from '@/hooks/useAdminRutina';
 import { useAlerts } from '@/hooks/useAlerts';
+import type { AddedSlotData } from '@/components/admin/rutinas/AddSlotPopover';
 import type { SlotOverride } from '@/components/admin/rutinas/EditSlotPopover';
-import type { ApplyEditsInput, Exercise, RutinaSlot } from '@/types/api';
+import type { ApplyEditsInput, RutinaSlot } from '@/types/api';
 import {
   DayCard,
   dayDragId,
@@ -229,7 +230,7 @@ export function DetailPaneActivas({
     setDeleted((ids) => new Set(ids).add(slotId));
   }
 
-  function onAdd(dayOfWeek: number, exercise: Exercise) {
+  function onAdd(dayOfWeek: number, data: AddedSlotData) {
     const daySlots = draftSlots.filter(
       (slot) => slot.day_of_week === dayOfWeek
     );
@@ -241,15 +242,14 @@ export function DetailPaneActivas({
       id: crypto.randomUUID(),
       day_of_week: dayOfWeek,
       slot_index: daySlots.length + 1,
-      exercise_id: exercise.id,
-      role: 'accesorio',
-      notes: null,
-      series: null,
-      reps: null,
-      descanso: null,
-      exercise_name: exercise.name,
-      muscle_group: exercise.muscle_group,
-      equipment: exercise.equipment,
+      exercise_id: data.exercise_id,
+      role: data.role,
+      notes: data.notes ?? null,
+      series: data.series ?? null,
+      reps: data.reps ?? null,
+      descanso: data.descanso ?? null,
+      exercise_name: data.exercise_name,
+      muscle_group: data.muscle_group,
     };
     setOrder((slots) => [...(slots ?? serverSlots), newSlot]);
     setAddedIds((ids) => new Set(ids).add(newSlot.id));

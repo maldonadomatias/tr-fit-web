@@ -157,4 +157,60 @@ describe('DetailPaneActivas draft save', () => {
     expect(await screen.findByText('Aperturas')).toBeInTheDocument();
     expect(api.post).not.toHaveBeenCalled();
   });
+
+  it('adds a principal lift following the current week, not a fixed accessory scheme', async () => {
+    vi.mocked(api.get).mockImplementation(async (url: string) => {
+      if (url.startsWith('/admin/rutinas/atleta/')) {
+        return { data: rutinaResponse };
+      }
+      if (url.startsWith('/exercises') || url.startsWith('/admin/exercises')) {
+        return {
+          data: {
+            items: [
+              {
+                id: 10,
+                name: 'Press Plano con Barra',
+                muscle_group: 'Pecho - Mayor',
+                equipment: 'barra',
+                is_principal: true,
+              },
+            ],
+            total: 1,
+          },
+        };
+      }
+      return { data: { items: [] } };
+    });
+
+    const user = userEvent.setup();
+    renderPane();
+    await screen.findByText('Press Banca');
+
+    await user.click(
+      screen.getAllByRole('button', { name: /agregar ejercicio/i })[0]
+    );
+    await user.click(await screen.findByText('Press Plano con Barra'));
+
+    const roleSelect = await screen.findByLabelText('Rol en la rutina');
+    expect(roleSelect).toHaveValue('principal');
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+
+    expect(screen.getByText('Press Plano con Barra')).toBeInTheDocument();
+    expect(screen.getAllByText('principal')).toHaveLength(2);
+
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    const [, body] = vi.mocked(api.post).mock.calls[0];
+    expect(body).toMatchObject({
+      added_slots: [
+        expect.objectContaining({
+          exercise_id: 10,
+          role: 'principal',
+          series: null,
+          reps: null,
+          descanso: null,
+        }),
+      ],
+    });
+  });
 });

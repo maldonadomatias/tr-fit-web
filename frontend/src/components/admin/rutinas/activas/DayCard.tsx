@@ -1,5 +1,5 @@
-import { useState, type CSSProperties } from 'react';
-import { GripVertical, Plus } from 'lucide-react';
+import { type CSSProperties } from 'react';
+import { GripVertical } from 'lucide-react';
 import {
   arrayMove,
   SortableContext,
@@ -7,11 +7,10 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button } from '@/components/ui/button';
-import { ExerciseSwapDialog } from './ExerciseSwapDialog';
+import { AddSlotPopover, type AddedSlotData } from '../AddSlotPopover';
 import { SlotRow } from './SlotRow';
 import type { SlotOverride } from '@/components/admin/rutinas/EditSlotPopover';
-import type { Exercise, RutinaSlot } from '@/types/api';
+import type { RutinaSlot } from '@/types/api';
 
 const DAY_LABEL: Record<string, string> = {
   lun: 'Lunes',
@@ -80,7 +79,7 @@ interface DayCardProps {
   editedSlotIds: Set<string>;
   onEdit(slotId: string, payload: SlotOverride): void;
   onDelete(slotId: string): void;
-  onAdd(dayOfWeek: number, exercise: Exercise): void;
+  onAdd(dayOfWeek: number, data: AddedSlotData): void;
   onFocusChange(dayOfWeek: number, focus: string): void;
 }
 /* eslint-enable no-unused-vars */
@@ -99,7 +98,6 @@ export function DayCard({
   onFocusChange,
 }: DayCardProps) {
   const nextIndex = nextAvailableSlotIndex(slots);
-  const [addOpen, setAddOpen] = useState(false);
   const {
     attributes,
     listeners,
@@ -169,26 +167,16 @@ export function DayCard({
           ))}
         </SortableContext>
       </div>
-      <div className="flex flex-wrap items-center gap-y-1 px-4 py-3 sm:px-5">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setAddOpen(true)}
+      <div className="border-t border-border">
+        <AddSlotPopover
           disabled={nextIndex === null}
-        >
-          <Plus size={14} className="mr-1" /> Agregar ejercicio
-        </Button>
-        {nextIndex === null && (
-          <span className="ml-2 text-xs text-muted-foreground">
-            Máximo 12 por día.
-          </span>
-        )}
-        <ExerciseSwapDialog
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          onSelect={(_, exercise) => onAdd(dayOfWeek, exercise)}
-          title={`Agregar ejercicio al día ${dayOfWeek}`}
+          onAdd={(data) => onAdd(dayOfWeek, data)}
         />
+        {nextIndex === null && (
+          <p className="px-4 pb-3 text-xs text-muted-foreground sm:px-5">
+            Máximo 12 por día.
+          </p>
+        )}
       </div>
     </section>
   );

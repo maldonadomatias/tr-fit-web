@@ -8,10 +8,30 @@ import { AddSlotPopover } from './AddSlotPopover';
 // build the group dropdown) and a subgroup-filtered list when muscle_group is
 // passed.
 const CATALOG: Partial<Exercise>[] = [
-  { id: 1, name: 'Sentadilla', muscle_group: 'Piernas - Cuadriceps' },
-  { id: 2, name: 'Extension Cuadriceps', muscle_group: 'Piernas - Cuadriceps' },
-  { id: 3, name: 'Curl Femoral', muscle_group: 'Piernas - Femorales' },
-  { id: 4, name: 'Press Banca', muscle_group: 'Pecho - Mayor' },
+  {
+    id: 1,
+    name: 'Sentadilla',
+    muscle_group: 'Piernas - Cuadriceps',
+    is_principal: true,
+  },
+  {
+    id: 2,
+    name: 'Extension Cuadriceps',
+    muscle_group: 'Piernas - Cuadriceps',
+    is_principal: false,
+  },
+  {
+    id: 3,
+    name: 'Curl Femoral',
+    muscle_group: 'Piernas - Femorales',
+    is_principal: false,
+  },
+  {
+    id: 4,
+    name: 'Press Banca',
+    muscle_group: 'Pecho - Mayor',
+    is_principal: true,
+  },
 ];
 
 const search = vi.fn(
@@ -60,5 +80,60 @@ describe('AddSlotPopover · filtro por grupo muscular', () => {
     // Se ve un cuádriceps y no el femoral.
     expect(screen.getByText('Extension Cuadriceps')).toBeInTheDocument();
     expect(screen.queryByText('Curl Femoral')).not.toBeInTheDocument();
+  });
+});
+
+describe('AddSlotPopover · rol y periodización semanal', () => {
+  beforeEach(() => {
+    search.mockClear();
+  });
+
+  it('al elegir un ejercicio principal, entra como Principal sin series fijas', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    await user.click(await screen.findByText('Press Banca'));
+
+    expect(screen.getByLabelText('Rol en la rutina')).toHaveValue('principal');
+    expect(screen.queryByLabelText('Series')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercise_id: 4,
+        exercise_name: 'Press Banca',
+        role: 'principal',
+        series: null,
+        reps: null,
+        descanso: null,
+      })
+    );
+  });
+
+  it('al elegir un accesorio, deja series vacías para seguir la semana', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    await user.click(await screen.findByText('Curl Femoral'));
+
+    expect(screen.getByLabelText('Rol en la rutina')).toHaveValue('accesorio');
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercise_id: 3,
+        role: 'accesorio',
+        series: null,
+        reps: null,
+        descanso: null,
+      })
+    );
   });
 });

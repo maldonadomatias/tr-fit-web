@@ -23,17 +23,18 @@ export type AddedSlotData = {
 };
 
 /**
- * Adds a brand-new accessory slot to a day. New exercises always enter as
- * accessories: the admin may set a per-slot scheme or leave it blank to follow
- * the week's periodization (mirrors {@link EditSlotPopover}).
+ * Adds a slot to a day. Principal lifts default to weekly periodization;
+ * accessories may set a scheme or leave it blank to follow the week's
+ * accessory prescription (mirrors {@link EditSlotPopover}).
  */
-export function AddSlotPopover({
-  disabled,
-  onAdd,
-}: {
+/* eslint-disable no-unused-vars -- callback parameter names document the API */
+type AddSlotPopoverProps = {
   disabled?: boolean;
-  onAdd: (data: AddedSlotData) => void;
-}) {
+  onAdd(data: AddedSlotData): void;
+};
+/* eslint-enable no-unused-vars */
+
+export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('');
@@ -77,11 +78,18 @@ export function AddSlotPopover({
   function commit() {
     const ex = selected ?? results.find((r) => r.name === query.trim()) ?? null;
     if (!ex) return;
+    const commitRole = selected
+      ? role
+      : ex.is_principal
+        ? 'principal'
+        : role === 'principal'
+          ? 'accesorio'
+          : role;
     onAdd({
       exercise_id: ex.id,
       exercise_name: ex.name,
       muscle_group: ex.muscle_group,
-      role,
+      role: commitRole,
       notes: notes.trim() || undefined,
       series: series.trim() ? Number(series) : null,
       reps: reps.trim() || null,
@@ -158,6 +166,7 @@ export function AddSlotPopover({
                     onClick={() => {
                       setSelected(r);
                       setQuery(r.name);
+                      setRole(r.is_principal ? 'principal' : 'accesorio');
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-2 py-1.5 text-left text-[12px] transition hover:bg-muted',
