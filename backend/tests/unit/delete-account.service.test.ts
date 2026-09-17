@@ -1,7 +1,5 @@
 import { jest } from '@jest/globals';
 
-process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/trfit_test';
-
 jest.unstable_mockModule('resend', () => {
   const send = jest.fn();
   return {

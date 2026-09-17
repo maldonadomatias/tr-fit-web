@@ -613,7 +613,8 @@ export async function resetPassword(
       id: string;
       email: string;
       role: 'athlete' | 'admin' | 'superadmin';
-    }>(`SELECT id, email, role FROM users WHERE id = $1`, [userId]);
+      status: 'pending' | 'approved' | 'rejected';
+    }>(`SELECT id, email, role, status FROM users WHERE id = $1`, [userId]);
     const user = u.rows[0];
     if (user.role !== 'athlete') throw new ResetError('not_athlete');
 
@@ -629,6 +630,13 @@ export async function resetPassword(
         WHERE user_id = $1 AND revoked_at IS NULL`,
       [userId]
     );
+
+    // Pending accounts may change their password, but must not receive a
+    // session — that skipped the login approval gate (see login()).
+    if (user.status === 'pending') {
+      await client.query('COMMIT');
+      throw new LoginError('not_approved');
+    }
 
     // Issue new access + refresh tokens (same flow as login)
     const familyId = randomUUID();
@@ -655,6 +663,10 @@ export async function resetPassword(
       user: { id: user.id, email: user.email, role: user.role },
     };
   } catch (e) {
+    if (e instanceof LoginError) {
+      // Password change already committed; do not roll it back.
+      throw e;
+    }
     if (
       e instanceof ResetError &&
       (e.reason === 'invalid_code' ||

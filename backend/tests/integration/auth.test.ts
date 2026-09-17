@@ -409,6 +409,39 @@ it('verify-reset-code: unknown email returns 410 code_expired (anti-enum)', asyn
   expect(r.body.error).toBe('code_expired');
 });
 
+it('reset-password: pending athlete changes password but does not get tokens', async () => {
+  const u = await verifiedAthleteUser('resetpending@test.local');
+  await pool.query(`UPDATE users SET status = 'pending' WHERE id = $1`, [u.id]);
+  const code = '246801';
+  await seedKnownCode(u.id, code);
+
+  const r = await request(app)
+    .post('/api/auth/reset-password')
+    .send({ email: u.email, code, newPassword: 'newpass-secure99' });
+  expect(r.status).toBe(403);
+  expect(r.body.error).toBe('blocked');
+  expect(r.body.reason).toBe('not_approved');
+  expect(r.body.accessToken).toBeUndefined();
+  expect(r.body.refreshToken).toBeUndefined();
+
+  const live = await pool.query(
+    `SELECT id FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL`,
+    [u.id]
+  );
+  expect(live.rowCount).toBe(0);
+
+  const failOld = await request(app)
+    .post('/api/auth/login')
+    .send({ email: u.email, password: u.password });
+  expect(failOld.status).toBe(401);
+
+  const gated = await request(app)
+    .post('/api/auth/login')
+    .send({ email: u.email, password: 'newpass-secure99' });
+  expect(gated.status).toBe(403);
+  expect(gated.body.reason).toBe('not_approved');
+});
+
 it('reset-password: OTP flow — changes password, revokes tokens, returns auth result', async () => {
   const u = await verifiedAthleteUser('resetotp@test.local');
 

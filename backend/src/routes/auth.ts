@@ -232,6 +232,9 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     );
     return res.status(200).json(result);
   } catch (e) {
+    if (e instanceof LoginError) {
+      return res.status(403).json({ error: 'blocked', reason: e.reason });
+    }
     if (e instanceof ResetError) {
       const status =
         e.reason === 'code_expired'
