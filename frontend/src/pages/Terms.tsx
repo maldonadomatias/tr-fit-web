@@ -2,7 +2,10 @@ import { LegalLayout } from '@/components/legal/LegalLayout';
 
 export default function Terms() {
   return (
-    <LegalLayout title="Términos y Condiciones" updated="29 de junio de 2026">
+    <LegalLayout
+      title="Términos y Condiciones"
+      updated="18 de septiembre de 2026"
+    >
       <p>
         Estos Términos regulan el uso de la aplicación móvil y del sitio web
         TR-Fit (en adelante, el "Servicio"). Al crear una cuenta o utilizar el
@@ -95,7 +98,42 @@ export default function Terms() {
         </li>
       </ul>
 
-      <h2>6. Aviso de salud</h2>
+      <h2>6. Comunidad</h2>
+      <p>
+        La Comunidad es un espacio dentro de la app donde los alumnos y el coach
+        pueden publicar textos y fotos, comentar y dar "me gusta". Para publicar
+        o comentar tenés que aceptar estas normas.
+      </p>
+      <p>
+        <strong>Tolerancia cero con el contenido ofensivo.</strong> No está
+        permitido publicar contenido ofensivo, discriminatorio, violento,
+        sexual, que acose o amenace a otras personas, spam, publicidad no
+        autorizada ni información personal de terceros.
+      </p>
+      <ul>
+        <li>
+          Cualquier usuario puede denunciar una publicación o comentario desde
+          la app. Revisamos las denuncias dentro de las 24 horas.
+        </li>
+        <li>
+          Podés bloquear a otro usuario: dejás de ver su contenido y esa persona
+          deja de ver el tuyo.
+        </li>
+        <li>
+          Podemos ocultar contenido que no cumpla estas normas y silenciar o
+          suspender la cuenta de quien las incumpla, sin aviso previo.
+        </li>
+        <li>
+          Sos responsable de lo que publicás. Al publicar fotos declarás que
+          tenés derecho a compartirlas.
+        </li>
+        <li>
+          Las publicaciones marcadas como "Publicidad" son de marcas que
+          colaboran con TR-Fit.
+        </li>
+      </ul>
+
+      <h2>7. Aviso de salud</h2>
       <p>
         <strong>
           TR-Fit no es un servicio médico. La información, rutinas y
@@ -109,7 +147,7 @@ export default function Terms() {
         Servicio bajo tu exclusiva responsabilidad.
       </p>
 
-      <h2>7. Contenido generado por inteligencia artificial</h2>
+      <h2>8. Contenido generado por inteligencia artificial</h2>
       <p>
         Las rutinas se generan utilizando modelos de inteligencia artificial que
         pueden producir resultados inexactos o inadecuados para tu caso
@@ -117,7 +155,7 @@ export default function Terms() {
         siempre corresponde a vos y a tu coach.
       </p>
 
-      <h2>8. Propiedad intelectual</h2>
+      <h2>9. Propiedad intelectual</h2>
       <p>
         Todo el software, contenido, marca, logos y materiales del Servicio son
         propiedad de TR-Fit o sus licenciantes. Te otorgamos una licencia
@@ -127,7 +165,7 @@ export default function Terms() {
         prestarte el Servicio.
       </p>
 
-      <h2>9. Suspensión y cancelación</h2>
+      <h2>10. Suspensión y cancelación</h2>
       <p>
         Podemos suspender o cancelar tu cuenta, con o sin aviso, si incumplís
         estos Términos, si tu uso pone en riesgo a otros usuarios o al Servicio,
@@ -135,7 +173,7 @@ export default function Terms() {
         solicitar la portabilidad de tus datos durante los 30 días posteriores.
       </p>
 
-      <h2>10. Disponibilidad del servicio</h2>
+      <h2>11. Disponibilidad del servicio</h2>
       <p>
         Nos esforzamos por mantener el Servicio disponible 24/7, pero no
         garantizamos disponibilidad ininterrumpida ni libre de errores. Podemos
@@ -143,7 +181,7 @@ export default function Terms() {
         funciones sin aviso previo.
       </p>
 
-      <h2>11. Limitación de responsabilidad</h2>
+      <h2>12. Limitación de responsabilidad</h2>
       <p>
         En la máxima medida permitida por la ley, TR-Fit no será responsable por
         daños indirectos, lucro cesante, pérdida de datos o daños consecuentes
@@ -153,7 +191,7 @@ export default function Terms() {
         que origine el reclamo.
       </p>
 
-      <h2>12. Modificaciones</h2>
+      <h2>13. Modificaciones</h2>
       <p>
         Podemos modificar estos Términos publicando una versión actualizada en
         esta página. Cuando los cambios sean sustanciales te avisaremos con al
@@ -161,7 +199,7 @@ export default function Terms() {
         la entrada en vigencia implica tu aceptación.
       </p>
 
-      <h2>13. Ley aplicable y jurisdicción</h2>
+      <h2>14. Ley aplicable y jurisdicción</h2>
       <p>
         Estos Términos se rigen por las leyes de la República Argentina. Toda
         controversia que no pueda resolverse de común acuerdo será sometida a
@@ -169,7 +207,7 @@ export default function Terms() {
         cualquier otro fuero.
       </p>
 
-      <h2>14. Contacto</h2>
+      <h2>15. Contacto</h2>
       <p>
         Para cualquier consulta sobre estos Términos escribinos a{' '}
         <a href="mailto:tatoroblesfit@gmail.com">tatoroblesfit@gmail.com</a>.

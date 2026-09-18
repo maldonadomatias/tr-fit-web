@@ -7,6 +7,7 @@ import {
   Dumbbell,
   Home as HomeIcon,
   LogOut,
+  MessagesSquare,
   Receipt,
   Settings,
   Users as UsersIcon,
@@ -21,6 +22,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { usePendingRutinas } from '@/hooks/usePendingRutinas';
+import { useCommunityReportCount } from '@/hooks/useCommunity';
 import { cn } from '@/lib/utils';
 
 type Item = {
@@ -46,6 +48,7 @@ export function Sidebar({
   const pendingCount = pending?.length ?? 0;
   const { data: pendingRutinas } = usePendingRutinas();
   const rutinasCount = pendingRutinas?.length ?? 0;
+  const { data: openReports } = useCommunityReportCount();
 
   const groups: { label: string; items: Item[] }[] = [
     {
@@ -103,6 +106,14 @@ export function Sidebar({
           to: '/admin/rutinas',
           count: rutinasCount,
           matchPrefixes: ['/admin/rutinas'],
+        },
+        {
+          key: 'community',
+          label: 'Comunidad',
+          icon: MessagesSquare,
+          to: '/admin/community',
+          count: openReports ?? 0,
+          matchPrefixes: ['/admin/community'],
         },
       ],
     },

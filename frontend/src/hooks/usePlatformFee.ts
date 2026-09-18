@@ -30,6 +30,11 @@ export interface PlatformFeeSummary {
   next_adjustment_date: string;
   adjustment_due: boolean;
   phase: BillingPhase;
+  community_fee_ars: number;
+  /** Ad revenue of the closed month (revenue_period) the ad share applies on. */
+  ad_revenue_ars: number;
+  ad_share_pct: number;
+  ad_share_ars: number;
 }
 
 export interface PlatformFeeConfig {
@@ -42,6 +47,12 @@ export interface PlatformFeeConfig {
   next_adjustment_date: string;
   phase: BillingPhase;
   updated_at: string;
+  community_fee_ars: number;
+  community_fallback_fee_ars: number;
+  community_revision_threshold_ars: number;
+  ad_share_pct: number;
+  community_launched_on: string | null;
+  community_revision_applied_at: string | null;
 }
 
 export interface PlatformFeeHistoryRow {
@@ -57,6 +68,9 @@ export interface PlatformFeeHistoryRow {
   created_at: string;
   paid_total_ars: number | null;
   paid_at: string | null;
+  community_fee_ars: number;
+  ad_revenue_ars: number;
+  ad_share_ars: number;
 }
 
 export interface PlatformFeePayment {

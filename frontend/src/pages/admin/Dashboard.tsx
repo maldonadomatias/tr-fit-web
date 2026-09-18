@@ -28,6 +28,10 @@ import { useAdminStats } from '@/hooks/useAdminStats';
 import { useAdminUsers, useUpdateAdminUser } from '@/hooks/useAdminUsers';
 import { useActivityLog } from '@/hooks/useActivityLog';
 import { useAlerts } from '@/hooks/useAlerts';
+import {
+  useCommunityReportCount,
+  useCommunitySummary,
+} from '@/hooks/useCommunity';
 import { activityLabel, activitySub } from '@/lib/activity';
 import { fmtARS, fmtDelta, fmtTimeAgo } from '@/lib/format';
 import type { AdminUser, SubscriptionTier } from '@/types/api';
@@ -86,6 +90,8 @@ export default function Dashboard() {
 
       <CuotasRow expiringCount={expiringCount} overdueCount={overdueCount} />
 
+      <CommunityRow />
+
       <SecondaryRow stats={stats.data} users={usersQ.data} />
 
       <div className="grid grid-cols-1 gap-[22px] lg:grid-cols-[1fr_320px]">
@@ -94,6 +100,43 @@ export default function Dashboard() {
       </div>
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </div>
+  );
+}
+
+function CommunityRow() {
+  const { data: openReports } = useCommunityReportCount();
+  const { data: summary } = useCommunitySummary();
+  const showReports = (openReports ?? 0) > 0;
+  const days = summary?.days_to_revision;
+  const showRevision =
+    !!summary &&
+    !summary.revision_applied_at &&
+    days != null &&
+    days >= 0 &&
+    days <= 15;
+  if (!showReports && !showRevision) return null;
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-4">
+      {showReports && (
+        <Link to="/admin/community?tab=reports" className="block">
+          <KpiCard
+            eyebrow="Denuncias pendientes"
+            value={String(openReports)}
+            highlighted
+            sub="Respondé dentro de las 24 h →"
+          />
+        </Link>
+      )}
+      {showRevision && summary && (
+        <Link to="/admin/platform-fee" className="block">
+          <KpiCard
+            eyebrow="Revisión de Comunidad"
+            value={days === 0 ? 'Hoy' : `${days} días`}
+            sub={`Promedio de publicidad ${fmtARS(summary.avg_ad_revenue)} · umbral ${fmtARS(summary.threshold_ars)}`}
+          />
+        </Link>
+      )}
     </div>
   );
 }

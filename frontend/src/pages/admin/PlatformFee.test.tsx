@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   history: [] as Array<Record<string, string | number | null>>,
   breakdown: [] as Array<Record<string, string | number | boolean>>,
   markPaid: vi.fn(),
+  communityFee: 30000,
+  communityEnabled: true,
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -42,6 +44,10 @@ vi.mock('@/hooks/usePlatformFee', () => ({
         next_adjustment_date: '2026-10-01',
         adjustment_due: false,
         phase: 'testflight',
+        community_fee_ars: mocks.communityFee,
+        ad_revenue_ars: 100000,
+        ad_share_pct: 15,
+        ad_share_ars: 15000,
       },
       config: {
         base_fee_ars: 105000,
@@ -53,6 +59,12 @@ vi.mock('@/hooks/usePlatformFee', () => ({
         next_adjustment_date: '2026-10-01',
         phase: 'testflight',
         updated_at: '2026-07-01T00:00:00.000Z',
+        community_fee_ars: 30000,
+        community_fallback_fee_ars: 40000,
+        community_revision_threshold_ars: 50000,
+        ad_share_pct: 15,
+        community_launched_on: '2026-10-01',
+        community_revision_applied_at: null,
       },
       payment: mocks.payment,
     },
@@ -70,6 +82,56 @@ vi.mock('@/hooks/usePlatformFee', () => ({
     isPending: false,
   }),
 }));
+
+vi.mock('@/hooks/useCommunity', () => ({
+  useCommunitySummary: () => ({
+    data: {
+      enabled: mocks.communityEnabled,
+      launched_on: '2026-10-01',
+      revision_date: '2027-04-01',
+      days_to_revision: 120,
+      ad_revenue_this_month: 100000,
+      ad_share_this_month: 15000,
+      avg_ad_revenue: 42000,
+      projected_community_fee: 40000,
+      revision_applied_at: null,
+      community_fee_ars: 30000,
+      threshold_ars: 50000,
+    },
+  }),
+}));
+
+describe('platform fee community', () => {
+  beforeEach(() => {
+    mocks.role = 'superadmin';
+    mocks.payment = null;
+    mocks.history = [];
+    mocks.breakdown = [];
+    mocks.communityFee = 30000;
+    mocks.communityEnabled = true;
+  });
+
+  it('shows the community breakdown rows', () => {
+    render(<PlatformFee />);
+    expect(screen.getByText('Comunidad (fijo)')).toBeInTheDocument();
+    expect(screen.getByText(/15% sobre publicidad de/)).toBeInTheDocument();
+  });
+
+  it('hides community rows when the module is off', () => {
+    mocks.communityFee = 0;
+    mocks.communityEnabled = false;
+    render(<PlatformFee />);
+    expect(screen.queryByText('Comunidad (fijo)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Revisión de Comunidad')).not.toBeInTheDocument();
+  });
+
+  it('shows the revision card with the projection', () => {
+    render(<PlatformFee />);
+    expect(screen.getByText('Revisión de Comunidad')).toBeInTheDocument();
+    expect(screen.getByText(/faltan 120 días/)).toBeInTheDocument();
+    expect(screen.getByText('Fee proyectado')).toBeInTheDocument();
+  });
+});
 
 describe('platform fee payment status', () => {
   beforeEach(() => {
