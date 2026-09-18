@@ -41,9 +41,13 @@ export interface PostDTO {
     width: number;
     height: number;
   }>;
+  /** Total reactions of any emoji (kept for clients that only know "me gusta"). */
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
+  my_reaction: ReactionEmoji | null;
+  /** Count per emoji, most used first. */
+  reactions: ReactionCount[];
   event?: {
     location: string | null;
     starts_at: string;
@@ -52,6 +56,14 @@ export interface PostDTO {
   };
   can_delete: boolean;
   hidden_at?: string | null;
+}
+
+/** Keep in sync with the CHECK in migration 066. */
+export const REACTION_EMOJIS = ['❤️', '🔥', '💪', '👏', '😂', '😮'] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+export interface ReactionCount {
+  emoji: ReactionEmoji;
+  count: number;
 }
 
 export interface CommentDTO {
@@ -152,7 +164,8 @@ interface PostRow {
   }>;
   like_count: number;
   comment_count: number;
-  liked_by_me: boolean;
+  my_reaction: ReactionEmoji | null;
+  reactions: ReactionCount[];
   rsvp_count: number;
   going: boolean;
 }
@@ -179,7 +192,9 @@ function toPostDTO(
     media: row.media ?? [],
     like_count: Number(row.like_count),
     comment_count: Number(row.comment_count),
-    liked_by_me: row.liked_by_me,
+    liked_by_me: row.my_reaction !== null,
+    my_reaction: row.my_reaction,
+    reactions: row.reactions ?? [],
     can_delete: row.author_id === viewer.id || isAdminRole(viewer.role),
     cursor_ts: row.cursor_ts,
   };
@@ -225,7 +240,11 @@ export async function selectPosts(
             (SELECT count(*) FROM community_likes l WHERE l.post_id = p.id)::int AS like_count,
             (SELECT count(*) FROM community_comments c
               WHERE c.post_id = p.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL)::int AS comment_count,
-            EXISTS (SELECT 1 FROM community_likes l WHERE l.post_id = p.id AND l.user_id = $1) AS liked_by_me,
+            (SELECT l.emoji FROM community_likes l WHERE l.post_id = p.id AND l.user_id = $1) AS my_reaction,
+            COALESCE((SELECT json_agg(json_build_object('emoji', x.emoji, 'count', x.n) ORDER BY x.n DESC, x.first_at)
+                        FROM (SELECT l.emoji, count(*)::int AS n, min(l.created_at) AS first_at
+                                FROM community_likes l WHERE l.post_id = p.id GROUP BY l.emoji) x),
+                     '[]'::json) AS reactions,
             (SELECT count(*) FROM community_event_rsvps r WHERE r.post_id = p.id)::int AS rsvp_count,
             EXISTS (SELECT 1 FROM community_event_rsvps r WHERE r.post_id = p.id AND r.user_id = $1) AS going
        FROM community_posts p
@@ -473,16 +492,20 @@ async function assertVisiblePost(
   return r.rows[0];
 }
 
-export async function setLike(
+/** One reaction per user per post; a new emoji replaces the previous one, null removes it. */
+export async function setReaction(
   viewer: Viewer,
   postId: string,
-  liked: boolean
+  emoji: ReactionEmoji | null
 ): Promise<void> {
   await assertVisiblePost(viewer, postId);
-  if (liked) {
+  if (emoji) {
     await pool.query(
-      `INSERT INTO community_likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [postId, viewer.id]
+      `INSERT INTO community_likes (post_id, user_id, emoji) VALUES ($1, $2, $3)
+       ON CONFLICT (post_id, user_id)
+       DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now()
+       WHERE community_likes.emoji <> EXCLUDED.emoji`,
+      [postId, viewer.id, emoji]
     );
   } else {
     await pool.query(

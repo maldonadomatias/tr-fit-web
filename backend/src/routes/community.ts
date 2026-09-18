@@ -22,7 +22,8 @@ import {
   getPost,
   createPost,
   deletePost,
-  setLike,
+  setReaction,
+  REACTION_EMOJIS,
   listComments,
   createComment,
   deleteComment,
@@ -233,7 +234,8 @@ for (const [method, liked] of [
     handle(async (req, res) => {
       if (!uuid.safeParse(req.params.id).success)
         return res.status(404).json({ error: 'post_not_found' });
-      await setLike(viewerOf(req), req.params.id, liked);
+      // Legacy "me gusta" = ❤️ reaction.
+      await setReaction(viewerOf(req), req.params.id, liked ? '❤️' : null);
       res.status(204).end();
     })
   );
@@ -247,6 +249,31 @@ for (const [method, liked] of [
     })
   );
 }
+
+router.put(
+  '/posts/:id/reaction',
+  handle(async (req, res) => {
+    if (!uuid.safeParse(req.params.id).success)
+      return res.status(404).json({ error: 'post_not_found' });
+    const parsed = z
+      .object({ emoji: z.enum(REACTION_EMOJIS) })
+      .safeParse(req.body);
+    if (!parsed.success)
+      return res.status(400).json({ error: 'invalid_emoji' });
+    await setReaction(viewerOf(req), req.params.id, parsed.data.emoji);
+    res.status(204).end();
+  })
+);
+
+router.delete(
+  '/posts/:id/reaction',
+  handle(async (req, res) => {
+    if (!uuid.safeParse(req.params.id).success)
+      return res.status(404).json({ error: 'post_not_found' });
+    await setReaction(viewerOf(req), req.params.id, null);
+    res.status(204).end();
+  })
+);
 
 router.get(
   '/posts/:id/comments',

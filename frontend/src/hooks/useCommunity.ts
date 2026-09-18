@@ -35,6 +35,8 @@ export interface CommunityPost {
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
+  my_reaction: string | null;
+  reactions: Array<{ emoji: string; count: number }>;
   event?: {
     location: string | null;
     starts_at: string;

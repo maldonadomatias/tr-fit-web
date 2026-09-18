@@ -155,7 +155,10 @@ function PostRow({ post }: { post: CommunityPost }) {
         </div>
       )}
       <div className="mt-2 text-xs text-muted-foreground tabular-nums">
-        ❤ {post.like_count} · 💬 {post.comment_count}
+        {post.reactions.length > 0
+          ? post.reactions.map((r) => `${r.emoji} ${r.count}`).join('  ')
+          : 'Sin reacciones'}{' '}
+        · 💬 {post.comment_count}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <button

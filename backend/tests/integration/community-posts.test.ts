@@ -210,6 +210,62 @@ describe('/api/community posts', () => {
     expect(r2.body.kind).toBe('post');
   });
 
+  it('reactions: one per user, replace, remove, summary by emoji', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    const b = await makeUser('athlete');
+    const p = await insertPost(a.id);
+    const authA = { Authorization: `Bearer ${a.token}` };
+    const authB = { Authorization: `Bearer ${b.token}` };
+    const react = (auth: typeof authA, emoji: string) =>
+      request(app)
+        .put(`/api/community/posts/${p}/reaction`)
+        .set(auth)
+        .send({ emoji });
+
+    await react(authA, '🔥').expect(204);
+    await react(authB, '🔥').expect(204);
+    await react(authA, '💪').expect(204); // replaces 🔥
+    let d = await request(app).get(`/api/community/posts/${p}`).set(authA);
+    expect(d.body).toMatchObject({
+      like_count: 2,
+      liked_by_me: true,
+      my_reaction: '💪',
+      reactions: [
+        { emoji: '🔥', count: 1 },
+        { emoji: '💪', count: 1 },
+      ],
+    });
+
+    const bad = await react(authA, '🍕');
+    expect(bad.status).toBe(400);
+
+    await request(app)
+      .delete(`/api/community/posts/${p}/reaction`)
+      .set(authA)
+      .expect(204);
+    d = await request(app).get(`/api/community/posts/${p}`).set(authA);
+    expect(d.body).toMatchObject({
+      like_count: 1,
+      liked_by_me: false,
+      my_reaction: null,
+      reactions: [{ emoji: '🔥', count: 1 }],
+    });
+  });
+
+  it('legacy like endpoint maps to ❤️', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    const p = await insertPost(a.id);
+    const auth = { Authorization: `Bearer ${a.token}` };
+    await request(app).post(`/api/community/posts/${p}/like`).set(auth).expect(204);
+    const d = await request(app).get(`/api/community/posts/${p}`).set(auth);
+    expect(d.body).toMatchObject({
+      my_reaction: '❤️',
+      reactions: [{ emoji: '❤️', count: 1 }],
+    });
+  });
+
   it('likes are idempotent', async () => {
     await enableCommunity();
     const a = await makeUser('athlete');

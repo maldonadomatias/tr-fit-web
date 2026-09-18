@@ -24,7 +24,7 @@ Módulo add-on acordado con el cliente (adenda de septiembre 2026):
 | Entrega del muro | REST con paginación por cursor. Sin WebSocket. La app consulta `new-count` cada 60 s solo con el muro visible. |
 | Publicidad | Tarjeta dentro del muro cada 8 publicaciones, rotando, etiqueta "Publicidad". |
 | Contenido | Texto + hasta 4 fotos. Sin video (`post_media.kind` reservado para sumarlo). |
-| Push | Aviso/evento del entrenador → todos. Comentario → autor de la publicación. Denuncia → admins. Sin push por "me gusta" ni por publicaciones de alumnos. |
+| Push | Aviso/evento del entrenador → todos. Comentario → autor de la publicación. Denuncia → admins. Sin push por reacciones ni por publicaciones de alumnos. |
 | Arquitectura | Extensión del backend actual. **Ningún servicio nuevo en Railway.** |
 | Revisión a 6 meses | Automática en el cron mensual de platform fee, con aviso por push y mail. |
 
@@ -194,7 +194,8 @@ Si `community_launched_on IS NULL`, todos los endpoints devuelven `404 { error: 
 | GET | `/feed/new-count?since=<postId>` | `{ count }` de publicaciones visibles más nuevas que `since`. |
 | POST | `/posts` | Multipart: `body`, `category`, `images[]` (≤4) y `thumbs[]` (misma cantidad), más `widths[]`/`heights[]`. Exige `community_terms_accepted_at` (si no: `403 terms_required`) y `community_muted_until` vencido o nulo (si no: `403 muted`). Debe tener texto o al menos una foto (`400 empty_post`). Los alumnos solo crean `kind='post'`. |
 | DELETE | `/posts/:id` | Autor o admin. Setea `deleted_at` y borra los archivos de Storage. |
-| POST / DELETE | `/posts/:id/like` | Idempotente (`ON CONFLICT DO NOTHING` / `DELETE`). |
+| PUT / DELETE | `/posts/:id/reaction` | `{ emoji }` de un set fijo: ❤️ 🔥 💪 👏 😂 😮 (`400 invalid_emoji` si no). Una reacción por usuario: otra la reemplaza, `DELETE` la quita. |
+| POST / DELETE | `/posts/:id/like` | Alias de la reacción ❤️ (compatibilidad). |
 | GET | `/posts/:id` | Detalle de una publicación (para abrir desde un push). |
 | GET | `/posts/:id/comments?cursor=` | 30 por página, orden cronológico. |
 | POST | `/posts/:id/comments` | `{ body }`. Mismos chequeos de normas y silenciado. Push al autor si no es el mismo usuario. |
@@ -215,7 +216,8 @@ Si `community_launched_on IS NULL`, todos los endpoints devuelven `404 { error: 
   id, kind, category, body, created_at, pinned: boolean,
   author: { id, name, avatar_url, is_coach: boolean },
   media: [{ url, thumb_url, width, height }],
-  like_count, comment_count, liked_by_me: boolean,
+  like_count, comment_count, liked_by_me: boolean,   // like_count = total de reacciones
+  my_reaction: string | null, reactions: [{ emoji, count }],  // más usada primero
   event?: { location, starts_at, rsvp_count, going: boolean },
   can_delete: boolean
 }
