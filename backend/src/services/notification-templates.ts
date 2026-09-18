@@ -31,7 +31,9 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
   }),
   sos_resolved: ({ exerciseName }) => ({
     title: 'Tu coach respondió',
-    body: exerciseName ? `Hay novedades sobre ${exerciseName}` : 'Tu coach respondió tu alerta',
+    body: exerciseName
+      ? `Hay novedades sobre ${exerciseName}`
+      : 'Tu coach respondió tu alerta',
     route: '/(app)/athlete',
   }),
   rm_test_week: ({ week }) => ({
@@ -50,5 +52,37 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
     title: 'Tu acceso está pausado',
     body: 'Escribí a tu coach para volver a entrenar.',
     route: '/(app)/athlete',
+  }),
+  community_announcement: ({ preview }) => ({
+    title: 'Aviso de tu coach',
+    body: preview || 'Hay un aviso nuevo en la comunidad',
+    route: '/(app)/community',
+  }),
+  community_event: ({ preview }) => ({
+    title: 'Nuevo evento',
+    body: preview || 'Hay un evento nuevo en la comunidad',
+    route: '/(app)/community',
+  }),
+  community_comment: ({ commenter }) => ({
+    title: 'Nuevo comentario',
+    body: commenter
+      ? `${commenter} comentó tu publicación`
+      : 'Comentaron tu publicación',
+    route: '/(app)/community',
+  }),
+  community_report: ({ reason }) => ({
+    title: 'Nueva denuncia',
+    body: reason
+      ? `Denuncia por ${reason} en la comunidad`
+      : 'Hay una denuncia nueva en la comunidad',
+    route: '/(app)/community',
+  }),
+  community_revision: ({ average, newFee, downgraded }) => ({
+    title: 'Revisión de Comunidad aplicada',
+    body:
+      downgraded === 'true'
+        ? `Promedio de publicidad $${average}: el fee de Comunidad pasa a $${newFee}.`
+        : `Promedio de publicidad $${average}: el fee de Comunidad se mantiene en $${newFee}.`,
+    route: '/(app)/community',
   }),
 };

@@ -28,6 +28,14 @@ jest.unstable_mockModule('../../src/config/firebase.js', () => ({
   getFirebaseApp: () => null,
   getStorageBucket: () => fakeBucket,
 }));
+jest.unstable_mockModule(
+  '../../src/services/community-media.service.js',
+  () => ({
+    deleteUserCommunityMedia: async () => {},
+    ALLOWED_IMAGE_MIME: new Set(['image/jpeg', 'image/png', 'image/webp']),
+    MAX_IMAGE_BYTES: 2 * 1024 * 1024,
+  })
+);
 
 // ── Mock pool ──────────────────────────────────────────────────────────
 interface UserRow {
@@ -48,11 +56,12 @@ const fakePool = {
     return { rows: [], rowCount: 1 };
   },
 };
-jest.unstable_mockModule('../../src/db/connect.js', () => ({ default: fakePool }));
+jest.unstable_mockModule('../../src/db/connect.js', () => ({
+  default: fakePool,
+}));
 
-const { deleteAccount, DeleteAccountError, hashPassword } = await import(
-  '../../src/services/auth.service.js'
-);
+const { deleteAccount, DeleteAccountError, hashPassword } =
+  await import('../../src/services/auth.service.js');
 
 const USER_ID = '11111111-1111-1111-1111-111111111111';
 let passwordHash = '';
@@ -86,12 +95,19 @@ describe('deleteAccount', () => {
     const audit = queryCalls.find((q) => q.sql.includes('admin_audit_log'));
     expect(audit).toBeDefined();
     expect(audit!.params).toEqual(
-      expect.arrayContaining(['user_deleted', 'atleta@test.com', USER_ID, 'destructive']),
+      expect.arrayContaining([
+        'user_deleted',
+        'atleta@test.com',
+        USER_ID,
+        'destructive',
+      ])
     );
   });
 
   it('rejects a wrong password without deleting anything', async () => {
-    await expect(deleteAccount(USER_ID, 'wrong')).rejects.toThrow(DeleteAccountError);
+    await expect(deleteAccount(USER_ID, 'wrong')).rejects.toThrow(
+      DeleteAccountError
+    );
     await expect(deleteAccount(USER_ID, 'wrong')).rejects.toMatchObject({
       reason: 'invalid_credentials',
     });
@@ -116,7 +132,9 @@ describe('deleteAccount', () => {
   it('removes the avatar object from storage when present', async () => {
     userRow!.avatar_url =
       'https://firebasestorage.googleapis.com/v0/b/test-bucket.firebasestorage.app/o/' +
-      'avatars%2F' + USER_ID + '%2Fabc.jpg?alt=media&token=xyz';
+      'avatars%2F' +
+      USER_ID +
+      '%2Fabc.jpg?alt=media&token=xyz';
     await deleteAccount(USER_ID, 'hunter2!');
     expect(deletedPaths).toEqual([`avatars/${USER_ID}/abc.jpg`]);
     expect(deleteQueries()).toHaveLength(1);

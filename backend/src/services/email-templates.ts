@@ -106,3 +106,27 @@ export function accountApprovedTemplate(opts: { name: string }): string {
     aprobada. Ya podés entrar a la app y empezar a entrenar.</p>
   <p style="line-height:1.6">Si tenés alguna duda, escribile a tu coach.</p>`);
 }
+
+const ars = (n: number) =>
+  `$${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+
+export function communityRevisionTemplate(opts: {
+  average: number;
+  threshold: number;
+  newFee: number;
+  downgraded: boolean;
+}): string {
+  return layout(`
+  <h2 style="margin:0 0 16px 0">Revisión de Comunidad aplicada</h2>
+  <p style="line-height:1.6">Se cumplieron 6 meses desde el lanzamiento del módulo Comunidad.</p>
+  <ul style="line-height:1.8">
+    <li>Promedio mensual de publicidad: <strong>${ars(opts.average)}</strong></li>
+    <li>Umbral: <strong>${ars(opts.threshold)}</strong></li>
+    <li>Fee fijo de Comunidad desde ahora: <strong>${ars(opts.newFee)}</strong></li>
+  </ul>
+  <p style="line-height:1.6">${
+    opts.downgraded
+      ? 'El promedio quedó por debajo del umbral, así que el fee fijo se ajustó según la adenda.'
+      : 'El promedio alcanzó el umbral, así que el fee fijo se mantiene.'
+  } El 15% sobre la publicidad no cambia.</p>`);
+}

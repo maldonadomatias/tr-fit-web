@@ -9,7 +9,13 @@ import {
   currentMonthPeriod,
   paymentDueDate,
   isPaymentOverdue,
+  communityRevisionDate,
+  evaluateCommunityRevision,
 } from './platform-fee.math.js';
+import { adRevenueForMonth } from './community-ads.service.js';
+import { notifyUser } from './notification.service.js';
+import { sendCommunityRevisionEmail } from './email.service.js';
+import logger from '../utils/logger.js';
 
 export type BillingPhase = 'testflight' | 'production';
 
@@ -23,6 +29,12 @@ export interface PlatformFeeConfig {
   next_adjustment_date: string;
   phase: BillingPhase;
   updated_at: string;
+  community_fee_ars: number;
+  community_fallback_fee_ars: number;
+  community_revision_threshold_ars: number;
+  ad_share_pct: number;
+  community_launched_on: string | null;
+  community_revision_applied_at: string | null;
 }
 
 /**
@@ -47,6 +59,10 @@ export interface PlatformFeeSummary {
   collection_pct: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
+  community_fee_ars: number;
+  ad_revenue_ars: number;
+  ad_share_pct: number;
+  ad_share_ars: number;
   total_ars: number;
   /** YYYY-MM-01 — invoice / payment month (e.g. August paid in August). */
   invoice_period: string;
@@ -68,6 +84,9 @@ export interface PlatformFeeHistoryRow {
   gross_revenue_ars: number;
   revenue_share_pct: number;
   revenue_share_ars: number;
+  community_fee_ars: number;
+  ad_revenue_ars: number;
+  ad_share_ars: number;
   total_ars: number;
   usd_at_snapshot: number;
   created_at: string;
@@ -91,6 +110,11 @@ export interface UpdateConfigInput {
   adjustment_interval_months?: number;
   next_adjustment_date?: string;
   phase?: BillingPhase;
+  community_fee_ars?: number;
+  community_fallback_fee_ars?: number;
+  community_revision_threshold_ars?: number;
+  ad_share_pct?: number;
+  community_launched_on?: string | null;
 }
 
 interface ConfigRow {
@@ -103,6 +127,12 @@ interface ConfigRow {
   next_adjustment_date: Date | string;
   phase: BillingPhase;
   updated_at: Date | string;
+  community_fee_ars: string;
+  community_fallback_fee_ars: string;
+  community_revision_threshold_ars: string;
+  ad_share_pct: string;
+  community_launched_on: Date | string | null;
+  community_revision_applied_at: Date | string | null;
 }
 
 const toISODate = (d: Date | string): string =>
@@ -124,11 +154,25 @@ function mapConfig(r: ConfigRow): PlatformFeeConfig {
     next_adjustment_date: toISODate(r.next_adjustment_date),
     phase: r.phase,
     updated_at: new Date(r.updated_at).toISOString(),
+    community_fee_ars: Number(r.community_fee_ars),
+    community_fallback_fee_ars: Number(r.community_fallback_fee_ars),
+    community_revision_threshold_ars: Number(
+      r.community_revision_threshold_ars
+    ),
+    ad_share_pct: Number(r.ad_share_pct),
+    community_launched_on: r.community_launched_on
+      ? toISODate(r.community_launched_on)
+      : null,
+    community_revision_applied_at: r.community_revision_applied_at
+      ? new Date(r.community_revision_applied_at).toISOString()
+      : null,
   };
 }
 
 const CONFIG_COLS = `base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
-  revenue_share_pct, adjustment_interval_months, next_adjustment_date, phase, updated_at`;
+  revenue_share_pct, adjustment_interval_months, next_adjustment_date, phase, updated_at,
+  community_fee_ars, community_fallback_fee_ars, community_revision_threshold_ars,
+  ad_share_pct, community_launched_on::text AS community_launched_on, community_revision_applied_at`;
 
 export async function getConfig(): Promise<PlatformFeeConfig> {
   const r = await pool.query<ConfigRow>(
@@ -268,6 +312,11 @@ const UPDATABLE = [
   'adjustment_interval_months',
   'next_adjustment_date',
   'phase',
+  'community_fee_ars',
+  'community_fallback_fee_ars',
+  'community_revision_threshold_ars',
+  'ad_share_pct',
+  'community_launched_on',
 ] as const;
 
 export async function updateConfig(
@@ -288,6 +337,80 @@ export async function updateConfig(
     vals
   );
   return getConfig();
+}
+
+/** Community is billed for a month when it was launched on or before that month's last day. */
+export function communityActiveForPeriod(
+  launchedOn: string | null,
+  periodISO: string
+): boolean {
+  if (!launchedOn) return false;
+  return launchedOn.slice(0, 7) <= periodISO.slice(0, 7);
+}
+
+export interface CommunityRevisionOutcome {
+  applied: boolean;
+  average?: number;
+  newFee?: number;
+  downgraded?: boolean;
+}
+
+export async function applyCommunityRevisionIfDue(
+  todayISO: string
+): Promise<CommunityRevisionOutcome> {
+  const cfg = await getConfig();
+  if (!cfg.community_launched_on || cfg.community_revision_applied_at)
+    return { applied: false };
+  if (todayISO.slice(0, 10) < communityRevisionDate(cfg.community_launched_on))
+    return { applied: false };
+
+  const h = await pool.query<{ ad_revenue_ars: string }>(
+    `SELECT ad_revenue_ars FROM platform_fee_history
+      WHERE period >= date_trunc('month', $1::date)::date
+      ORDER BY period LIMIT 6`,
+    [cfg.community_launched_on]
+  );
+  const result = evaluateCommunityRevision({
+    monthlyAdRevenues: h.rows.map((r) => Number(r.ad_revenue_ars)),
+    threshold: cfg.community_revision_threshold_ars,
+    fee: cfg.community_fee_ars,
+    fallbackFee: cfg.community_fallback_fee_ars,
+  });
+
+  // Guarded by applied_at IS NULL so a concurrent/duplicate run can't apply twice.
+  const upd = await pool.query(
+    `UPDATE platform_fee_config
+        SET community_fee_ars = $1, community_revision_applied_at = now(), updated_at = now()
+      WHERE id = 1 AND community_revision_applied_at IS NULL`,
+    [result.newFee]
+  );
+  if (!upd.rowCount) return { applied: false };
+
+  const admins = await pool.query<{ id: string; email: string }>(
+    `SELECT id, email FROM users WHERE role IN ('admin', 'superadmin')`
+  );
+  for (const a of admins.rows) {
+    void notifyUser(a.id, 'community_revision', {
+      average: String(result.average),
+      newFee: String(result.newFee),
+      downgraded: String(result.downgraded),
+    }).catch((e) => logger.error({ err: e }, 'community revision push failed'));
+    try {
+      await sendCommunityRevisionEmail({
+        email: a.email,
+        average: result.average,
+        threshold: cfg.community_revision_threshold_ars,
+        newFee: result.newFee,
+        downgraded: result.downgraded,
+      });
+    } catch (e) {
+      logger.error(
+        { err: e, email: a.email },
+        'community revision email failed'
+      );
+    }
+  }
+  return { applied: true, ...result };
 }
 
 /**
@@ -318,6 +441,17 @@ async function previousMonthReal(revenuePeriod: string): Promise<{
   return { realCount: live.realCount, realArs: live.realArs };
 }
 
+/** Frozen ad revenue for a closed month when snapshotted, else live. */
+async function previousMonthAdRevenue(periodISO: string): Promise<number> {
+  const h = await pool.query<{ ad_revenue_ars: string }>(
+    `SELECT ad_revenue_ars FROM platform_fee_history WHERE period = $1`,
+    [periodISO]
+  );
+  return h.rows[0]
+    ? Number(h.rows[0].ad_revenue_ars)
+    : adRevenueForMonth(periodISO);
+}
+
 export async function computeCurrent(
   todayISO?: string
 ): Promise<PlatformFeeSummary> {
@@ -329,12 +463,26 @@ export async function computeCurrent(
 
   // Invoice month M: current base + 4% of full closed month M-1 real.
   const prev = await previousMonthReal(revenuePeriod);
+  const communityNow = communityActiveForPeriod(
+    cfg.community_launched_on,
+    invoicePeriod
+  );
+  const communityPrev = communityActiveForPeriod(
+    cfg.community_launched_on,
+    revenuePeriod
+  );
+  const prevAds = communityPrev
+    ? await previousMonthAdRevenue(revenuePeriod)
+    : 0;
   const fee = computeFee({
     baseFeeArs: cfg.base_fee_ars,
     activeAthletes: prev.realCount,
     grossRevenueArs: prev.realArs,
     revenueSharePct: cfg.revenue_share_pct,
     testflight: cfg.phase === 'testflight',
+    communityFeeArs: communityNow ? cfg.community_fee_ars : 0,
+    adRevenueArs: prevAds,
+    adSharePct: cfg.ad_share_pct,
   });
 
   // Current month collections → 4% of next month's invoice (nothing lost).
@@ -352,6 +500,10 @@ export async function computeCurrent(
     gross_revenue_ars: fee.grossRevenueArs,
     revenue_share_pct: fee.revenueSharePct,
     revenue_share_ars: fee.revenueShareArs,
+    community_fee_ars: fee.communityFeeArs,
+    ad_revenue_ars: fee.adRevenueArs,
+    ad_share_pct: cfg.ad_share_pct,
+    ad_share_ars: fee.adShareArs,
     total_ars: fee.totalArs,
     gross_estimated_ars: cur.estimatedArs,
     estimated_athletes: cur.estimatedCount,
@@ -447,6 +599,21 @@ export async function applyAdjustment(
       currentUsd,
       cfg.reference_usd
     );
+    const newCommunityFee = computeAdjustedBase(
+      cfg.community_fee_ars,
+      currentUsd,
+      cfg.reference_usd
+    );
+    const newFallback = computeAdjustedBase(
+      cfg.community_fallback_fee_ars,
+      currentUsd,
+      cfg.reference_usd
+    );
+    const newThreshold = computeAdjustedBase(
+      cfg.community_revision_threshold_ars,
+      currentUsd,
+      cfg.reference_usd
+    );
     const nextDate = addMonthsISO(
       cfg.next_adjustment_date,
       cfg.adjustment_interval_months
@@ -454,9 +621,20 @@ export async function applyAdjustment(
     await client.query(
       `UPDATE platform_fee_config
           SET base_fee_ars = $1, reference_usd = $2, current_usd = $2,
-              next_adjustment_date = $3, updated_at = now()
+              next_adjustment_date = $3,
+              community_fee_ars = $4,
+              community_fallback_fee_ars = $5,
+              community_revision_threshold_ars = $6,
+              updated_at = now()
         WHERE id = 1`,
-      [newBase, currentUsd, nextDate]
+      [
+        newBase,
+        currentUsd,
+        nextDate,
+        newCommunityFee,
+        newFallback,
+        newThreshold,
+      ]
     );
     await client.query('COMMIT');
   } catch (e) {
@@ -472,19 +650,27 @@ export async function snapshotMonth(periodISO: string): Promise<void> {
   const cfg = await getConfig();
   // Snapshot the closed month using real (paid-this-month) gross, same as live fee.
   const rev = await getAthleteBillingRevenue(periodISO);
+  const community = communityActiveForPeriod(
+    cfg.community_launched_on,
+    periodISO
+  );
+  const adRevenue = community ? await adRevenueForMonth(periodISO) : 0;
   const fee = computeFee({
     baseFeeArs: cfg.base_fee_ars,
     activeAthletes: rev.realCount,
     grossRevenueArs: rev.realArs,
     revenueSharePct: cfg.revenue_share_pct,
     testflight: cfg.phase === 'testflight',
+    communityFeeArs: community ? cfg.community_fee_ars : 0,
+    adRevenueArs: adRevenue,
+    adSharePct: cfg.ad_share_pct,
   });
   await pool.query(
     `INSERT INTO platform_fee_history
        (period, base_fee_ars, active_athletes, price_per_athlete_ars,
         gross_revenue_ars, revenue_share_pct, revenue_share_ars, total_ars,
-        usd_at_snapshot)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        usd_at_snapshot, community_fee_ars, ad_revenue_ars, ad_share_ars)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (period) DO NOTHING`,
     [
       periodISO,
@@ -496,6 +682,9 @@ export async function snapshotMonth(periodISO: string): Promise<void> {
       fee.revenueShareArs,
       fee.totalArs,
       cfg.reference_usd,
+      fee.communityFeeArs,
+      fee.adRevenueArs,
+      fee.adShareArs,
     ]
   );
 }
@@ -508,6 +697,9 @@ interface HistoryRow {
   gross_revenue_ars: string;
   revenue_share_pct: string;
   revenue_share_ars: string;
+  community_fee_ars: string;
+  ad_revenue_ars: string;
+  ad_share_ars: string;
   total_ars: string;
   usd_at_snapshot: string;
   created_at: Date | string;
@@ -522,6 +714,7 @@ export async function getHistory(limit = 24): Promise<PlatformFeeHistoryRow[]> {
     `SELECT h.period, h.base_fee_ars, h.active_athletes,
             h.price_per_athlete_ars, h.gross_revenue_ars,
             h.revenue_share_pct, h.revenue_share_ars, h.total_ars,
+            h.community_fee_ars, h.ad_revenue_ars, h.ad_share_ars,
             h.usd_at_snapshot, h.created_at,
             p.total_ars AS paid_total_ars, p.paid_at
        FROM platform_fee_history h
@@ -549,6 +742,9 @@ export async function getHistory(limit = 24): Promise<PlatformFeeHistoryRow[]> {
     gross_revenue_ars: Number(row.gross_revenue_ars),
     revenue_share_pct: Number(row.revenue_share_pct),
     revenue_share_ars: Number(row.revenue_share_ars),
+    community_fee_ars: Number(row.community_fee_ars),
+    ad_revenue_ars: Number(row.ad_revenue_ars),
+    ad_share_ars: Number(row.ad_share_ars),
     total_ars: Number(row.total_ars),
     usd_at_snapshot: Number(row.usd_at_snapshot),
     created_at: new Date(row.created_at).toISOString(),

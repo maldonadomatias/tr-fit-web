@@ -484,6 +484,9 @@ export const notificationPrefsPayload = z
     skeleton_approved: z.boolean().optional(),
     sos_resolved: z.boolean().optional(),
     rm_test_week: z.boolean().optional(),
+    community_announcement: z.boolean().optional(),
+    community_event: z.boolean().optional(),
+    community_comment: z.boolean().optional(),
   })
   .strict();
 

@@ -5,6 +5,9 @@ export interface FeeInputs {
   grossRevenueArs: number;
   revenueSharePct: number;
   testflight?: boolean;
+  communityFeeArs?: number;
+  adRevenueArs?: number;
+  adSharePct?: number;
 }
 
 export interface FeeBreakdown {
@@ -13,6 +16,9 @@ export interface FeeBreakdown {
   grossRevenueArs: number;
   revenueSharePct: number;
   revenueShareArs: number;
+  communityFeeArs: number;
+  adRevenueArs: number;
+  adShareArs: number;
   totalArs: number;
 }
 
@@ -25,13 +31,21 @@ export function computeFee(i: FeeInputs): FeeBreakdown {
   const revenueShareArs = testflight
     ? 0
     : round2((grossRevenueArs * i.revenueSharePct) / 100);
-  const totalArs = round2(baseFeeArs + revenueShareArs);
+  const communityFeeArs = round2(i.communityFeeArs ?? 0);
+  const adRevenueArs = round2(i.adRevenueArs ?? 0);
+  const adShareArs = round2((adRevenueArs * (i.adSharePct ?? 0)) / 100);
+  const totalArs = round2(
+    baseFeeArs + revenueShareArs + communityFeeArs + adShareArs
+  );
   return {
     baseFeeArs,
     activeAthletes: i.activeAthletes,
     grossRevenueArs,
     revenueSharePct: i.revenueSharePct,
     revenueShareArs,
+    communityFeeArs,
+    adRevenueArs,
+    adShareArs,
     totalArs,
   };
 }
@@ -85,4 +99,49 @@ export function isPaymentOverdue(
 ): boolean {
   if (alreadyPaid) return false;
   return todayISO.slice(0, 10) > paymentDueDate(todayISO);
+}
+
+export function communityRevisionDate(launchedOn: string): string {
+  return addMonthsISO(launchedOn.slice(0, 10), 6);
+}
+
+export interface RevisionInput {
+  monthlyAdRevenues: number[];
+  threshold: number;
+  fee: number;
+  fallbackFee: number;
+}
+
+export interface RevisionResult {
+  average: number;
+  newFee: number;
+  downgraded: boolean;
+}
+
+/** Average of the first 6 months since launch (missing months = 0), always divided by 6. */
+export function evaluateCommunityRevision(i: RevisionInput): RevisionResult {
+  const sum = i.monthlyAdRevenues.slice(0, 6).reduce((a, b) => a + b, 0);
+  const average = round2(sum / 6);
+  const downgraded = average < i.threshold;
+  return { average, newFee: downgraded ? i.fallbackFee : i.fee, downgraded };
+}
+
+/**
+ * Insert one ad after every `every` posts. `pageOffset` = posts already served on
+ * previous pages, so slots and rotation continue across pages.
+ */
+export function interleaveAds<P, A>(
+  posts: P[],
+  ads: A[],
+  pageOffset: number,
+  every = 8
+): Array<P | A> {
+  if (ads.length === 0) return [...posts];
+  const out: Array<P | A> = [];
+  posts.forEach((p, i) => {
+    out.push(p);
+    const n = pageOffset + i + 1;
+    if (n % every === 0) out.push(ads[(n / every - 1) % ads.length]);
+  });
+  return out;
 }

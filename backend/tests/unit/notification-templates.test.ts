@@ -41,12 +41,54 @@ describe('notification templates', () => {
     expect(r.route).toBe('/(app)/athlete');
   });
 
-  it('covers all 8 types', () => {
+  it('covers all 13 types', () => {
     const keys = Object.keys(TEMPLATES);
     expect(keys.sort()).toEqual([
-      'membership_expired','membership_expiring','rm_test_week',
-      'session_missed','session_reminder','skeleton_approved',
-      'sos_resolved','week_start',
+      'community_announcement',
+      'community_comment',
+      'community_event',
+      'community_report',
+      'community_revision',
+      'membership_expired',
+      'membership_expiring',
+      'rm_test_week',
+      'session_missed',
+      'session_reminder',
+      'skeleton_approved',
+      'sos_resolved',
+      'week_start',
     ]);
+  });
+});
+
+describe('community templates', () => {
+  it('renders community templates', () => {
+    expect(
+      TEMPLATES.community_announcement({ postId: 'p1', preview: 'Hola' }).body
+    ).toBe('Hola');
+    expect(
+      TEMPLATES.community_event({ postId: 'p1', preview: 'Asado' }).title
+    ).toBe('Nuevo evento');
+    expect(
+      TEMPLATES.community_comment({ postId: 'p1', commenter: 'Ana' }).body
+    ).toContain('Ana');
+    expect(
+      TEMPLATES.community_report({ reportId: 'r1', reason: 'spam' }).title
+    ).toBe('Nueva denuncia');
+    expect(
+      TEMPLATES.community_comment({ postId: 'p1', commenter: 'Ana' }).route
+    ).toBe('/(app)/community');
+  });
+});
+
+describe('community_revision template', () => {
+  it('reports the result', () => {
+    const t = TEMPLATES.community_revision({
+      average: '42000',
+      newFee: '40000',
+      downgraded: 'true',
+    });
+    expect(t.title).toBe('Revisión de Comunidad aplicada');
+    expect(t.body).toContain('40000');
   });
 });

@@ -39,6 +39,7 @@ import {
 import { resetProgramForGymChange } from '../services/program-reset.service.js';
 import { toAlternativePayloads } from '../services/alternatives.service.js';
 import { RmTestLockedError } from '../services/rm-swap-guard.js';
+import { communityFlags } from '../services/community.service.js';
 
 const router = Router();
 router.use(requireAuth, requireRole('athlete'));
@@ -136,12 +137,15 @@ router.get('/me', async (req, res) => {
     blockedReason = 'awaiting_review';
   if (state?.rm_test_blocking) blockedReason = 'rm_test_required';
 
+  const community = await communityFlags(userId);
+
   res.json({
     profile,
     programState: state,
     skeletonStatus: skeleton.status,
     regenState,
     blockedReason,
+    ...community,
   });
 });
 
