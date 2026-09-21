@@ -13,7 +13,12 @@ import {
   useMarkPlatformFeePaid,
   useAthleteBillingBreakdown,
   type BillingPhase,
+  type PlatformFeeConfig,
 } from '@/hooks/usePlatformFee';
+import {
+  useCommunitySummary,
+  type CommunitySummary,
+} from '@/hooks/useCommunity';
 
 export default function PlatformFee() {
   const { user } = useAuth();
@@ -25,6 +30,7 @@ export default function PlatformFee() {
   const markPaid = useMarkPlatformFeePaid();
   const { data: feeLog } = useFeeLog();
   const { data: breakdown } = useAthleteBillingBreakdown();
+  const { data: community } = useCommunitySummary();
 
   const [usdInput, setUsdInput] = useState('');
 
@@ -161,8 +167,36 @@ export default function PlatformFee() {
                 : fmtARS(summary.revenue_share_ars)}
             </dd>
           </div>
+          {summary.community_fee_ars > 0 && (
+            <>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Comunidad (fijo)</dt>
+                <dd className="tabular-nums">
+                  {fmtARS(summary.community_fee_ars)}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">
+                  Publicidad de {realMonthLabel}
+                </dt>
+                <dd className="tabular-nums">
+                  {fmtARS(summary.ad_revenue_ars)}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">
+                  {summary.ad_share_pct}% sobre publicidad de {realMonthLabel}
+                </dt>
+                <dd className="tabular-nums">{fmtARS(summary.ad_share_ars)}</dd>
+              </div>
+            </>
+          )}
         </dl>
       </div>
+
+      {community?.enabled && (
+        <CommunityRevisionCard summary={community} config={config} />
+      )}
 
       <div
         className={
@@ -287,13 +321,11 @@ export default function PlatformFee() {
           <strong>Estimado</strong> = todos los alumnos con membresía activa
           (paguen o no este ciclo). <strong>Real</strong> = ya renovaron con
           vencimiento después de fin de mes; solo estos entran en el "Real
-          cobrado" y en el 4%. (No incluye precio base ni cantidad de
-          referidos — la app no lleva ese dato, solo la cuota final.)
+          cobrado" y en el 4%. (No incluye precio base ni cantidad de referidos
+          — la app no lleva ese dato, solo la cuota final.)
         </p>
         {!breakdown || breakdown.length === 0 ? (
-          <div className="mt-3 text-sm text-muted-foreground">
-            Sin datos.
-          </div>
+          <div className="mt-3 text-sm text-muted-foreground">Sin datos.</div>
         ) : (
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[520px] text-sm">
@@ -462,6 +494,7 @@ export default function PlatformFee() {
                   <th className="py-1 text-right">Atletas</th>
                   <th className="py-1 text-right">Fee base</th>
                   <th className="py-1 text-right">4%</th>
+                  <th className="py-1 text-right">Comunidad</th>
                   <th className="py-1 text-right">Total</th>
                   <th className="py-1 text-right">Estado</th>
                 </tr>
@@ -478,6 +511,11 @@ export default function PlatformFee() {
                     </td>
                     <td className="py-1.5 text-right tabular-nums">
                       {fmtARS(h.revenue_share_ars)}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">
+                      {fmtARS(
+                        (h.community_fee_ars ?? 0) + (h.ad_share_ars ?? 0)
+                      )}
                     </td>
                     <td className="py-1.5 text-right font-semibold tabular-nums">
                       {fmtARS(h.total_ars)}
@@ -533,7 +571,9 @@ function exportBreakdownCsv(
       [
         csvEscape(r.name),
         r.membership_status,
-        r.paid_until === 'infinity' ? 'Sin vencimiento' : ddmmyyyy(r.paid_until),
+        r.paid_until === 'infinity'
+          ? 'Sin vencimiento'
+          : ddmmyyyy(r.paid_until),
         r.fee_ars,
         r.in_real ? 'Real' : 'Solo estimado',
       ].join(',')
@@ -569,15 +609,8 @@ function ConfigEditor({
   onSave,
   saving,
 }: {
-  config: {
-    price_per_athlete_ars: number;
-    revenue_share_pct: number;
-    adjustment_interval_months: number;
-    next_adjustment_date: string;
-    base_fee_ars: number;
-    phase: BillingPhase;
-  };
-  onSave: (patch: Record<string, number | string>) => void;
+  config: PlatformFeeConfig;
+  onSave: (patch: Partial<PlatformFeeConfig>) => void;
   saving: boolean;
 }) {
   const [price, setPrice] = useState(String(config.price_per_athlete_ars));
@@ -588,6 +621,17 @@ function ConfigEditor({
   );
   const [nextDate, setNextDate] = useState(config.next_adjustment_date);
   const [phase, setPhase] = useState<BillingPhase>(config.phase);
+  const [communityFee, setCommunityFee] = useState(
+    String(config.community_fee_ars)
+  );
+  const [fallbackFee, setFallbackFee] = useState(
+    String(config.community_fallback_fee_ars)
+  );
+  const [threshold, setThreshold] = useState(
+    String(config.community_revision_threshold_ars)
+  );
+  const [adPct, setAdPct] = useState(String(config.ad_share_pct));
+  const [launched, setLaunched] = useState(config.community_launched_on ?? '');
 
   const field =
     'mt-1 h-9 rounded-md border border-border bg-background px-2 text-sm tabular-nums';
@@ -654,6 +698,58 @@ function ConfigEditor({
             <option value="production">Producción (100% + 4%)</option>
           </select>
         </label>
+        <label className="flex flex-col text-xs text-muted-foreground">
+          Comunidad: fee fijo (ARS)
+          <input
+            type="number"
+            value={communityFee}
+            onChange={(e) => setCommunityFee(e.target.value)}
+            className={field}
+          />
+        </label>
+        <label className="flex flex-col text-xs text-muted-foreground">
+          Comunidad: fee si no llega al umbral (ARS)
+          <input
+            type="number"
+            value={fallbackFee}
+            onChange={(e) => setFallbackFee(e.target.value)}
+            className={field}
+          />
+        </label>
+        <label className="flex flex-col text-xs text-muted-foreground">
+          Comunidad: umbral de publicidad (ARS)
+          <input
+            type="number"
+            value={threshold}
+            onChange={(e) => setThreshold(e.target.value)}
+            className={field}
+          />
+        </label>
+        <label className="flex flex-col text-xs text-muted-foreground">
+          % sobre publicidad
+          <input
+            type="number"
+            value={adPct}
+            onChange={(e) => setAdPct(e.target.value)}
+            className={field}
+          />
+        </label>
+        <div className="flex flex-col text-xs text-muted-foreground sm:col-span-2">
+          <label className="flex flex-col">
+            Lanzamiento de Comunidad
+            <input
+              type="date"
+              value={launched}
+              onChange={(e) => setLaunched(e.target.value)}
+              className={field}
+            />
+          </label>
+          <span className="mt-1">
+            Vacío = apagado. Al cargar la fecha, los alumnos ven la Comunidad y
+            empieza a cobrarse el fee. Los 6 meses de revisión cuentan desde
+            acá.
+          </span>
+        </div>
       </div>
       <button
         type="button"
@@ -665,6 +761,11 @@ function ConfigEditor({
             adjustment_interval_months: Number(interval),
             next_adjustment_date: nextDate,
             phase,
+            community_fee_ars: Number(communityFee),
+            community_fallback_fee_ars: Number(fallbackFee),
+            community_revision_threshold_ars: Number(threshold),
+            ad_share_pct: Number(adPct),
+            community_launched_on: launched || null,
           })
         }
         disabled={saving}
@@ -672,6 +773,66 @@ function ConfigEditor({
       >
         Guardar
       </button>
+    </div>
+  );
+}
+
+function CommunityRevisionCard({
+  summary,
+  config,
+}: {
+  summary: CommunitySummary;
+  config: PlatformFeeConfig;
+}) {
+  const reaches = summary.avg_ad_revenue >= summary.threshold_ars;
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      <div className="mb-2 text-sm font-semibold">Revisión de Comunidad</div>
+      {summary.revision_applied_at ? (
+        <p className="text-sm">
+          Revisión aplicada el {fmtShortDate(summary.revision_applied_at)}. Fee
+          fijo de Comunidad: {fmtARS(summary.community_fee_ars)}.
+        </p>
+      ) : (
+        <dl className="grid gap-2 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Fecha de revisión</dt>
+            <dd className="tabular-nums">
+              {summary.revision_date ? ddmmyyyy(summary.revision_date) : '—'} ·
+              faltan {summary.days_to_revision} días
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">
+              Promedio de publicidad hasta hoy
+            </dt>
+            <dd className="flex items-center gap-2 tabular-nums">
+              <span
+                aria-hidden
+                className={
+                  'size-2 rounded-full ' +
+                  (reaches ? 'bg-emerald-500' : 'bg-amber-500')
+                }
+              />
+              {fmtARS(summary.avg_ad_revenue)} (umbral{' '}
+              {fmtARS(summary.threshold_ars)})
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Fee proyectado</dt>
+            <dd className="font-semibold tabular-nums">
+              {fmtARS(summary.projected_community_fee)}
+            </dd>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Si el promedio mensual de publicidad de los primeros 6 meses es
+            menor al umbral, el fee fijo pasa de{' '}
+            {fmtARS(config.community_fee_ars)} a{' '}
+            {fmtARS(config.community_fallback_fee_ars)}. El{' '}
+            {config.ad_share_pct}% sobre publicidad se mantiene.
+          </p>
+        </dl>
+      )}
     </div>
   );
 }

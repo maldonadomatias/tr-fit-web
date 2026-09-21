@@ -13,6 +13,11 @@ const DEDUP_WINDOW_HOURS: Record<NotificationType, number> = {
   rm_test_week: 24 * 7,
   membership_expiring: 24 * 7,
   membership_expired: 24,
+  community_announcement: 0,
+  community_event: 0,
+  community_comment: 0,
+  community_report: 0,
+  community_revision: 0,
 };
 
 // Routes fire notifyUser without awaiting it so the response is not blocked by
@@ -29,7 +34,7 @@ export function pendingNotifications(): Promise<void> {
 export async function notifyUser(
   userId: string,
   type: NotificationType,
-  vars: Record<string, string> = {},
+  vars: Record<string, string> = {}
 ): Promise<void> {
   const p = deliver(userId, type, vars);
   inFlight.add(p);
@@ -43,12 +48,12 @@ export async function notifyUser(
 async function deliver(
   userId: string,
   type: NotificationType,
-  vars: Record<string, string>,
+  vars: Record<string, string>
 ): Promise<void> {
   // 1. Check prefs
   const u = await pool.query<{ notification_prefs: NotificationPrefs }>(
     `SELECT notification_prefs FROM users WHERE id = $1`,
-    [userId],
+    [userId]
   );
   if (!u.rows[0]) return;
   if (!u.rows[0].notification_prefs[type]) return;
@@ -59,14 +64,14 @@ async function deliver(
       WHERE user_id = $1 AND type = $2
         AND sent_at > now() - ($3 || ' hours')::interval
       LIMIT 1`,
-    [userId, type, String(DEDUP_WINDOW_HOURS[type])],
+    [userId, type, String(DEDUP_WINDOW_HOURS[type])]
   );
   if ((dup.rowCount ?? 0) > 0) return;
 
   // 3. Load tokens
   const tokens = await pool.query<{ token: string }>(
     `SELECT token FROM push_tokens WHERE user_id = $1`,
-    [userId],
+    [userId]
   );
   if (tokens.rowCount === 0) return;
 
@@ -84,16 +89,19 @@ async function deliver(
     if (status === 'token_invalid') {
       await pool
         .query(`DELETE FROM push_tokens WHERE token = $1`, [token])
-        .catch((e) => logger.error({ err: e, token }, 'failed to delete invalid token'));
+        .catch((e) =>
+          logger.error({ err: e, token }, 'failed to delete invalid token')
+        );
     }
     if (status === 'sent') overall = 'sent';
-    else if (status === 'token_invalid' && overall !== 'sent') overall = 'token_invalid';
+    else if (status === 'token_invalid' && overall !== 'sent')
+      overall = 'token_invalid';
   }
 
   // 6. Log
   await pool.query(
     `INSERT INTO notification_log (user_id, type, payload, delivery_status)
      VALUES ($1, $2, $3, $4)`,
-    [userId, type, JSON.stringify(vars), overall],
+    [userId, type, JSON.stringify(vars), overall]
   );
 }

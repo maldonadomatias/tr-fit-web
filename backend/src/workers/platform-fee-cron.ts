@@ -2,7 +2,10 @@
 import cron from 'node-cron';
 import logger from '../utils/logger.js';
 import { previousMonthPeriod } from '../services/platform-fee.math.js';
-import { snapshotMonth } from '../services/platform-fee.service.js';
+import {
+  snapshotMonth,
+  applyCommunityRevisionIfDue,
+} from '../services/platform-fee.service.js';
 
 export { previousMonthPeriod };
 
@@ -11,6 +14,8 @@ export async function runPlatformFeeTick(todayISO?: string): Promise<void> {
   const period = previousMonthPeriod(today);
   await snapshotMonth(period);
   logger.info({ period }, 'platform fee snapshot complete');
+  const revision = await applyCommunityRevisionIfDue(today);
+  if (revision.applied) logger.info({ revision }, 'community revision applied');
 }
 
 let task: ReturnType<typeof cron.schedule> | null = null;

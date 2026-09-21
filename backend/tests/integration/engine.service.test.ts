@@ -149,13 +149,14 @@ it('rm_test flag on week 10 even without RM', async () => {
 // vivía adentro de esa misma sesión. La semana de testeo SE ENTRENA.
 // Hip thrust (u otro principal) puede aparecer Lunes y Viernes en la misma
 // semana de testeo. El domingo avanza la semana: hasta entonces, un RM ya
-// cargado no se vuelve a pedir — se receta un 3×8 con el último peso.
+// cargado no se vuelve a pedir — se receta un 3×8 al % de la semana 11 (72%)
+// sobre ese RM. El último peso logueado ES el RM (ticket #19: 3×8 con 235 kg).
 it('does not re-ask RM for an exercise already tested this week', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const { principalId } = await setup4DaySkeleton(ath, coach);
   await setProgramWeek(ath, 10);
-  await setWeight(ath, principalId, 80);
+  await setWeight(ath, principalId, 120);
   await pool.query(
     `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg)
      VALUES ($1, $2, 10, 120)`,
@@ -166,7 +167,8 @@ it('does not re-ask RM for an exercise already tested this week', async () => {
   expect(principal.flag).toBe('rm_already_done');
   expect(principal.series).toBe(3);
   expect(principal.reps).toBe('8');
-  expect(principal.suggested_value).toBe(80);
+  expect(principal.suggested_value).toBeCloseTo(120 * 0.72, -1);
+  expect(principal.suggested_value).not.toBe(120);
 });
 
 it('keeps the 1×1 RM test when that RM was logged after the session started', async () => {

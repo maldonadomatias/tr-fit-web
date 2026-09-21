@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import pool from '../db/connect.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { FEE_EXPR } from './platform-fee.service.js';
+import { deleteUserCommunityMedia } from './community-media.service.js';
 
 const BCRYPT_COST = 10;
 
@@ -277,6 +278,7 @@ export async function createUser(
 }
 
 export async function deleteUser(id: string): Promise<void> {
+  await deleteUserCommunityMedia(id);
   const r = await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
   if (!r.rowCount) throw new AdminError('not_found');
 }

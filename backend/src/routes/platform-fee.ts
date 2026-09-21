@@ -62,6 +62,15 @@ const configBody = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   phase: z.enum(['testflight', 'production']).optional(),
+  community_fee_ars: z.number().nonnegative().optional(),
+  community_fallback_fee_ars: z.number().nonnegative().optional(),
+  community_revision_threshold_ars: z.number().nonnegative().optional(),
+  ad_share_pct: z.number().min(0).max(100).optional(),
+  community_launched_on: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
 });
 
 router.put('/config', requireSuperadmin, async (req, res) => {

@@ -5,17 +5,42 @@ export type PlanInterest = 'basico' | 'full' | 'premium';
 export type TrainingMode = 'gym' | 'casa' | 'mixto';
 export type Commitment = 'suave' | 'normal' | 'exigente';
 export type Weekday = 'lun' | 'mar' | 'mie' | 'jue' | 'vie' | 'sab' | 'dom';
-export type ReferralSource = 'instagram' | 'facebook' | 'google' | 'amigo' | 'otro';
+export type ReferralSource =
+  | 'instagram'
+  | 'facebook'
+  | 'google'
+  | 'amigo'
+  | 'otro';
 export type Equipment =
-  | 'gym_completo' | 'gym_basico' | 'casa_basica' | 'solo_bw';
+  | 'gym_completo'
+  | 'gym_basico'
+  | 'casa_basica'
+  | 'solo_bw';
 export type ExerciseEquipment =
-  | 'barra' | 'mancuerna' | 'maquina' | 'polea' | 'smith'
-  | 'bw' | 'pesa_rusa' | 'elastico' | 'disco';
+  | 'barra'
+  | 'mancuerna'
+  | 'maquina'
+  | 'polea'
+  | 'smith'
+  | 'bw'
+  | 'pesa_rusa'
+  | 'elastico'
+  | 'disco';
 export type MovementPattern =
-  | 'squat' | 'hinge' | 'push_h' | 'push_v' | 'pull_h' | 'pull_v'
-  | 'isolation' | 'core' | 'cardio';
+  | 'squat'
+  | 'hinge'
+  | 'push_h'
+  | 'push_v'
+  | 'pull_h'
+  | 'pull_v'
+  | 'isolation'
+  | 'core'
+  | 'cardio';
 export type SkeletonStatus =
-  | 'pending_review' | 'approved' | 'rejected' | 'superseded';
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'superseded';
 export type SlotRole = 'calentamiento' | 'principal' | 'accesorio';
 
 export interface AthleteProfile {
@@ -217,7 +242,16 @@ export interface CoachAlert {
   athlete_id: string;
   coach_id: string;
   // Keep in sync with AlertType in alert-actions.ts.
-  type: 'sos_pain' | 'sos_machine' | 'rpe_flag' | 'rm_skipped' | 'rm_week_starting' | 'membership_expiring' | 'membership_overdue' | 'sos_no_machine' | 'program_reset';
+  type:
+    | 'sos_pain'
+    | 'sos_machine'
+    | 'rpe_flag'
+    | 'rm_skipped'
+    | 'rm_week_starting'
+    | 'membership_expiring'
+    | 'membership_overdue'
+    | 'sos_no_machine'
+    | 'program_reset';
   severity: 'red' | 'yellow' | 'info';
   exercise_id: number | null;
   session_log_id: string | null;
@@ -261,7 +295,12 @@ export type NotificationType =
   | 'sos_resolved'
   | 'rm_test_week'
   | 'membership_expiring'
-  | 'membership_expired';
+  | 'membership_expired'
+  | 'community_announcement'
+  | 'community_event'
+  | 'community_comment'
+  | 'community_report'
+  | 'community_revision';
 
 export type NotificationPrefs = Record<NotificationType, boolean>;
 

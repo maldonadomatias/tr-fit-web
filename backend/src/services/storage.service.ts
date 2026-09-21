@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getStorageBucket } from '../config/firebase.js';
+import logger from '../utils/logger.js';
 
 /**
  * Save a buffer to Firebase Storage and return a stable public download URL.
@@ -13,7 +14,7 @@ export async function uploadBufferToStorage(
   objectPath: string,
   buffer: Buffer,
   contentType: string,
-  opts: { resumable?: boolean } = {},
+  opts: { resumable?: boolean } = {}
 ): Promise<string> {
   const token = randomUUID();
   const bucket = getStorageBucket();
@@ -26,4 +27,13 @@ export async function uploadBufferToStorage(
     `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/` +
     `${encodeURIComponent(objectPath)}?alt=media&token=${token}`
   );
+}
+
+/** Best-effort delete: a missing object or network error is logged, never thrown. */
+export async function deleteFromStorage(objectPath: string): Promise<void> {
+  try {
+    await getStorageBucket().file(objectPath).delete();
+  } catch (e) {
+    logger.warn({ err: e, storage_path: objectPath }, 'storage delete failed');
+  }
 }

@@ -16,14 +16,14 @@ jest.unstable_mockModule('../../src/services/email.service.js', () => ({
   sendCoachPainAlert: noop(),
   sendMembershipExpiringEmail: noop(),
   sendMembershipExpiredEmail: noop(),
+  sendCommunityRevisionEmail: noop(),
 }));
 
 const { resetDatabase, ensureMigrated, closePool } =
   await import('./helpers/test-db.js');
 const { signToken } = await import('../../src/middleware/auth.js');
-const { createAdmin, signupUserInDb, setMembership } = await import(
-  './helpers/fixtures.js'
-);
+const { createAdmin, signupUserInDb, setMembership } =
+  await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const requestMod = await import('supertest');

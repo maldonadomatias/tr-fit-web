@@ -77,9 +77,54 @@ export const deleteAccountLimiter = rateLimit({
 // Tests can opt in via RATE_LIMIT_TEST=on.
 export function skipInTests(handler: RequestHandler): RequestHandler {
   return (req, res, next) => {
-    if (process.env.NODE_ENV === 'test' && process.env.RATE_LIMIT_TEST !== 'on') {
+    if (
+      process.env.NODE_ENV === 'test' &&
+      process.env.RATE_LIMIT_TEST !== 'on'
+    ) {
       return next();
     }
     return handler(req, res, next);
   };
 }
+
+/** Per-user limiter (falls back to IP when unauthenticated). Wrapped with skipInTests. */
+export function userKeyedLimiter(
+  prefix: string,
+  windowMs: number,
+  max: number
+): RequestHandler {
+  return skipInTests(
+    rateLimit({
+      windowMs,
+      max,
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req: Request) =>
+        req.user?.id
+          ? `${prefix}:${req.user.id}`
+          : `${prefix}:${ipKeyGenerator(req.ip ?? '')}`,
+      handler: json429,
+    })
+  );
+}
+
+export const communityPostLimiter = userKeyedLimiter(
+  'community-post',
+  60 * 60 * 1000,
+  10
+);
+export const communityCommentLimiter = userKeyedLimiter(
+  'community-comment',
+  60 * 60 * 1000,
+  60
+);
+export const communityReportLimiter = userKeyedLimiter(
+  'community-report',
+  24 * 60 * 60 * 1000,
+  20
+);
+export const communityAdEventLimiter = userKeyedLimiter(
+  'community-ad-event',
+  60 * 60 * 1000,
+  300
+);

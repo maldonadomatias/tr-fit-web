@@ -17,6 +17,7 @@ import {
 import { sendVerifyEmail, sendPasswordResetEmail } from './email.service.js';
 import { logAudit } from './admin.service.js';
 import { getStorageBucket } from '../config/firebase.js';
+import { deleteUserCommunityMedia } from './community-media.service.js';
 
 const BCRYPT_COST = 10;
 
@@ -718,6 +719,7 @@ export async function deleteAccount(
 
   // Avatar objects live outside Postgres, so the FK cascade can't clean them up.
   await deleteAvatarObject(user.avatar_url);
+  await deleteUserCommunityMedia(userId);
 
   await pool.query(`DELETE FROM users WHERE id = $1`, [userId]);
 

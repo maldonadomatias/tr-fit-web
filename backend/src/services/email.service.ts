@@ -8,6 +8,7 @@ import {
   membershipExpiringTemplate,
   membershipExpiredTemplate,
   accountApprovedTemplate,
+  communityRevisionTemplate,
 } from './email-templates.js';
 
 const resend = new Resend(env.RESEND_API_KEY);
@@ -120,5 +121,20 @@ export async function sendAccountApprovedEmail(opts: {
     to: opts.email,
     subject: 'Tu cuenta TR-FIT ya está activa',
     html: accountApprovedTemplate({ name: opts.name }),
+  });
+}
+
+export async function sendCommunityRevisionEmail(opts: {
+  email: string;
+  average: number;
+  threshold: number;
+  newFee: number;
+  downgraded: boolean;
+}): Promise<void> {
+  const { email, ...rest } = opts;
+  await send({
+    to: email,
+    subject: 'Revisión de Comunidad — TR Fit',
+    html: communityRevisionTemplate(rest),
   });
 }

@@ -25,6 +25,7 @@ import AdminAlerts from '@/pages/admin/Alerts';
 import AdminRutinas from '@/pages/admin/Rutinas';
 import AdminExercises from '@/pages/admin/Exercises';
 import AdminPlatformFee from '@/pages/admin/PlatformFee';
+import AdminCommunity from '@/pages/admin/Community';
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ export default function App() {
                 />
                 <Route path="/admin/rutinas/:id" element={<AdminRutinas />} />
                 <Route path="/admin/exercises" element={<AdminExercises />} />
+                <Route path="/admin/community" element={<AdminCommunity />} />
                 <Route
                   path="/admin/platform-fee"
                   element={<AdminPlatformFee />}

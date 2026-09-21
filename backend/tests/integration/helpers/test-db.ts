@@ -6,9 +6,8 @@ export async function resetDatabase(): Promise<void> {
   // is still in flight lets its late writes (e.g. deleting an invalid push
   // token) hit the *next* test's rows. Drain them first. Optional-called
   // because suites that mock notification.service supply only notifyUser.
-  const notifications = await import(
-    '../../../src/services/notification.service.js'
-  );
+  const notifications =
+    await import('../../../src/services/notification.service.js');
   await notifications.pendingNotifications?.();
 
   await pool.query(`
@@ -29,7 +28,8 @@ export async function resetDatabase(): Promise<void> {
       athlete_skeletons,
       coach_profiles,
       athlete_profiles,
-      users
+      users,
+      community_ads
     RESTART IDENTITY CASCADE;
   `);
   // Platform fee tables: clear history and restore the seeded single-row config
@@ -41,8 +41,11 @@ export async function resetDatabase(): Promise<void> {
   await pool.query(`
     INSERT INTO platform_fee_config
       (id, base_fee_ars, reference_usd, current_usd, price_per_athlete_ars,
-       revenue_share_pct, adjustment_interval_months, next_adjustment_date, phase)
-    VALUES (1, 105000, 1420, 1500, 25000, 4, 3, '2026-10-01', 'production')
+       revenue_share_pct, adjustment_interval_months, next_adjustment_date, phase,
+       community_fee_ars, community_fallback_fee_ars, community_revision_threshold_ars,
+       ad_share_pct, community_launched_on, community_revision_applied_at)
+    VALUES (1, 105000, 1420, 1500, 25000, 4, 3, '2026-10-01', 'production',
+            30000, 40000, 50000, 15, NULL, NULL)
     ON CONFLICT (id) DO UPDATE SET
       base_fee_ars = EXCLUDED.base_fee_ars,
       reference_usd = EXCLUDED.reference_usd,
@@ -52,6 +55,12 @@ export async function resetDatabase(): Promise<void> {
       adjustment_interval_months = EXCLUDED.adjustment_interval_months,
       next_adjustment_date = EXCLUDED.next_adjustment_date,
       phase = EXCLUDED.phase,
+      community_fee_ars = EXCLUDED.community_fee_ars,
+      community_fallback_fee_ars = EXCLUDED.community_fallback_fee_ars,
+      community_revision_threshold_ars = EXCLUDED.community_revision_threshold_ars,
+      ad_share_pct = EXCLUDED.ad_share_pct,
+      community_launched_on = NULL,
+      community_revision_applied_at = NULL,
       updated_at = now();
   `);
   // The exercises catalog is seeded, not truncated, so a suite that hand-picks
@@ -75,6 +84,7 @@ export async function ensureMigrated(): Promise<void> {
             to_regclass('public.periodization_config') AS p,
             to_regclass('public.platform_fee_config') AS f,
             to_regclass('public.platform_fee_payments') AS fp,
+            to_regclass('public.community_ads') AS ca,
             EXISTS (
               SELECT 1
                 FROM information_schema.columns
@@ -88,15 +98,22 @@ export async function ensureMigrated(): Promise<void> {
                WHERE table_schema = 'public'
                  AND table_name = 'athlete_exercise_weights'
                  AND column_name = 'scheme'
-            ) AS aew_scheme`
+            ) AS aew_scheme,
+            EXISTS (
+              SELECT 1 FROM pg_constraint
+               WHERE conname = 'notification_log_type_check'
+                 AND pg_get_constraintdef(oid) LIKE '%community_revision%'
+            ) AS m065`
   );
   if (
     !r.rows[0].e ||
     !r.rows[0].p ||
     !r.rows[0].f ||
     !r.rows[0].fp ||
+    !r.rows[0].ca ||
     !r.rows[0].uf ||
-    !r.rows[0].aew_scheme
+    !r.rows[0].aew_scheme ||
+    !r.rows[0].m065
   ) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }
