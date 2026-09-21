@@ -7,6 +7,7 @@ import {
 import { dominantGroupByDay } from './day-focus.service.js';
 import { runWeeklyProgressionForAthlete } from './progression.service.js';
 import { recordAmrap } from './rm.service.js';
+import { isWarmupName } from './warmup-rule.js';
 import logger from '../utils/logger.js';
 
 export class SessionError extends Error {
@@ -16,6 +17,23 @@ export class SessionError extends Error {
     'day_not_pending' | 'same_focus_back_to_back') {
     super(reason);
   }
+}
+
+/**
+ * Series efectivas: los calentamientos y los abdominales no cuentan ni en el
+ * total ni en el cumplimiento (la historia compartida muestra solo el trabajo
+ * real). Misma regla para el target al iniciar y el conteo al terminar.
+ */
+function countsAsEffectiveSeries(
+  role: string | null,
+  ex: { name: string; muscle_group: string; movement_pattern: string },
+): boolean {
+  return (
+    role !== 'calentamiento' &&
+    !isWarmupName(ex.name) &&
+    ex.movement_pattern !== 'core' &&
+    !ex.muscle_group.trim().toLowerCase().startsWith('abdom')
+  );
 }
 
 interface StartSessionResult {
@@ -104,7 +122,9 @@ export async function startSession(
   }
 
   const items = await buildTodaySession(athleteId, dayOfWeek);
-  const totalSetsTarget = items.reduce((sum, it) => sum + it.series, 0);
+  const totalSetsTarget = items
+    .filter((it) => countsAsEffectiveSeries(it.role, it.exercise))
+    .reduce((sum, it) => sum + it.series, 0);
 
   const ins = await pool.query<{ id: string }>(
     `INSERT INTO session_logs
@@ -372,11 +392,13 @@ export async function finishSession(
       throw new SessionError('already_finished');
     }
 
-    const aggR = await client.query<{
-      total_completed: number;
-      total_volume: string | null;
+    const seriesR = await client.query<{
+      role: string | null;
+      name: string;
+      muscle_group: string;
+      movement_pattern: string;
     }>(
-      // `total_completed` counts DISTINCT planned series that have at least one
+      // One row per planned series with at least one
       // completed row — grouped by (exercise_id, set_index), which together
       // identify a single planned series. A dropset / superserie logs one
       // set_log row PER DROP (all sharing the same exercise_id + set_index,
@@ -384,15 +406,33 @@ export async function finishSession(
       // numerator past the target (e.g. 39/22). Counting distinct series makes
       // a 3-drop dropset count as the ONE series it is → completed can no
       // longer exceed planned for a normally-executed session.
+      // The day's slot role comes along to drop warm-ups.
+      `SELECT DISTINCT ON (sl.exercise_id, sl.set_index)
+              (SELECT s.role FROM skeleton_slots s
+                WHERE s.skeleton_id = lg.skeleton_id
+                  AND s.day_of_week = lg.day_of_week
+                  AND s.exercise_id = sl.exercise_id
+                ORDER BY (s.role = 'calentamiento') DESC LIMIT 1) AS role,
+              e.name, e.muscle_group, e.movement_pattern
+         FROM set_logs sl
+         JOIN session_logs lg ON lg.id = sl.session_log_id
+         JOIN exercises e ON e.id = sl.exercise_id
+        WHERE sl.session_log_id = $1 AND sl.completed = TRUE`,
+      [sessionId],
+    );
+    const setsCompleted = seriesR.rows.filter((r) =>
+      countsAsEffectiveSeries(r.role, r),
+    ).length;
+
+    const aggR = await client.query<{
+      total_volume: string | null;
+    }>(
       `SELECT
-         COUNT(DISTINCT (exercise_id, set_index))
-           FILTER (WHERE completed = TRUE)::int AS total_completed,
          COALESCE(SUM(COALESCE(value, weight_kg) * reps) FILTER (WHERE completed = TRUE), 0)::text AS total_volume
          FROM set_logs WHERE session_log_id = $1`,
       [sessionId],
     );
     const agg = aggR.rows[0];
-    const setsCompleted = agg.total_completed;
     const setsTarget = session.total_sets_target ?? 0;
     const totalVolumeKg = Number(agg.total_volume ?? 0);
     // Defensive clamp only. With `setsCompleted` now counting distinct planned
