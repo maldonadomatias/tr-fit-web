@@ -11,14 +11,20 @@ beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => { await resetDatabase(); });
 afterAll(async () => { await closePool(); });
 
-async function setupAthlete() {
+type ExtraSlot = { exercise_id: number; role: 'accesorio' | 'calentamiento' };
+
+async function setupAthlete(extraSlots: ExtraSlot[] = []) {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);
   const p = await pool.query<{ id: number }>(
     `SELECT id FROM exercises WHERE is_principal = TRUE LIMIT 1`,
   );
+  // Un accesorio que cuente como serie efectiva (no abdomen/core).
   const a = await pool.query<{ id: number }>(
-    `SELECT id FROM exercises WHERE is_principal = FALSE LIMIT 1`,
+    `SELECT id FROM exercises
+      WHERE is_principal = FALSE AND movement_pattern <> 'core'
+        AND muscle_group NOT ILIKE 'abdom%'
+      LIMIT 1`,
   );
   const ai = {
     rationale: 'r',
@@ -27,6 +33,10 @@ async function setupAthlete() {
       slots: [
         { slot_index: 1, exercise_id: p.rows[0].id, role: 'principal' as const, notes: null, series: null, reps: null, descanso: null },
         { slot_index: 2, exercise_id: a.rows[0].id, role: 'accesorio' as const, notes: null, series: null, reps: null, descanso: null },
+        ...extraSlots.map((x, i) => ({
+          slot_index: 3 + i, exercise_id: x.exercise_id, role: x.role,
+          notes: null, series: null, reps: null, descanso: null,
+        })),
       ],
     })),
   };
@@ -137,6 +147,44 @@ it('finishSession computes summary + detects PRs', async () => {
     (81 * 8) + (82 * 8) + (83 * 8) + (12 * 10) * 3,
   );
   expect(summary.newPRs.length).toBeGreaterThanOrEqual(2);
+});
+
+// Compartir en historia: calentamientos y abdominales no son series efectivas,
+// ni en el total ni en el 100% del cumplimiento.
+it('finishSession excludes warm-ups and abs from series and compliance', async () => {
+  const warm = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE is_principal = FALSE
+       AND movement_pattern <> 'core' AND muscle_group NOT ILIKE 'abdom%'
+     OFFSET 1 LIMIT 1`,
+  );
+  const abs = await pool.query<{ id: number }>(
+    `SELECT id FROM exercises WHERE movement_pattern = 'core' LIMIT 1`,
+  );
+  const { ath, principalId, accesorioId } = await setupAthlete([
+    { exercise_id: warm.rows[0].id, role: 'calentamiento' },
+    { exercise_id: abs.rows[0].id, role: 'accesorio' },
+  ]);
+  const { sessionId, items } = await startSession(ath, randomUUID());
+  expect(items.map((it) => it.exercise.id)).toEqual(
+    expect.arrayContaining([warm.rows[0].id, abs.rows[0].id]),
+  );
+  const effectiveTarget = items
+    .filter((it) => it.exercise.id === principalId || it.exercise.id === accesorioId)
+    .reduce((sum, it) => sum + it.series, 0);
+
+  for (const it of items) {
+    for (let setIdx = 1; setIdx <= it.series; setIdx++) {
+      await logSet(sessionId, ath, {
+        exercise_id: it.exercise.id, set_index: setIdx,
+        unit: 'kg', value: 20, reps: 10, completed: true,
+        client_id: randomUUID(), client_ts: new Date().toISOString(),
+      });
+    }
+  }
+  const summary = await finishSession(sessionId, ath, 'normal');
+  expect(summary.setsTarget).toBe(effectiveTarget);
+  expect(summary.setsCompleted).toBe(effectiveTarget);
+  expect(summary.compliancePct).toBe(100);
 });
 
 it('finishSession clamps compliancePct at 100 when extra sets are logged', async () => {
