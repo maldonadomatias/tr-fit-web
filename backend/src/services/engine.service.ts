@@ -136,10 +136,14 @@ export async function buildTodaySession(
   // this week must not be asked again — except the test logged DURING the
   // in-progress session. GET /active rebuilds items; counting that RM turned
   // the same day's 1×1 rm_test into 3×8 rm_already_done (ticket #6).
-  let alreadyTestedThisWeek = new Set<number>();
+  // The repeat day's 3×8 load comes from that fresh RM × the % of the first
+  // week that uses it as rm_source (10→11, 30→1). The last logged weight IS
+  // the RM itself (the RM screen logs the 1×1 set), so 3×8 at 100% (ticket #19).
+  let alreadyTestedThisWeek = new Map<number, number>();
+  let repeatDayPct: number | null = null;
   if (cfg.is_rm_test) {
-    const testedR = await pool.query<{ exercise_id: number }>(
-      `SELECT exercise_id
+    const testedR = await pool.query<{ exercise_id: number; value_kg: string }>(
+      `SELECT exercise_id, value_kg::text
          FROM rm_tests
         WHERE athlete_id = $1 AND program_week = $2
           AND exercise_id = ANY($3::int[])
@@ -151,7 +155,21 @@ export async function buildTodaySession(
         opts?.ignoreRmsOnOrAfter ?? null,
       ]
     );
-    alreadyTestedThisWeek = new Set(testedR.rows.map((r) => r.exercise_id));
+    alreadyTestedThisWeek = new Map(
+      testedR.rows.map((r) => [r.exercise_id, Number(r.value_kg)])
+    );
+    if (alreadyTestedThisWeek.size > 0) {
+      const pctR = await pool.query<{ principal_pct_rm: string }>(
+        `SELECT principal_pct_rm::text
+           FROM periodization_config
+          WHERE principal_rm_source = $1 AND principal_pct_rm IS NOT NULL
+          ORDER BY (week_number > $1) DESC, week_number ASC
+          LIMIT 1`,
+        [state.current_week]
+      );
+      const pct = Number(pctR.rows[0]?.principal_pct_rm);
+      repeatDayPct = pct > 0 ? pct : null;
+    }
   }
 
   const lastDropsByEx = await loadLastDropWeights(athleteId, exerciseIds);
@@ -166,6 +184,7 @@ export async function buildTodaySession(
         rmByEx,
         cfg,
         alreadyTestedThisWeek,
+        repeatDayPct,
         lastDropsByEx
       )
     )
@@ -244,7 +263,8 @@ async function buildItem(
   >,
   rmByEx: Map<number, number>,
   cfg: PeriodizationConfig,
-  alreadyTestedThisWeek: Set<number>,
+  alreadyTestedThisWeek: Map<number, number>,
+  repeatDayPct: number | null,
   lastDropsByEx: Map<number, number[]>
 ): Promise<SessionItem> {
   const exercise = exById.get(slot.exercise_id)!;
@@ -291,14 +311,19 @@ async function buildItem(
     );
   } else if (role === 'principal') {
     if (cfg.is_rm_test) {
-      if (alreadyTestedThisWeek.has(slot.exercise_id)) {
-        // Repeat day after the test: 3×8 with last working weight (or free
-        // choice if none is logged). Matches the coach-facing copy.
+      const testedRm = alreadyTestedThisWeek.get(slot.exercise_id);
+      if (testedRm !== undefined) {
+        // Repeat day after the test: 3×8 at a % of the RM just tested (free
+        // choice if no week uses it). Never aewValue — that is the RM itself.
+        const weight =
+          repeatDayPct && testedRm > 0
+            ? roundWeightForEquipment(testedRm * repeatDayPct, exercise.equipment)
+            : null;
         item = baseItem(
           exercise,
           role,
           slot.slot_index,
-          aewValue,
+          weight,
           unit,
           3,
           '8',

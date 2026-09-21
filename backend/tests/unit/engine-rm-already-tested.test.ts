@@ -85,6 +85,7 @@ function baseHandlers(opts: {
   alreadyTested?: boolean;
   aewKg?: number | null;
   testedAt?: string;
+  pct?: string | null;
 }) {
   handlers.length = 0;
   const week = opts.currentWeek ?? 10;
@@ -93,6 +94,22 @@ function baseHandlers(opts: {
       ? {
           rows: [{ current_week: week, active_skeleton_id: 'sk-1' }],
           rowCount: 1,
+        }
+      : null
+  );
+  handlers.push((s, params) =>
+    s.startsWith('SELECT principal_pct_rm::text FROM periodization_config')
+      ? {
+          rows:
+            opts.pct === null
+              ? []
+              : [
+                  {
+                    principal_pct_rm:
+                      opts.pct ?? (params?.[0] === 30 ? '0.75' : '0.72'),
+                  },
+                ],
+          rowCount: opts.pct === null ? 0 : 1,
         }
       : null
   );
@@ -158,15 +175,25 @@ function baseHandlers(opts: {
 }
 
 describe('buildTodaySession — RM already tested this week', () => {
-  it('does not re-ask RM; prescribes 3×8 with last logged weight', async () => {
-    baseHandlers({ alreadyTested: true, aewKg: 80 });
+  // Ticket #19: the RM screen logs the 1×1, so the last logged weight IS the
+  // RM. Friday's 3×8 must be a % of it (week 11: 72%), not 100%.
+  it('does not re-ask RM; prescribes 3×8 at next week % of the fresh RM', async () => {
+    baseHandlers({ alreadyTested: true, aewKg: 120 });
     const items = await buildTodaySession('athlete-1', 3);
     const principal = items.find((i) => i.role === 'principal')!;
     expect(principal.flag).toBe('rm_already_done');
     expect(principal.series).toBe(3);
     expect(principal.reps).toBe('8');
     expect(principal.descanso).toBe('3 min');
-    expect(principal.suggested_value).toBe(80);
+    expect(principal.suggested_value).toBe(87.5); // 120 × 0.72 → barra 2.5
+  });
+
+  it('leaves the weight free when no week uses this RM', async () => {
+    baseHandlers({ alreadyTested: true, aewKg: 120, pct: null });
+    const items = await buildTodaySession('athlete-1', 3);
+    const principal = items.find((i) => i.role === 'principal')!;
+    expect(principal.flag).toBe('rm_already_done');
+    expect(principal.suggested_value).toBeNull();
   });
 
   it('still flags rm_test when this exercise has no RM this week', async () => {
@@ -179,23 +206,23 @@ describe('buildTodaySession — RM already tested this week', () => {
     expect(principal.suggested_value).toBeNull();
   });
 
-  it('allows a free weight when there is no logged working weight', async () => {
+  it('uses the RM even when there is no logged working weight', async () => {
     baseHandlers({ alreadyTested: true, aewKg: null });
     const items = await buildTodaySession('athlete-1', 3);
     const principal = items.find((i) => i.role === 'principal')!;
     expect(principal.flag).toBe('rm_already_done');
-    expect(principal.suggested_value).toBeNull();
+    expect(principal.suggested_value).toBe(87.5);
     expect(principal.reps).toBe('8');
   });
 
   it('applies the same rule on week 30', async () => {
-    baseHandlers({ currentWeek: 30, alreadyTested: true, aewKg: 90 });
+    baseHandlers({ currentWeek: 30, alreadyTested: true, aewKg: 120 });
     const items = await buildTodaySession('athlete-1', 3);
     const principal = items.find((i) => i.role === 'principal')!;
     expect(principal.flag).toBe('rm_already_done');
     expect(principal.series).toBe(3);
     expect(principal.reps).toBe('8');
-    expect(principal.suggested_value).toBe(90);
+    expect(principal.suggested_value).toBe(90); // 120 × 0.75 (week 1)
   });
 
   // Ticket #6: anotar el RM mid-session reconstruía el mismo día como 3×8
