@@ -5,6 +5,7 @@ import {
   suggestDropWeights,
   weightScheme,
 } from './progression-helpers.js';
+import { estimateEpley1RM } from './epley.service.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
 import type { WeeklyOverride } from './weekly-overrides.service.js';
@@ -131,6 +132,25 @@ export async function buildTodaySession(
     rmByEx = new Map(rmR.rows.map((r) => [r.exercise_id, Number(r.value_kg)]));
   }
 
+  // Semana posterior al test (11–19 usan el RM de la 10, 21–29 el de la 20).
+  // Si no hubo RM real, el estimado (Epley del mejor set hasta esa semana)
+  // entra en la misma cuenta: peso = base × %. Sin esto la semana 11 recetaba
+  // 8–10 reps con el estimado entero (ticket #20).
+  let estimatedRmByEx = new Map<number, number>();
+  const sourceWeek = cfg.principal_rm_source;
+  const pastSourceWeek =
+    !cfg.is_rm_test &&
+    !cfg.is_amrap &&
+    cfg.principal_pct_rm != null &&
+    sourceWeek != null &&
+    state.current_week > sourceWeek;
+  if (pastSourceWeek && sourceWeek != null) {
+    const missing = exerciseIds.filter((id) => !rmByEx.has(id));
+    if (missing.length > 0) {
+      estimatedRmByEx = await loadEstimatedRm(athleteId, missing, sourceWeek);
+    }
+  }
+
   // RM week can list the same principal on two days (e.g. hip thrust Mon+Fri).
   // The program week does not roll until Sunday, so a test already logged
   // this week must not be asked again — except the test logged DURING the
@@ -182,6 +202,8 @@ export async function buildTodaySession(
         exById,
         wByEx,
         rmByEx,
+        estimatedRmByEx,
+        pastSourceWeek,
         cfg,
         alreadyTestedThisWeek,
         repeatDayPct,
@@ -189,6 +211,52 @@ export async function buildTodaySession(
       )
     )
   );
+}
+
+/**
+ * 1RM estimado por ejercicio cuando no hay test real de la semana fuente.
+ * Mejor serie (Epley) logueada hasta esa semana, sin drops livianos.
+ */
+async function loadEstimatedRm(
+  athleteId: string,
+  exerciseIds: number[],
+  sourceWeek: number
+): Promise<Map<number, number>> {
+  if (exerciseIds.length === 0) return new Map();
+  const r = await pool.query<{
+    exercise_id: number;
+    weight: string;
+    reps: number;
+    equipment: string;
+  }>(
+    `SELECT DISTINCT ON (sl.exercise_id)
+            sl.exercise_id,
+            COALESCE(sl.value, sl.weight_kg)::text AS weight,
+            sl.reps,
+            e.equipment
+       FROM set_logs sl
+       JOIN exercises e ON e.id = sl.exercise_id
+      WHERE sl.athlete_id = $1
+        AND sl.exercise_id = ANY($2::int[])
+        AND sl.week <= $3
+        AND sl.completed = TRUE
+        AND COALESCE(sl.value, sl.weight_kg) > 0
+        AND sl.reps BETWEEN 1 AND 12
+        AND (sl.drop_index IS NULL OR sl.drop_index = 1)
+      ORDER BY sl.exercise_id,
+               COALESCE(sl.value, sl.weight_kg) * (1 + sl.reps / 30.0) DESC`,
+    [athleteId, exerciseIds, sourceWeek]
+  );
+  const out = new Map<number, number>();
+  for (const row of r.rows) {
+    const weight = Number(row.weight);
+    if (!Number.isFinite(weight) || weight <= 0 || !row.reps) continue;
+    out.set(
+      row.exercise_id,
+      estimateEpley1RM(weight, row.reps, row.equipment ?? 'barra')
+    );
+  }
+  return out;
 }
 
 /**
@@ -262,6 +330,8 @@ async function buildItem(
     }
   >,
   rmByEx: Map<number, number>,
+  estimatedRmByEx: Map<number, number>,
+  pastSourceWeek: boolean,
   cfg: PeriodizationConfig,
   alreadyTestedThisWeek: Map<number, number>,
   repeatDayPct: number | null,
@@ -382,11 +452,22 @@ async function buildItem(
         );
       }
     } else if (cfg.principal_pct_rm && cfg.principal_rm_source) {
-      const rm = rmByEx.get(slot.exercise_id);
-      if (!rm) {
-        // No RM test yet: fall back to the athlete's last logged/corrected
-        // weight so the next session isn't blank. Keep the missing_rm flag
-        // so the "Anotá tu RM" nudge still shows.
+      const pct = Number(cfg.principal_pct_rm);
+      // RM real de la semana fuente, o el estimado si esa semana ya pasó
+      // y el atleta no testeó. Los dos se multiplican por el % de la semana.
+      const rm =
+        rmByEx.get(slot.exercise_id) ??
+        estimatedRmByEx.get(slot.exercise_id);
+      // Sin series para estimar: el peso guardado (lo que el sistema ya
+      // arrastró) también cuenta como RM, no como carga de 8–10 reps.
+      const carriedAsRm =
+        rm == null && pastSourceWeek && aewValue != null && aewValue > 0
+          ? aewValue
+          : null;
+      const base = rm != null && rm > 0 ? rm : carriedAsRm;
+      if (base == null) {
+        // Antes del test (semana 1–9 sin RM30): el último peso es la carga
+        // de trabajo, no un 1RM. No se escala.
         item = baseItem(
           exercise,
           role,
@@ -401,7 +482,7 @@ async function buildItem(
         );
       } else {
         const weight = roundWeightForEquipment(
-          rm * Number(cfg.principal_pct_rm),
+          base * pct,
           exercise.equipment
         );
         item = baseItem(

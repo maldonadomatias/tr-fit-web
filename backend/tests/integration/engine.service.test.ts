@@ -8,6 +8,8 @@ import {
   buildTodaySession,
   TodayBlockedError,
 } from '../../src/services/engine.service.js';
+import { estimateEpley1RM } from '../../src/services/epley.service.js';
+import { roundWeightForEquipment } from '../../src/services/progression-helpers.js';
 import pool from '../../src/db/connect.js';
 
 beforeAll(async () => {
@@ -513,4 +515,73 @@ it('keeps the normal bucket for a plain slot of the same exercise', async () => 
   const session = await buildTodaySession(ath, 2);
   const acc = session.find((s) => s.exercise.id === accesorioId)!;
   expect(acc.suggested_value).toBe(20);
+});
+
+// Ticket #20: sin RM real en la semana 10, la 11 tiene que usar el estimado
+// (Epley) como RM y aplicar el 72%. Antes recetaba 8–10 reps con el estimado
+// entero (o con el último peso, sin porcentaje).
+it('week 11 prescribes % of the estimated RM when the week-10 test was skipped', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 11);
+  await pool.query(
+    `INSERT INTO set_logs
+       (athlete_id, exercise_id, week, day_of_week, set_index, completed, value, weight_kg, reps, unit)
+     VALUES ($1, $2, 8, 1, 1, TRUE, 100, 100, 8, 'kg')`,
+    [ath, principalId]
+  );
+  // Una serie posterior al test no puede pisar el estimado de la semana 10.
+  await pool.query(
+    `INSERT INTO set_logs
+       (athlete_id, exercise_id, week, day_of_week, set_index, completed, value, weight_kg, reps, unit)
+     VALUES ($1, $2, 11, 1, 1, TRUE, 200, 200, 5, 'kg')`,
+    [ath, principalId]
+  );
+
+  const session = await buildTodaySession(ath, 1);
+  const principal = session.find((s) => s.role === 'principal')!;
+  const estimated = estimateEpley1RM(100, 8, 'barra');
+  const expected = roundWeightForEquipment(estimated * 0.72, 'barra');
+  expect(principal.reps).toBe('8 a 10');
+  expect(principal.series).toBe(3);
+  expect(principal.suggested_value).toBe(expected);
+  expect(principal.suggested_value).not.toBe(estimated);
+  expect(principal.flag).toBeUndefined();
+});
+
+it('week 11 scales a carried weight as the RM when there is no set to estimate from', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 11);
+  await setWeight(ath, principalId, 100);
+
+  const session = await buildTodaySession(ath, 1);
+  const principal = session.find((s) => s.role === 'principal')!;
+  expect(principal.reps).toBe('8 a 10');
+  expect(principal.suggested_value).toBe(72.5); // 100 × 0.72, barra
+  expect(principal.suggested_value).not.toBe(100);
+});
+
+it('week 11 keeps the real RM ahead of a higher estimate', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { principalId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 11);
+  await pool.query(
+    `INSERT INTO rm_tests (athlete_id, exercise_id, program_week, value_kg)
+     VALUES ($1, $2, 10, 100)`,
+    [ath, principalId]
+  );
+  await pool.query(
+    `INSERT INTO set_logs
+       (athlete_id, exercise_id, week, day_of_week, set_index, completed, value, weight_kg, reps, unit)
+     VALUES ($1, $2, 8, 1, 1, TRUE, 140, 140, 8, 'kg')`,
+    [ath, principalId]
+  );
+
+  const session = await buildTodaySession(ath, 1);
+  const principal = session.find((s) => s.role === 'principal')!;
+  expect(principal.suggested_value).toBe(72.5);
 });
