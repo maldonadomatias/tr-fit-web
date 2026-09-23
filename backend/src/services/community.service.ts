@@ -59,7 +59,7 @@ export interface PostDTO {
 }
 
 /** Keep in sync with the CHECK in migration 066. */
-export const REACTION_EMOJIS = ['❤️', '🔥', '💪', '👏', '😂', '😮'] as const;
+export const REACTION_EMOJIS = ['❤️', '💪', '🔥', '👏', '😂', '😮'] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
 export interface ReactionCount {
   emoji: ReactionEmoji;

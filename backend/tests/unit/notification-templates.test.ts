@@ -64,11 +64,25 @@ describe('notification templates', () => {
 describe('community templates', () => {
   it('renders community templates', () => {
     expect(
-      TEMPLATES.community_announcement({ postId: 'p1', preview: 'Hola' }).body
-    ).toBe('Hola');
+      TEMPLATES.community_announcement({ postId: 'p1', preview: 'Hola' })
+    ).toEqual({
+      title: 'Notificación importante del coach',
+      body: 'Hola',
+      route: '/(app)/community/p1',
+    });
     expect(
-      TEMPLATES.community_event({ postId: 'p1', preview: 'Asado' }).title
-    ).toBe('Nuevo evento');
+      TEMPLATES.community_event({ postId: 'p1', preview: 'Asado' })
+    ).toEqual({
+      title: 'Notificación importante del coach',
+      body: 'Asado',
+      route: '/(app)/community/p1',
+    });
+    expect(TEMPLATES.community_announcement({}).body).toBe(
+      'Hay un aviso nuevo en la comunidad'
+    );
+    expect(TEMPLATES.community_event({}).title).toBe(
+      'Notificación importante del coach'
+    );
     expect(
       TEMPLATES.community_comment({ postId: 'p1', commenter: 'Ana' }).body
     ).toContain('Ana');
@@ -77,7 +91,7 @@ describe('community templates', () => {
     ).toBe('Nueva denuncia');
     expect(
       TEMPLATES.community_comment({ postId: 'p1', commenter: 'Ana' }).route
-    ).toBe('/(app)/community');
+    ).toBe('/(app)/community/p1');
   });
 });
 
