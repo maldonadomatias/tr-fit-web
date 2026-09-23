@@ -127,6 +127,7 @@ export default function Terms() {
           Sos responsable de lo que publicás. Al publicar fotos declarás que
           tenés derecho a compartirlas.
         </li>
+        <li>No publiques publicidad de otros negocios o empresas.</li>
         <li>
           Las publicaciones marcadas como "Publicidad" son de marcas que
           colaboran con TR-Fit.

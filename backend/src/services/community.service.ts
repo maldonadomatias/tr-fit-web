@@ -492,6 +492,42 @@ async function assertVisiblePost(
   return r.rows[0];
 }
 
+export interface ReactorDTO {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  emoji: ReactionEmoji;
+}
+
+/**
+ * Who reacted. Only the post author gets the names; everyone else keeps the
+ * public counts on the post itself. Admins do not bypass this.
+ */
+export async function listReactors(
+  viewer: Viewer,
+  postId: string
+): Promise<ReactorDTO[]> {
+  const post = await pool.query<{ author_id: string }>(
+    `SELECT author_id FROM community_posts WHERE id = $1 AND deleted_at IS NULL`,
+    [postId]
+  );
+  if (!post.rows[0]) throw new CommunityError(404, 'post_not_found');
+  if (post.rows[0].author_id !== viewer.id)
+    throw new CommunityError(403, 'forbidden');
+
+  const people = await pool.query<ReactorDTO>(
+    `SELECT u.id, ${AUTHOR_NAME_SQL('u', 'ap', 'cp')} AS name, ap.avatar_url, l.emoji
+       FROM community_likes l
+       JOIN users u ON u.id = l.user_id
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
+       LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+      WHERE l.post_id = $1
+      ORDER BY l.created_at DESC, u.id`,
+    [postId]
+  );
+  return people.rows;
+}
+
 /** One reaction per user per post; a new emoji replaces the previous one, null removes it. */
 export async function setReaction(
   viewer: Viewer,

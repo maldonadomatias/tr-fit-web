@@ -253,6 +253,71 @@ describe('/api/community posts', () => {
     });
   });
 
+  it('only the author can see who reacted; counts stay public', async () => {
+    await enableCommunity();
+    const author = await makeUser('athlete', 'Ana');
+    const other = await makeUser('athlete', 'Beto');
+    const admin = await makeUser('admin', 'Coach');
+    const postId = await insertPost(author.id);
+    const react = (token: string, emoji: string) =>
+      request(app)
+        .put(`/api/community/posts/${postId}/reaction`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ emoji });
+
+    await react(other.token, '🔥').expect(204);
+    await react(admin.token, '❤️').expect(204);
+
+    const own = await request(app)
+      .get(`/api/community/posts/${postId}/reactions`)
+      .set('Authorization', `Bearer ${author.token}`);
+    expect(own.status).toBe(200);
+    expect(own.body.items).toHaveLength(2);
+    expect(own.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: admin.id,
+          name: 'Coach Test',
+          emoji: '❤️',
+        }),
+        expect.objectContaining({
+          id: other.id,
+          name: 'Beto Test',
+          emoji: '🔥',
+        }),
+      ])
+    );
+    expect(own.body.items[0]).not.toHaveProperty('email');
+
+    const stranger = await request(app)
+      .get(`/api/community/posts/${postId}/reactions`)
+      .set('Authorization', `Bearer ${other.token}`);
+    expect(stranger.status).toBe(403);
+    expect(stranger.body).toEqual({ error: 'forbidden' });
+
+    const asAdmin = await request(app)
+      .get(`/api/community/posts/${postId}/reactions`)
+      .set('Authorization', `Bearer ${admin.token}`);
+    expect(asAdmin.status).toBe(403);
+    expect(asAdmin.body).toEqual({ error: 'forbidden' });
+
+    const missing = await request(app)
+      .get(
+        '/api/community/posts/00000000-0000-4000-8000-000000000000/reactions'
+      )
+      .set('Authorization', `Bearer ${author.token}`);
+    expect(missing.status).toBe(404);
+
+    const pub = await request(app)
+      .get(`/api/community/posts/${postId}`)
+      .set('Authorization', `Bearer ${other.token}`);
+    expect(pub.status).toBe(200);
+    expect(pub.body.like_count).toBe(2);
+    expect(pub.body.comment_count).toBe(0);
+    expect(JSON.stringify(pub.body)).not.toContain('Beto Test');
+    expect(JSON.stringify(pub.body)).not.toContain('Coach Test');
+  });
+
   it('legacy like endpoint maps to ❤️', async () => {
     await enableCommunity();
     const a = await makeUser('athlete');

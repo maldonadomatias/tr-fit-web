@@ -23,6 +23,7 @@ import {
   createPost,
   deletePost,
   setReaction,
+  listReactors,
   REACTION_EMOJIS,
   listComments,
   createComment,
@@ -249,6 +250,15 @@ for (const [method, liked] of [
     })
   );
 }
+
+router.get(
+  '/posts/:id/reactions',
+  handle(async (req, res) => {
+    if (!uuid.safeParse(req.params.id).success)
+      return res.status(404).json({ error: 'post_not_found' });
+    res.json({ items: await listReactors(viewerOf(req), req.params.id) });
+  })
+);
 
 router.put(
   '/posts/:id/reaction',

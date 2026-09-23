@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 import {
   useCommunityWall,
   useDeleteCommunityPost,
   useEventRsvps,
+  usePostReactors,
   useSetPostHidden,
   useSetPostPinned,
   type CommunityPost,
@@ -64,11 +66,14 @@ export function WallTab() {
 }
 
 function PostRow({ post }: { post: CommunityPost }) {
+  const { user } = useAuth();
   const hide = useSetPostHidden();
   const pin = useSetPostPinned();
   const del = useDeleteCommunityPost();
   const [showRsvps, setShowRsvps] = useState(false);
+  const [showReactors, setShowReactors] = useState(false);
   const hidden = !!post.hidden_at;
+  const mine = user?.id === post.author.id;
 
   async function act(fn: () => Promise<unknown>, ok: string) {
     try {
@@ -196,6 +201,15 @@ function PostRow({ post }: { post: CommunityPost }) {
             {showRsvps ? 'Ocultar asistentes' : 'Ver asistentes'}
           </button>
         )}
+        {mine && post.like_count > 0 && (
+          <button
+            type="button"
+            className={btn}
+            onClick={() => setShowReactors((s) => !s)}
+          >
+            {showReactors ? 'Ocultar reacciones' : 'Ver reacciones'}
+          </button>
+        )}
         <button
           type="button"
           className={cn(
@@ -209,7 +223,35 @@ function PostRow({ post }: { post: CommunityPost }) {
         </button>
       </div>
       {showRsvps && <RsvpList postId={post.id} />}
+      {showReactors && mine && <ReactorList postId={post.id} />}
     </div>
+  );
+}
+
+function ReactorList({ postId }: { postId: string }) {
+  const { data, isLoading, isError } = usePostReactors(postId);
+  if (isLoading)
+    return <p className="mt-2 text-xs text-muted-foreground">Cargando…</p>;
+  if (isError || !data)
+    return (
+      <p className="mt-2 text-xs text-muted-foreground">
+        No se pudieron cargar las reacciones.
+      </p>
+    );
+  if (data.items.length === 0)
+    return (
+      <p className="mt-2 text-xs text-muted-foreground">
+        Todavía no hay reacciones.
+      </p>
+    );
+  return (
+    <ul className="mt-2 text-sm">
+      {data.items.map((r) => (
+        <li key={r.id}>
+          {r.emoji} {r.name}
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -184,6 +184,26 @@ export function useCommunitySummary() {
   });
 }
 
+export interface Reactor {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  emoji: string;
+}
+
+export function usePostReactors(postId: string | null) {
+  return useQuery({
+    queryKey: [...KEY, 'reactors', postId],
+    enabled: !!postId,
+    queryFn: async () =>
+      (
+        await api.get<{ items: Reactor[] }>(
+          `/community/posts/${postId}/reactions`
+        )
+      ).data,
+  });
+}
+
 export function useEventRsvps(postId: string | null) {
   return useQuery({
     queryKey: [...KEY, 'rsvps', postId],
