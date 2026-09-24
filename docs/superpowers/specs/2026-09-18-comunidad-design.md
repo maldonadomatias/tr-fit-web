@@ -21,7 +21,7 @@ Módulo add-on acordado con el cliente (adenda de septiembre 2026):
 | Moderación | Posterior: se publica al instante. Denuncia + bloqueo + ocultar/silenciar desde el panel. Denuncias respondidas en < 24 h (requisito Apple 1.2). |
 | Fotos | Compresión en el celular, el backend valida y sube a **Firebase Storage** (patrón del avatar). |
 | Storage | Firebase Storage. R2 solo si el tráfico supera ~100 GB/mes; la migración queda contenida en `storage.service.ts`. |
-| Entrega del muro | REST con paginación por cursor. Sin WebSocket. La app consulta `new-count` cada 60 s solo con el muro visible. |
+| Entrega del muro | REST con paginación por cursor. Sin WebSocket. La app consulta `new-count` al abrir el muro y después cada 15 s, solo mientras sigue visible. |
 | Publicidad | Tarjeta dentro del muro cada 8 publicaciones, rotando, etiqueta "Publicidad". |
 | Contenido | Texto + hasta 4 fotos. Sin video (`post_media.kind` reservado para sumarlo). |
 | Push | Aviso/evento del entrenador → todos. Comentario → autor de la publicación. Denuncia → admins. Sin push por reacciones ni por publicaciones de alumnos. |
