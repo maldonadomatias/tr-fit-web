@@ -97,6 +97,24 @@ describe('AdsTab', () => {
     });
   });
 
+  it('clears a wrongly selected image', async () => {
+    render(<AdsTab />);
+    const file = new File(['x'], 'mal.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('Imagen'), {
+      target: { files: [file] },
+    });
+    expect(
+      screen.getByRole('button', { name: 'Eliminar imagen' })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar imagen' }));
+    expect(
+      screen.queryByRole('button', { name: 'Eliminar imagen' })
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Crear publicidad' }));
+    expect(await screen.findByText('Subí una imagen')).toBeInTheDocument();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
   it('lists active ads and copies the WhatsApp report', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });

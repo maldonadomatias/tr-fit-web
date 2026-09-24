@@ -54,6 +54,11 @@ export function PublishTab() {
     val: PublishFormValues[K]
   ) => setV((prev) => ({ ...prev, [k]: val }));
 
+  function clearPhoto() {
+    setPhoto(null);
+    setFileKey((k) => k + 1);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validatePublishForm(v);
@@ -175,16 +180,27 @@ export function PublishTab() {
             </div>
           )}
 
-          <label className="flex flex-col text-xs text-muted-foreground">
-            Foto (opcional)
-            <input
-              key={fileKey}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
-              className="mt-1 text-sm"
-            />
-          </label>
+          <div>
+            <label className="flex flex-col text-xs text-muted-foreground">
+              Foto (opcional)
+              <input
+                key={fileKey}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                className="mt-1 text-sm"
+              />
+            </label>
+            {photo && (
+              <button
+                type="button"
+                onClick={clearPhoto}
+                className="mt-2 h-8 rounded-md border border-border px-2.5 text-xs font-semibold text-foreground"
+              >
+                Eliminar imagen
+              </button>
+            )}
+          </div>
 
           <label className="flex items-center gap-2 text-sm">
             <input

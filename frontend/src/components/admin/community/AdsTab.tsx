@@ -80,6 +80,11 @@ function AdForm() {
   const set = <K extends keyof AdFormValues>(k: K, val: AdFormValues[K]) =>
     setV((prev) => ({ ...prev, [k]: val }));
 
+  function clearImage() {
+    set('image', null);
+    setFileKey((k) => k + 1);
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validateAdForm(v);
@@ -124,17 +129,28 @@ function AdForm() {
           />
           {err('brand_name')}
         </label>
-        <label className="flex flex-col text-xs text-muted-foreground">
-          Imagen
-          <input
-            key={fileKey}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => set('image', e.target.files?.[0] ?? null)}
-            className="mt-1 text-sm"
-          />
-          {err('image')}
-        </label>
+        <div>
+          <label className="flex flex-col text-xs text-muted-foreground">
+            Imagen
+            <input
+              key={fileKey}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => set('image', e.target.files?.[0] ?? null)}
+              className="mt-1 text-sm"
+            />
+            {err('image')}
+          </label>
+          {v.image && (
+            <button
+              type="button"
+              onClick={clearImage}
+              className="mt-2 h-8 rounded-md border border-border px-2.5 text-xs font-semibold text-foreground"
+            >
+              Eliminar imagen
+            </button>
+          )}
+        </div>
         <label className="flex flex-col text-xs text-muted-foreground sm:col-span-2">
           Texto
           <textarea
