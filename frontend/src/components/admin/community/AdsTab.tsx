@@ -216,6 +216,12 @@ function AdForm() {
       >
         Crear publicidad
       </button>
+      <p className="mt-3 text-xs leading-5 text-muted-foreground">
+        Se muestra en el muro de la app de los alumnos, no en esta pantalla.
+        Mientras esté vigente, aparece una tarjeta cada 8 publicaciones. Si hay
+        menos de 8, se muestra una al final. Si cargás varias, rotan en el orden
+        en que las creaste. Antes de Desde o después de Hasta no se muestra.
+      </p>
     </form>
   );
 }
@@ -269,6 +275,9 @@ function AdList({
               <div className="text-xs text-muted-foreground tabular-nums">
                 {ddmm(a.starts_on)} – {ddmm(a.ends_on)} ·{' '}
                 {fmtARS(a.monthly_fee_ars)}/mes
+                {a.status === 'active' && ' · visible en la app'}
+                {a.status === 'upcoming' && ' · todavía no empieza'}
+                {a.status === 'expired' && ' · vencida, no se muestra'}
                 {a.status === 'archived' && ' · dada de baja'}
               </div>
             </div>

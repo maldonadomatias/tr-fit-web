@@ -46,6 +46,30 @@ afterAll(async () => {
   await closePool();
 });
 
+describe('coach author name', () => {
+  it('uses the coach profile name when the admin has no signup name', async () => {
+    await enableCommunity();
+    const { rows } = await pool.query<{ id: string }>(
+      `INSERT INTO users (email, password_hash, role, community_terms_accepted_at)
+       VALUES ('coach-public-name@t.local', 'x', 'admin', now())
+       RETURNING id`
+    );
+    await pool.query(
+      `INSERT INTO coach_profiles (user_id, name) VALUES ($1, 'Tato Robles Fit')`,
+      [rows[0].id]
+    );
+    await insertPost(rows[0].id, { body: 'aviso', kind: 'announcement' });
+    const viewer = await makeUser('athlete', 'Ana');
+    const r = await request(app)
+      .get('/api/community/feed')
+      .set('Authorization', `Bearer ${viewer.token}`);
+    expect(r.body.items[0].author).toMatchObject({
+      name: 'Tato Robles Fit',
+      is_coach: true,
+    });
+  });
+});
+
 describe('/api/community/feed', () => {
   it('paginates 20 per page with an opaque cursor, newest first', async () => {
     await enableCommunity();

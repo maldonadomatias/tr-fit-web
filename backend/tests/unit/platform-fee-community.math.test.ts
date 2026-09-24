@@ -64,6 +64,23 @@ describe('interleaveAds', () => {
   it('no ads -> posts unchanged', () => {
     expect(interleaveAds(posts(1, 9), [], 0)).toEqual(posts(1, 9));
   });
+  it('places one ad at the end of a first page with fewer than 8 posts', () => {
+    expect(interleaveAds(posts(1, 3), ['A', 'B'], 0)).toEqual([
+      'p1',
+      'p2',
+      'p3',
+      'A',
+    ]);
+  });
+  it('places one ad on an empty first page', () => {
+    expect(interleaveAds([], ['A'], 0)).toEqual(['A']);
+  });
+  it('does not add a second ad when the 8th post already placed one', () => {
+    expect(interleaveAds(posts(1, 8), ['A'], 0)).toEqual([...posts(1, 8), 'A']);
+  });
+  it('does not add an extra ad on a later page that has not reached the next slot', () => {
+    expect(interleaveAds(posts(21, 3), ['A'], 20)).toEqual(posts(21, 3));
+  });
 });
 
 describe('computeFee with community', () => {

@@ -254,6 +254,32 @@ describe('feed interleaving over HTTP', () => {
     ).toHaveLength(10);
   });
 
+  it('shows one active ad when the wall has fewer than 8 posts', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    await insertAd({ starts: '2020-01-01', ends: '2099-12-31', brand: 'A' });
+    for (let i = 0; i < 3; i++) await insertPost(a.id, { body: `p${i}` });
+    const r = await request(app)
+      .get('/api/community/feed')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(
+      r.body.items.map((x: { type: string; brand_name?: string }) =>
+        x.type === 'ad' ? x.brand_name : 'post'
+      )
+    ).toEqual(['post', 'post', 'post', 'A']);
+  });
+
+  it('keeps an expired ad off a short wall', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    await insertAd({ starts: '2020-01-01', ends: '2020-01-02', brand: 'Old' });
+    await insertPost(a.id, { body: 'solo' });
+    const r = await request(app)
+      .get('/api/community/feed')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(r.body.items.map((x: { type: string }) => x.type)).toEqual(['post']);
+  });
+
   it('ad shape in feed', async () => {
     await enableCommunity();
     const a = await makeUser('athlete');

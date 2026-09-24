@@ -129,6 +129,8 @@ export function evaluateCommunityRevision(i: RevisionInput): RevisionResult {
 /**
  * Insert one ad after every `every` posts. `pageOffset` = posts already served on
  * previous pages, so slots and rotation continue across pages.
+ * A first page that never reaches a slot still gets the first ad, so a short
+ * wall (or a wall with no posts yet) does not hide an active campaign.
  */
 export function interleaveAds<P, A>(
   posts: P[],
@@ -138,10 +140,15 @@ export function interleaveAds<P, A>(
 ): Array<P | A> {
   if (ads.length === 0) return [...posts];
   const out: Array<P | A> = [];
+  let placed = false;
   posts.forEach((p, i) => {
     out.push(p);
     const n = pageOffset + i + 1;
-    if (n % every === 0) out.push(ads[(n / every - 1) % ads.length]);
+    if (n % every === 0) {
+      out.push(ads[(n / every - 1) % ads.length]);
+      placed = true;
+    }
   });
+  if (!placed && pageOffset === 0) out.push(ads[0]);
   return out;
 }

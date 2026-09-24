@@ -102,6 +102,8 @@ describe('AdsTab', () => {
     Object.assign(navigator, { clipboard: { writeText } });
     render(<AdsTab />);
     expect(screen.getByText('Proteína X')).toBeInTheDocument();
+    expect(screen.getByText(/cada 8 publicaciones/)).toBeInTheDocument();
+    expect(screen.getByText(/visible en la app/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Ver métricas' }));
     expect(screen.getByText('1.200')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Copiar reporte' }));
