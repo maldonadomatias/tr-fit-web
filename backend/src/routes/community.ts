@@ -176,9 +176,16 @@ router.get(
 router.get(
   '/feed/new-count',
   handle(async (req, res) => {
-    const since =
-      typeof req.query.since === 'string' ? req.query.since : undefined;
-    res.json({ count: await newCount(viewerOf(req), since) });
+    const q = z
+      .object({
+        since: z.string().optional(),
+        category: categoryEnum.optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success) return res.status(400).json({ error: 'invalid_payload' });
+    res.json({
+      count: await newCount(viewerOf(req), q.data.since, q.data.category),
+    });
   })
 );
 

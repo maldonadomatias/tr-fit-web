@@ -332,16 +332,24 @@ export async function getFeed(
 
 export async function newCount(
   viewer: Viewer,
-  sinceId: string | undefined
+  sinceId: string | undefined,
+  category?: Category
 ): Promise<number> {
   if (!sinceId || !/^[0-9a-f-]{36}$/i.test(sinceId)) return 0;
+  const params: unknown[] = [viewer.id, sinceId];
+  let categorySql = '';
+  if (category) {
+    params.push(category);
+    categorySql = `AND p.category = $${params.length}`;
+  }
   const r = await pool.query<{ n: number }>(
     `SELECT count(*)::int AS n
        FROM community_posts p, community_posts s
       WHERE s.id = $2
         AND p.deleted_at IS NULL AND ${VISIBLE.join(' AND ')}
-        AND (p.created_at, p.id) > (s.created_at, s.id)`,
-    [viewer.id, sinceId]
+        AND (p.created_at, p.id) > (s.created_at, s.id)
+        ${categorySql}`,
+    params
   );
   return r.rows[0]?.n ?? 0;
 }

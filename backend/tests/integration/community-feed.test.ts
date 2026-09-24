@@ -228,6 +228,36 @@ describe('/api/community/feed', () => {
     expect(r.body).toEqual({ count: 1 });
   });
 
+  it('new-count stays inside the selected category', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    const meal = await insertPost(a.id, {
+      category: 'meals',
+      createdAt: '2026-09-01T00:00:00Z',
+    });
+    await insertPost(a.id, {
+      category: 'training',
+      createdAt: '2026-09-02T00:00:00Z',
+    });
+    await insertPost(a.id, {
+      category: 'meals',
+      createdAt: '2026-09-03T00:00:00Z',
+    });
+    const auth = { Authorization: `Bearer ${a.token}` };
+    const all = await request(app)
+      .get(`/api/community/feed/new-count?since=${meal}`)
+      .set(auth);
+    const meals = await request(app)
+      .get(`/api/community/feed/new-count?since=${meal}&category=meals`)
+      .set(auth);
+    const training = await request(app)
+      .get(`/api/community/feed/new-count?since=${meal}&category=training`)
+      .set(auth);
+    expect(all.body).toEqual({ count: 2 });
+    expect(meals.body).toEqual({ count: 1 });
+    expect(training.body).toEqual({ count: 1 });
+  });
+
   it('rejects a garbage cursor with 400 invalid_cursor', async () => {
     await enableCommunity();
     const a = await makeUser('athlete');
