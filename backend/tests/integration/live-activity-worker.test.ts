@@ -2,26 +2,48 @@ import { jest } from '@jest/globals';
 
 type ApnsStatus = 'sent' | 'token_invalid' | 'failed';
 const sendLiveActivityEnd =
-  jest.fn<(token: string, contentState: object, dismissalAtSec: number) => Promise<ApnsStatus>>();
+  jest.fn<
+    (
+      token: string,
+      contentState: object,
+      dismissalAtSec: number
+    ) => Promise<ApnsStatus>
+  >();
 jest.unstable_mockModule('../../src/services/apns.service.js', () => ({
   sendLiveActivityEnd,
+  // resetDatabase imports notification.service, which sends iPhone alerts here.
+  sendApnsAlert: async () => 'sent' as ApnsStatus,
 }));
 
-const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
+const { resetDatabase, ensureMigrated, closePool } =
+  await import('./helpers/test-db.js');
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
-const { liveActivityTick, MAX_JOB_ATTEMPTS } = await import('../../src/workers/live-activity-worker.js');
+const { liveActivityTick, MAX_JOB_ATTEMPTS } =
+  await import('../../src/workers/live-activity-worker.js');
 
-beforeAll(async () => { await ensureMigrated(); });
-beforeEach(async () => { await resetDatabase(); sendLiveActivityEnd.mockReset(); });
-afterAll(async () => { await closePool(); });
+beforeAll(async () => {
+  await ensureMigrated();
+});
+beforeEach(async () => {
+  await resetDatabase();
+  sendLiveActivityEnd.mockReset();
+});
+afterAll(async () => {
+  await closePool();
+});
 
 const CONTENT_STATE = { name: 'RestActivity', props: '{}' };
 
 async function enqueueJob(
   userId: string,
-  overrides: { apnsToken?: string; status?: string; attempts?: number; nextAttemptAt?: Date } = {},
+  overrides: {
+    apnsToken?: string;
+    status?: string;
+    attempts?: number;
+    nextAttemptAt?: Date;
+  } = {}
 ): Promise<string> {
   const apnsToken = overrides.apnsToken ?? `tok-${Date.now()}-${Math.random()}`;
   const r = await pool.query<{ id: string }>(
@@ -36,21 +58,28 @@ async function enqueueJob(
       overrides.nextAttemptAt ?? new Date(),
       overrides.status ?? 'queued',
       overrides.attempts ?? 0,
-    ],
+    ]
   );
   return r.rows[0].id;
 }
 
 async function jobRow(id: string) {
-  const r = await pool.query<{ status: string; attempts: number; last_error: string | null }>(
+  const r = await pool.query<{
+    status: string;
+    attempts: number;
+    last_error: string | null;
+  }>(
     `SELECT status, attempts, last_error FROM live_activity_jobs WHERE id = $1`,
-    [id],
+    [id]
   );
   return r.rows[0];
 }
 
 async function makeClaimable(id: string) {
-  await pool.query(`UPDATE live_activity_jobs SET next_attempt_at = now() WHERE id = $1`, [id]);
+  await pool.query(
+    `UPDATE live_activity_jobs SET next_attempt_at = now() WHERE id = $1`,
+    [id]
+  );
 }
 
 describe('liveActivityTick', () => {
@@ -65,7 +94,7 @@ describe('liveActivityTick', () => {
     expect(sendLiveActivityEnd).toHaveBeenCalledWith(
       expect.any(String),
       CONTENT_STATE,
-      expect.any(Number),
+      expect.any(Number)
     );
     expect((await jobRow(jobId)).status).toBe('done');
   });

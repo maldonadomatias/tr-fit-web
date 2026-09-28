@@ -1,4 +1,5 @@
 import pool from '../db/connect.js';
+import { sendApnsAlert } from './apns.service.js';
 import { sendPush } from './push.service.js';
 import { TEMPLATES } from './notification-templates.js';
 import type { NotificationType, NotificationPrefs } from '../domain/types.js';
@@ -69,23 +70,26 @@ async function deliver(
   if ((dup.rowCount ?? 0) > 0) return;
 
   // 3. Load tokens
-  const tokens = await pool.query<{ token: string }>(
-    `SELECT token FROM push_tokens WHERE user_id = $1`,
+  const tokens = await pool.query<{ token: string; platform: string }>(
+    `SELECT token, platform FROM push_tokens WHERE user_id = $1`,
     [userId]
   );
   if (tokens.rowCount === 0) return;
 
   // 4. Render
   const rendered = TEMPLATES[type](vars);
+  const data = { ...vars, route: rendered.route, type };
 
-  // 5. Send + cleanup
+  // 5. Send + cleanup.
+  // iOS registers the APNs device token (64 hex). FCM rejects it, so the
+  // alert has to go through APNs. Android tokens are FCM registration tokens.
   let overall: 'sent' | 'failed' | 'token_invalid' = 'failed';
-  for (const { token } of tokens.rows) {
-    const status = await sendPush(token, {
-      title: rendered.title,
-      body: rendered.body,
-      data: { route: rendered.route, ...vars },
-    });
+  for (const { token, platform } of tokens.rows) {
+    const message = { title: rendered.title, body: rendered.body, data };
+    const status =
+      platform === 'ios'
+        ? await sendApnsAlert(token, message)
+        : await sendPush(token, message);
     if (status === 'token_invalid') {
       await pool
         .query(`DELETE FROM push_tokens WHERE token = $1`, [token])

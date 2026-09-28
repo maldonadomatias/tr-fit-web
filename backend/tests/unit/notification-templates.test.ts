@@ -66,23 +66,21 @@ describe('community templates', () => {
     expect(
       TEMPLATES.community_announcement({ postId: 'p1', preview: 'Hola' })
     ).toEqual({
-      title: 'Notificación importante del coach',
+      title: 'Mensaje Importante en TR FIT',
       body: 'Hola',
       route: '/(app)/community/p1',
     });
     expect(
       TEMPLATES.community_event({ postId: 'p1', preview: 'Asado' })
     ).toEqual({
-      title: 'Notificación importante del coach',
+      title: 'Nuevo evento en TR FIT',
       body: 'Asado',
       route: '/(app)/community/p1',
     });
     expect(TEMPLATES.community_announcement({}).body).toBe(
       'Hay un aviso nuevo en la comunidad'
     );
-    expect(TEMPLATES.community_event({}).title).toBe(
-      'Notificación importante del coach'
-    );
+    expect(TEMPLATES.community_event({}).title).toBe('Nuevo evento en TR FIT');
     expect(
       TEMPLATES.community_comment({ postId: 'p1', commenter: 'Ana' }).body
     ).toContain('Ana');

@@ -54,12 +54,12 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
     route: '/(app)/athlete',
   }),
   community_announcement: ({ preview, postId }) => ({
-    title: 'Notificación importante del coach',
+    title: 'Mensaje Importante en TR FIT',
     body: preview || 'Hay un aviso nuevo en la comunidad',
     route: postId ? `/(app)/community/${postId}` : '/(app)/athlete/community',
   }),
   community_event: ({ preview, postId }) => ({
-    title: 'Notificación importante del coach',
+    title: 'Nuevo evento en TR FIT',
     body: preview || 'Hay un evento nuevo en la comunidad',
     route: postId ? `/(app)/community/${postId}` : '/(app)/athlete/community',
   }),
