@@ -1,3 +1,6 @@
+import request from 'supertest';
+import app from '../../src/app.js';
+import { signToken } from '../../src/middleware/auth.js';
 import { resetDatabase, ensureMigrated, closePool } from './helpers/test-db.js';
 import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import {
@@ -148,5 +151,26 @@ describe('missing principal RMs', () => {
     expect(row?.value_kg).toBe(150);
     expect(row?.program_week).toBe(10);
     expect(row?.coach_note).toBe('RM que no se guardó');
+  });
+
+  it('accepts a blank coach note sent as null', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach);
+    const { missing } = await twoPrincipals();
+    const tok = signToken({ id: coach, role: 'admin' });
+
+    const r = await request(app)
+      .put(`/api/admin/users/${ath}/rms`)
+      .set('Authorization', `Bearer ${tok}`)
+      .send({
+        exercise_id: missing.id,
+        program_week: 10,
+        value_kg: 105,
+        coach_note: null,
+      });
+
+    expect(r.status).toBe(200);
+    expect(r.body.rm.value_kg).toBe(105);
+    expect(r.body.rm.coach_note).toBeNull();
   });
 });

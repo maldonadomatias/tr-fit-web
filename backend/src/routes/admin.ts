@@ -457,7 +457,9 @@ const rmBody = z.object({
   exercise_id: z.number().int().positive(),
   program_week: z.union([z.literal(10), z.literal(20), z.literal(30)]),
   value_kg: z.number().positive().max(1000),
-  coach_note: z.string().max(200).optional(),
+  // The form sends null when the coach leaves the note blank. optional()
+  // rejects null, so every save without a motivo came back 400.
+  coach_note: z.string().max(200).nullish(),
 });
 
 router.put('/users/:id/rms', async (req: Request, res: Response) => {
