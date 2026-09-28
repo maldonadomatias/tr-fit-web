@@ -73,6 +73,7 @@ import { cn } from '@/lib/utils';
 import type {
   AdminUser,
   AthleteExerciseWeight,
+  MissingAthleteRm,
   Role,
   UserStatus,
 } from '@/types/api';
@@ -1309,7 +1310,8 @@ function RmTab({ user }: { user: AdminUser }) {
   const [value, setValue] = useState('');
   const [note, setNote] = useState('');
 
-  const rms = q.data ?? [];
+  const rms = q.data?.rms ?? [];
+  const missing = q.data?.missing ?? [];
 
   function startEdit(r: {
     exercise_id: number;
@@ -1320,6 +1322,12 @@ function RmTab({ user }: { user: AdminUser }) {
     setEditKey(`${r.exercise_id}-${r.program_week}`);
     setValue(String(r.value_kg));
     setNote(r.coach_note ?? '');
+  }
+
+  function startCreate(r: MissingAthleteRm) {
+    setEditKey(`${r.exercise_id}-${r.program_week}`);
+    setValue('');
+    setNote('');
   }
 
   async function save(exercise_id: number, program_week: 10 | 20 | 30) {
@@ -1352,7 +1360,6 @@ function RmTab({ user }: { user: AdminUser }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <WeightsCard user={user} />
       <div className="rounded-2xl border bg-card">
         <div className="border-b border-border p-[18px]">
           <Eyebrow variant="muted">Planilla · RM</Eyebrow>
@@ -1366,18 +1373,104 @@ function RmTab({ user }: { user: AdminUser }) {
           </div>
         </div>
 
-        {rms.length === 0 ? (
+        {missing.length > 0 && (
+          <div className="divide-y divide-border border-b border-border">
+            <div className="px-[18px] pt-[18px] text-xs text-muted-foreground">
+              Principales de la rutina sin el RM que usa la semana actual.
+              Cargalo para que la app deje de estimar el peso.
+            </div>
+            {missing.map((r) => {
+              const key = `${r.exercise_id}-${r.program_week}`;
+              const editing = editKey === key;
+              return (
+                <div key={`missing-${key}`} className="p-[18px]">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[13px] font-semibold">
+                        {r.exercise_name}
+                      </div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                        {RM_WEEK_LABEL[r.program_week] ??
+                          `Semana ${r.program_week}`}
+                      </div>
+                    </div>
+                    {!editing && (
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-sm text-muted-foreground">
+                          Sin RM
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => startCreate(r)}
+                          className="h-8 rounded-md border border-border bg-background px-3 text-xs font-semibold hover:bg-muted/40"
+                        >
+                          Cargar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {editing && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={1}
+                          max={1000}
+                          step={0.5}
+                          value={value}
+                          onChange={(e) => setValue(e.target.value)}
+                          className="h-9 w-32 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
+                          placeholder="RM en kg"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {r.unit ?? 'kg'}
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        maxLength={200}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        className="h-9 w-full max-w-[420px] rounded-md border border-border bg-background px-2 text-sm"
+                        placeholder="Motivo (opcional): p. ej. RM que no se guardó"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={setRm.isPending}
+                          onClick={() => save(r.exercise_id, r.program_week)}
+                          className="h-9 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditKey(null)}
+                          className="h-9 rounded-md border border-border bg-background px-3 text-sm font-semibold hover:bg-muted/40"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {rms.length === 0 && missing.length === 0 ? (
           <div className="p-[18px] text-sm text-muted-foreground">
             Este atleta todavía no tiene RM cargados.
           </div>
-        ) : (
+        ) : rms.length > 0 ? (
           <div className="divide-y divide-border">
             {rms.map((r) => {
               const key = `${r.exercise_id}-${r.program_week}`;
               const editing = editKey === key;
               return (
                 <div key={key} className="p-[18px]">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-[13px] font-semibold">
                         {r.exercise_name}
@@ -1457,8 +1550,9 @@ function RmTab({ user }: { user: AdminUser }) {
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
+      <WeightsCard user={user} />
     </div>
   );
 }

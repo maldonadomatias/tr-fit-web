@@ -24,6 +24,7 @@ import {
   listActivity,
   setAthleteMonthlyFee,
   listAthleteRms,
+  listMissingPrincipalRms,
   setAthleteRm,
   listAthleteWeights,
   setAthleteWeight,
@@ -446,7 +447,10 @@ router.put('/users/:id/monthly-fee', async (req, res) => {
 router.get('/users/:id/rms', async (req: Request, res: Response) => {
   const user = await getUser(req.params.id);
   if (!user) return res.status(404).json({ error: 'not_found' });
-  res.json({ rms: await listAthleteRms(req.params.id) });
+  res.json({
+    rms: await listAthleteRms(req.params.id),
+    missing: await listMissingPrincipalRms(req.params.id),
+  });
 });
 
 const rmBody = z.object({

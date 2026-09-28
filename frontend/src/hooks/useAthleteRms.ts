@@ -1,14 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import type { AthleteRm } from '@/types/api';
+import type { AthleteRm, MissingAthleteRm } from '@/types/api';
+
+export interface AthleteRmsPayload {
+  rms: AthleteRm[];
+  missing: MissingAthleteRm[];
+}
 
 export function useAthleteRms(id: string | undefined) {
   return useQuery({
     queryKey: ['admin', 'user', id, 'rms'],
     enabled: !!id,
     queryFn: async () => {
-      const r = await api.get<{ rms: AthleteRm[] }>(`/admin/users/${id}/rms`);
-      return r.data.rms;
+      const r = await api.get<{
+        rms: AthleteRm[];
+        missing?: MissingAthleteRm[];
+      }>(`/admin/users/${id}/rms`);
+      return {
+        rms: r.data.rms,
+        missing: r.data.missing ?? [],
+      } satisfies AthleteRmsPayload;
     },
   });
 }

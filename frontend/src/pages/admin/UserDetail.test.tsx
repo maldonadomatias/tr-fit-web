@@ -68,9 +68,33 @@ vi.mock('@/hooks/useLoggedSessions', () => ({
   useLoggedSessions: () => ({ data: [] }),
 }));
 
+const rmMocks = vi.hoisted(() => ({
+  setRm: vi.fn(),
+  data: {
+    rms: [] as Array<{
+      exercise_id: number;
+      exercise_name: string;
+      program_week: 10 | 20 | 30;
+      value_kg: number;
+      unit: string | null;
+      coach_note: string | null;
+      tested_at: string;
+    }>,
+    missing: [] as Array<{
+      exercise_id: number;
+      exercise_name: string;
+      program_week: 10 | 20 | 30;
+      unit: string | null;
+    }>,
+  },
+}));
+
 vi.mock('@/hooks/useAthleteRms', () => ({
-  useAthleteRms: () => ({ data: [] }),
-  useSetAthleteRm: mocks.idleMutation,
+  useAthleteRms: () => ({ data: rmMocks.data, isLoading: false }),
+  useSetAthleteRm: () => ({
+    mutateAsync: rmMocks.setRm,
+    isPending: false,
+  }),
 }));
 
 const weightMocks = vi.hoisted(() => ({
@@ -333,6 +357,63 @@ describe('user detail exercise weights', () => {
       exercise_id: 1,
       current_value: 14,
       scheme: 'dropset',
+    });
+  });
+});
+
+describe('user detail missing RM', () => {
+  afterEach(() => {
+    rmMocks.data = { rms: [], missing: [] };
+    rmMocks.setRm.mockReset();
+  });
+
+  it('lets the coach load an RM the routine is missing', async () => {
+    rmMocks.setRm.mockResolvedValue({});
+    rmMocks.data = {
+      rms: [
+        {
+          exercise_id: 28,
+          exercise_name: 'Abductores en Polea Baja',
+          program_week: 10,
+          value_kg: 40,
+          unit: 'ladrillos',
+          coach_note: null,
+          tested_at: '2026-09-07T23:48:04.173Z',
+        },
+      ],
+      missing: [
+        {
+          exercise_id: 21,
+          exercise_name: 'Hip Thrust',
+          program_week: 10,
+          unit: 'kg',
+        },
+      ],
+    };
+
+    const user = userEvent.setup();
+    renderUserDetail();
+    await user.click(screen.getByRole('tab', { name: 'RM / Pesos' }));
+
+    expect(screen.getByText('Hip Thrust')).toBeInTheDocument();
+    expect(screen.getByText('Sin RM')).toBeInTheDocument();
+    expect(screen.getByText('Abductores en Polea Baja')).toBeInTheDocument();
+
+    const hipRow = screen.getByText('Hip Thrust').closest('div.p-\\[18px\\]');
+    expect(hipRow).toBeTruthy();
+    await user.click(
+      within(hipRow as HTMLElement).getByRole('button', { name: 'Cargar' })
+    );
+    const input = screen.getByPlaceholderText('RM en kg');
+    await user.clear(input);
+    await user.type(input, '150');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(rmMocks.setRm).toHaveBeenCalledWith({
+      exercise_id: 21,
+      program_week: 10,
+      value_kg: 150,
+      coach_note: null,
     });
   });
 });

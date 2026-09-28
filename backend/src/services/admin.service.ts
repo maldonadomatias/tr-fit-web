@@ -1,6 +1,10 @@
 import bcrypt from 'bcrypt';
 import pool from '../db/connect.js';
-import { resolveUnit } from './equipment-units.service.js';
+import {
+  DEFAULT_UNIT_BY_EQUIPMENT,
+  resolveUnit,
+  type Unit,
+} from './equipment-units.service.js';
 import { FEE_EXPR } from './platform-fee.service.js';
 import { deleteUserCommunityMedia } from './community-media.service.js';
 
@@ -536,6 +540,93 @@ export async function listAthleteRms(
     [athleteId]
   );
   return r.rows.map((row) => ({ ...row, value_kg: Number(row.value_kg) }));
+}
+
+// A principal slot whose RM the current block already needs, but rm_tests has
+// no row. Typical after an old "máquina ocupada" swap logged the test against
+// the substitute: the coach sees only that stray row and cannot set the lift
+// the engine multiplies (ticket #45). Weeks before the source week are omitted
+// so week 1 does not ask for a week-30 RM that has not happened yet.
+export interface MissingAthleteRm {
+  exercise_id: number;
+  exercise_name: string;
+  program_week: 10 | 20 | 30;
+  unit: Unit;
+}
+
+export async function listMissingPrincipalRms(
+  athleteId: string
+): Promise<MissingAthleteRm[]> {
+  const r = await pool.query<{
+    exercise_id: number;
+    exercise_name: string;
+    equipment: string;
+    program_week: number;
+  }>(
+    `WITH state AS (
+       SELECT current_week, active_skeleton_id
+         FROM athlete_program_state
+        WHERE athlete_id = $1
+     ),
+     targets AS (
+       SELECT pc.principal_rm_source AS program_week
+         FROM state s
+         JOIN periodization_config pc ON pc.week_number = s.current_week
+        WHERE pc.principal_rm_source IS NOT NULL
+          AND s.current_week > pc.principal_rm_source
+       UNION
+       SELECT s.current_week AS program_week
+         FROM state s
+        WHERE s.current_week IN (10, 20, 30)
+     )
+     SELECT DISTINCT e.id AS exercise_id,
+            e.name AS exercise_name,
+            e.equipment,
+            t.program_week
+       FROM state s
+       JOIN targets t ON TRUE
+       JOIN skeleton_slots sl
+         ON sl.skeleton_id = s.active_skeleton_id
+        AND sl.role = 'principal'
+       JOIN exercises e ON e.id = sl.exercise_id
+      WHERE s.active_skeleton_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM rm_tests rt
+           WHERE rt.athlete_id = $1
+             AND rt.exercise_id = e.id
+             AND rt.program_week = t.program_week
+        )
+      ORDER BY e.name, t.program_week`,
+    [athleteId]
+  );
+  if (r.rows.length === 0) return [];
+
+  const units = await pool.query<{ equipment: string; unit: Unit }>(
+    `SELECT equipment, unit FROM athlete_equipment_units WHERE athlete_id = $1`,
+    [athleteId]
+  );
+  const override = new Map(units.rows.map((row) => [row.equipment, row.unit]));
+
+  return r.rows.flatMap((row) => {
+    if (
+      row.program_week !== 10 &&
+      row.program_week !== 20 &&
+      row.program_week !== 30
+    ) {
+      return [];
+    }
+    return [
+      {
+        exercise_id: row.exercise_id,
+        exercise_name: row.exercise_name,
+        program_week: row.program_week,
+        unit:
+          override.get(row.equipment) ??
+          DEFAULT_UNIT_BY_EQUIPMENT[row.equipment] ??
+          'kg',
+      },
+    ];
+  });
 }
 
 export interface SetAthleteRmInput {

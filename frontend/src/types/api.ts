@@ -205,6 +205,15 @@ export interface AthleteRm {
   tested_at: string;
 }
 
+// Principal of the active routine with no rm_tests row for the week the
+// current block reads. The coach can insert it; the list itself has no value.
+export interface MissingAthleteRm {
+  exercise_id: number;
+  exercise_name: string;
+  program_week: 10 | 20 | 30;
+  unit: string | null;
+}
+
 export type ActivitySeverity = 'brand' | 'warning' | 'destructive' | null;
 
 export interface ActivityEvent {
