@@ -362,6 +362,184 @@ describe('buildTodaySession — missing-RM principal fallback', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Ticket #57: first block (weeks 1–9) without an RM30
+// ---------------------------------------------------------------------------
+function firstBlockCfg(week: number, reps: string, pct: number, isDeload = false) {
+  return {
+    ...pctRmConfig,
+    week_number: week,
+    is_deload: isDeload,
+    principal_series: isDeload ? 2 : 3,
+    principal_reps: reps,
+    principal_pct_rm: pct,
+    principal_rm_source: 30,
+  };
+}
+
+function seedFirstBlock(opts: {
+  week: number;
+  cfg: object;
+  prevReps?: string;
+  aew?: number | null;
+  rm?: number;
+  logs?: { week: number; value: number; reps: number; rpe: number | null }[];
+}) {
+  pushHandler(
+    (s) =>
+      s.startsWith(
+        'SELECT current_week, active_skeleton_id FROM athlete_program_state'
+      ),
+    [{ current_week: opts.week, active_skeleton_id: 'sk-rm' }]
+  );
+  pushHandler((s) => s.startsWith('SELECT * FROM periodization_config'), [
+    opts.cfg,
+  ]);
+  pushHandler(
+    (s) => s.startsWith('SELECT principal_reps FROM periodization_config'),
+    opts.prevReps ? [{ principal_reps: opts.prevReps }] : []
+  );
+  pushHandler((s) => s.startsWith('SELECT * FROM skeleton_slots'), [rmSlot]);
+  pushHandler(
+    (s) =>
+      s.startsWith(
+        'SELECT exercise_id, replacement_exercise_id FROM athlete_excluded_exercises'
+      ),
+    []
+  );
+  pushHandler((s) => s.startsWith('SELECT * FROM weekly_overrides'), []);
+  pushHandler(
+    (s) => s.startsWith('SELECT * FROM exercises WHERE id = ANY'),
+    [exRM]
+  );
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id, value_kg'),
+    opts.rm ? [{ exercise_id: exRM.id, value_kg: String(opts.rm) }] : []
+  );
+  pushHandler(
+    (s) => s.startsWith('SELECT exercise_id,'),
+    opts.aew == null
+      ? []
+      : [
+          {
+            exercise_id: exRM.id,
+            scheme: 'normal',
+            current_value: opts.aew,
+            unit: 'kg',
+            current_weight_kg: opts.aew,
+            current_reps_text: null,
+          },
+        ]
+  );
+  pushHandler(
+    (s) => s.startsWith('WITH last_session'),
+    (opts.logs ?? []).map((l) => ({
+      exercise_id: exRM.id,
+      week: l.week,
+      completed: true,
+      reps: l.reps,
+      rpe: l.rpe === null ? null : String(l.rpe),
+      value: String(l.value),
+    }))
+  );
+}
+
+const threeSets = (week: number, value: number, reps: number, rpe: number) =>
+  [1, 2, 3].map(() => ({ week, value, reps, rpe }));
+
+describe('buildTodaySession — first block without RM30 (ticket #57)', () => {
+  it('same reps, previous week met at RPE ≤ 8 → +2.5 kg', async () => {
+    seedFirstBlock({
+      week: 2,
+      cfg: firstBlockCfg(2, '10', 0.7),
+      prevReps: '10',
+      aew: 60,
+      logs: threeSets(1, 60, 10, 8),
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(62.5);
+    expect(item.flag).toBe('missing_rm');
+  });
+
+  it('same reps, previous week at RPE 9 → keeps the weight', async () => {
+    seedFirstBlock({
+      week: 4,
+      cfg: firstBlockCfg(4, '8', 0.775),
+      prevReps: '8',
+      aew: 60,
+      logs: threeSets(3, 60, 8, 9),
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(60);
+  });
+
+  it('reps drop (10 → 8) → mandatory +2.5 kg even at RPE 9', async () => {
+    seedFirstBlock({
+      week: 3,
+      cfg: firstBlockCfg(3, '8', 0.75),
+      prevReps: '10',
+      aew: 60,
+      logs: threeSets(2, 60, 10, 9),
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(62.5);
+  });
+
+  it('already logged this week → the athlete weight wins', async () => {
+    seedFirstBlock({
+      week: 3,
+      cfg: firstBlockCfg(3, '8', 0.75),
+      prevReps: '10',
+      aew: 57.5,
+      logs: [...threeSets(2, 60, 10, 8), { week: 3, value: 57.5, reps: 8, rpe: 8 }],
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(57.5);
+  });
+
+  it('deload week 9 → week 1 load, not the week 8 load', async () => {
+    seedFirstBlock({
+      week: 9,
+      cfg: firstBlockCfg(9, '5', 0.6, true),
+      aew: 80,
+      logs: threeSets(1, 50, 10, 7),
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(50);
+    expect(item.series).toBe(2);
+    expect(item.reps).toBe('5');
+  });
+
+  it('deload week 9 without week 1 logs → null, never the week 8 load', async () => {
+    seedFirstBlock({ week: 9, cfg: firstBlockCfg(9, '5', 0.6, true), aew: 80 });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBeNull();
+  });
+
+  it('with an RM30 → RM × week %', async () => {
+    seedFirstBlock({
+      week: 4,
+      cfg: firstBlockCfg(4, '8', 0.775),
+      aew: 60,
+      rm: 100,
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(77.5);
+    expect(item.flag).toBeUndefined();
+  });
+
+  it('RM30 deload → 60% of the RM', async () => {
+    seedFirstBlock({
+      week: 9,
+      cfg: firstBlockCfg(9, '5', 0.6, true),
+      aew: 80,
+      rm: 100,
+    });
+    const [item] = await buildTodaySession('athlete-rm', 1);
+    expect(item.suggested_value).toBe(60);
+  });
+});
+
 describe('buildTodaySession — exclusions', () => {
   it('excluded exercise with replacement → slot uses replacement exercise', async () => {
     // exA excluded, replaced by exB

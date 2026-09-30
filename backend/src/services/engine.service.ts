@@ -1,10 +1,14 @@
 import pool from '../db/connect.js';
 import {
+  applyIncrement,
+  qualifiesForProgression,
   resolveAccessoryReps,
   roundWeightForEquipment,
   suggestDropWeights,
+  targetRepsForSet,
   weightScheme,
 } from './progression-helpers.js';
+import type { SetLogForGate } from './progression-helpers.js';
 import { estimateEpley1RM } from './epley.service.js';
 import { resolveUnit } from './equipment-units.service.js';
 import { applyOverridesToSlots } from './weekly-overrides.service.js';
@@ -151,6 +155,30 @@ export async function buildTodaySession(
     }
   }
 
+  // Primer bloque (1–9) sin RM30: alumno nuevo. No hay base para el %, así
+  // que la carga progresa semana a semana desde lo que cargó (ticket #57).
+  let firstBlockByEx = new Map<number, number | null>();
+  const beforeSourceWeek =
+    !cfg.is_rm_test &&
+    !cfg.is_amrap &&
+    cfg.principal_pct_rm != null &&
+    sourceWeek != null &&
+    state.current_week < sourceWeek;
+  if (beforeSourceWeek && state.current_week > 1) {
+    const missing = effectiveSlots
+      .filter((s) => s.role === 'principal' && !rmByEx.has(s.exercise_id))
+      .map((s) => s.exercise_id);
+    if (missing.length > 0) {
+      firstBlockByEx = await loadFirstBlockWeights(
+        athleteId,
+        missing,
+        state.current_week,
+        cfg,
+        exById
+      );
+    }
+  }
+
   // RM week can list the same principal on two days (e.g. hip thrust Mon+Fri).
   // The program week does not roll until Sunday, so a test already logged
   // this week must not be asked again — except the test logged DURING the
@@ -204,6 +232,7 @@ export async function buildTodaySession(
         rmByEx,
         estimatedRmByEx,
         pastSourceWeek,
+        firstBlockByEx,
         cfg,
         alreadyTestedThisWeek,
         repeatDayPct,
@@ -255,6 +284,111 @@ async function loadEstimatedRm(
       row.exercise_id,
       estimateEpley1RM(weight, row.reps, row.equipment ?? 'barra')
     );
+  }
+  return out;
+}
+
+/**
+ * Carga del primer bloque para principales sin RM30 (ticket #57).
+ *
+ * - Semanas 2–8: peso de la semana anterior + incremento (applyIncrement) si
+ *   las reps bajaron (obligatorio) o si repite reps y la anterior se cumplió
+ *   con RPE ≤ 8. Si no, se mantiene.
+ * - Descarga (9): el peso de la semana 1; sin semana 1, null (nunca el de la 8).
+ *
+ * Toma la última sesión de cada semana: set_logs no guarda el ciclo y un
+ * reset de programa deja los logs del ciclo anterior. Si el alumno ya cargó
+ * el ejercicio esta semana, su peso (AEW) manda y el ejercicio no entra acá.
+ */
+async function loadFirstBlockWeights(
+  athleteId: string,
+  exerciseIds: number[],
+  week: number,
+  cfg: PeriodizationConfig,
+  exById: Map<number, Exercise>
+): Promise<Map<number, number | null>> {
+  const refWeek = cfg.is_deload ? 1 : week - 1;
+  const r = await pool.query<{
+    exercise_id: number;
+    week: number;
+    completed: boolean;
+    reps: number | null;
+    rpe: string | null;
+    value: string;
+  }>(
+    `WITH last_session AS (
+       SELECT DISTINCT ON (exercise_id, week) exercise_id, week, session_log_id
+         FROM set_logs
+        WHERE athlete_id = $1
+          AND exercise_id = ANY($2::int[])
+          AND week = ANY($3::int[])
+          AND drop_index IS NULL
+          AND completed = TRUE
+          AND COALESCE(value, weight_kg) > 0
+        ORDER BY exercise_id, week, logged_at DESC
+     )
+     SELECT sl.exercise_id, sl.week, sl.completed, sl.reps,
+            sl.rpe::float8::text AS rpe,
+            COALESCE(sl.value, sl.weight_kg)::text AS value
+       FROM set_logs sl
+       JOIN last_session ls
+         ON sl.session_log_id = ls.session_log_id
+        AND sl.exercise_id = ls.exercise_id
+      WHERE sl.drop_index IS NULL`,
+    [athleteId, exerciseIds, [refWeek, week]]
+  );
+
+  const loggedThisWeek = new Set<number>();
+  const refLogs = new Map<number, SetLogForGate[]>();
+  const refWeight = new Map<number, number>();
+  for (const row of r.rows) {
+    if (row.week === week) {
+      loggedThisWeek.add(row.exercise_id);
+      continue;
+    }
+    const value = Number(row.value);
+    const logs = refLogs.get(row.exercise_id) ?? [];
+    logs.push({
+      completed: row.completed,
+      reps: row.reps,
+      rpe: row.rpe === null ? null : Number(row.rpe),
+      drop_index: null,
+    });
+    refLogs.set(row.exercise_id, logs);
+    if (row.completed && value > 0) {
+      refWeight.set(
+        row.exercise_id,
+        Math.max(refWeight.get(row.exercise_id) ?? 0, value)
+      );
+    }
+  }
+
+  let prevReps: string | null = null;
+  if (!cfg.is_deload) {
+    const prevR = await pool.query<{ principal_reps: string }>(
+      `SELECT principal_reps FROM periodization_config WHERE week_number = $1`,
+      [refWeek]
+    );
+    prevReps = prevR.rows[0]?.principal_reps ?? null;
+  }
+
+  const out = new Map<number, number | null>();
+  for (const id of exerciseIds) {
+    if (loggedThisWeek.has(id)) continue;
+    const base = refWeight.get(id);
+    if (cfg.is_deload) {
+      out.set(id, base ?? null);
+      continue;
+    }
+    const exercise = exById.get(id);
+    if (base == null || !exercise || prevReps == null) continue;
+    const prevTarget = targetRepsForSet(prevReps, null);
+    const target = targetRepsForSet(cfg.principal_reps, null);
+    const repsDropped =
+      prevTarget != null && target != null && target < prevTarget;
+    const bump =
+      repsDropped || qualifiesForProgression(refLogs.get(id) ?? [], prevReps);
+    out.set(id, bump ? applyIncrement(base, exercise) : base);
   }
   return out;
 }
@@ -332,6 +466,7 @@ async function buildItem(
   rmByEx: Map<number, number>,
   estimatedRmByEx: Map<number, number>,
   pastSourceWeek: boolean,
+  firstBlockByEx: Map<number, number | null>,
   cfg: PeriodizationConfig,
   alreadyTestedThisWeek: Map<number, number>,
   repeatDayPct: number | null,
@@ -467,12 +602,16 @@ async function buildItem(
       const base = rm != null && rm > 0 ? rm : carriedAsRm;
       if (base == null) {
         // Antes del test (semana 1–9 sin RM30): el último peso es la carga
-        // de trabajo, no un 1RM. No se escala.
+        // de trabajo, no un 1RM. No se escala; la progresión del primer
+        // bloque (si hay) manda sobre él.
+        const weight = firstBlockByEx.has(slot.exercise_id)
+          ? firstBlockByEx.get(slot.exercise_id)!
+          : aewValue;
         item = baseItem(
           exercise,
           role,
           slot.slot_index,
-          aewValue,
+          weight,
           unit,
           cfg.principal_series,
           cfg.principal_reps,

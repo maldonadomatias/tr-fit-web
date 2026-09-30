@@ -18,15 +18,16 @@ interface PrincipalCfg {
 
 // Direct port of Apps Script obtenerConfiguracionSemana()
 export const principal: Record<number, PrincipalCfg> = {
-  1:  { series: 3, reps: '6 a 8',  descanso: '3 min', pct: 0.75, rmSource: 30 },
-  2:  { series: 3, reps: '6 a 8',  descanso: '3 min', pct: 0.75, rmSource: 30 },
-  3:  { series: 3, reps: '6 a 8',  descanso: '3 min', useCasilleros: true },
-  4:  { series: 3, reps: '6 a 8',  descanso: '3 min', useCasilleros: true },
-  5:  { series: 3, reps: '6 a 8',  descanso: '3 min', useCasilleros: true },
-  6:  { series: 3, reps: '6 a 8',  descanso: '3 min', useCasilleros: true },
-  7:  { series: 3, reps: '4 a 6',  descanso: '3 min', useCasilleros: true },
-  8:  { series: 3, reps: '3',      descanso: '3 min',     useCasilleros: true },
-  9:  { series: 2, reps: '2 a 3',  descanso: '3 min', pct: 0.80, rmSource: 30, isDeload: true },
+  // 1–9: tabla del coach (ticket #57). Descanso fijo (041): 3 min, no rango.
+  1:  { series: 3, reps: '10',     descanso: '2 min', pct: 0.65,  rmSource: 30 },
+  2:  { series: 3, reps: '10',     descanso: '2 min', pct: 0.70,  rmSource: 30 },
+  3:  { series: 3, reps: '8',      descanso: '3 min', pct: 0.75,  rmSource: 30 },
+  4:  { series: 3, reps: '8',      descanso: '3 min', pct: 0.775, rmSource: 30 },
+  5:  { series: 3, reps: '6',      descanso: '3 min', pct: 0.80,  rmSource: 30 },
+  6:  { series: 3, reps: '6',      descanso: '3 min', pct: 0.825, rmSource: 30 },
+  7:  { series: 3, reps: '5',      descanso: '3 min', pct: 0.85,  rmSource: 30 },
+  8:  { series: 3, reps: '3',      descanso: '3 min', pct: 0.875, rmSource: 30 },
+  9:  { series: 2, reps: '5',      descanso: '2 min', pct: 0.60,  rmSource: 30, isDeload: true },
   10: { series: 1, reps: '1',      descanso: '5 min', isRmTest: true },
   11: { series: 3, reps: '8 a 10', descanso: '3 min', pct: 0.72, rmSource: 10 },
   12: { series: 3, reps: '8',      descanso: '3 min', pct: 0.75, rmSource: 10 },

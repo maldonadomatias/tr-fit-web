@@ -9,8 +9,8 @@ INSERT INTO periodization_config (
   ) VALUES (
     1, 'HIPERTROFIA BASE',
     false, false, false,
-    3, '6 a 8', '3 min',
-    0.75,
+    3, '10', '2 min',
+    0.65,
     30,
     false,
     3, '10 a 12', '60 a 90 seg',
@@ -32,8 +32,8 @@ INSERT INTO periodization_config (
   ) VALUES (
     2, 'HIPERTROFIA BASE',
     false, false, false,
-    3, '6 a 8', '3 min',
-    0.75,
+    3, '10', '2 min',
+    0.7,
     30,
     false,
     3, '10 a 12', '60 a 90 seg',
@@ -55,10 +55,10 @@ INSERT INTO periodization_config (
   ) VALUES (
     3, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '3 min',
-    NULL,
-    NULL,
-    true,
+    3, '8', '3 min',
+    0.75,
+    30,
+    false,
     3, '10 a 12', '60 a 90 seg',
     NULL
   ) ON CONFLICT (week_number) DO UPDATE SET
@@ -78,10 +78,10 @@ INSERT INTO periodization_config (
   ) VALUES (
     4, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '3 min',
-    NULL,
-    NULL,
-    true,
+    3, '8', '3 min',
+    0.775,
+    30,
+    false,
     3, '10 a 12', '60 a 90 seg',
     NULL
   ) ON CONFLICT (week_number) DO UPDATE SET
@@ -101,10 +101,10 @@ INSERT INTO periodization_config (
   ) VALUES (
     5, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '3 min',
-    NULL,
-    NULL,
-    true,
+    3, '6', '3 min',
+    0.8,
+    30,
+    false,
     3, '10 a 12', '60 a 90 seg',
     NULL
   ) ON CONFLICT (week_number) DO UPDATE SET
@@ -124,10 +124,10 @@ INSERT INTO periodization_config (
   ) VALUES (
     6, 'HIPERTROFIA',
     false, false, false,
-    3, '6 a 8', '3 min',
-    NULL,
-    NULL,
-    true,
+    3, '6', '3 min',
+    0.825,
+    30,
+    false,
     3, '10 a 12', '60 a 90 seg',
     NULL
   ) ON CONFLICT (week_number) DO UPDATE SET
@@ -147,10 +147,10 @@ INSERT INTO periodization_config (
   ) VALUES (
     7, 'FUERZA SUBMÁXIMA',
     false, false, false,
-    3, '4 a 6', '3 min',
-    NULL,
-    NULL,
-    true,
+    3, '5', '3 min',
+    0.85,
+    30,
+    false,
     3, '10 a 12', '60 a 90 seg',
     NULL
   ) ON CONFLICT (week_number) DO UPDATE SET
@@ -171,9 +171,9 @@ INSERT INTO periodization_config (
     8, 'FUERZA MÁXIMA',
     false, false, false,
     3, '3', '3 min',
-    NULL,
-    NULL,
-    true,
+    0.875,
+    30,
+    false,
     3, '10 a 12', '60 a 90 seg',
     NULL
   ) ON CONFLICT (week_number) DO UPDATE SET
@@ -193,8 +193,8 @@ INSERT INTO periodization_config (
   ) VALUES (
     9, 'DESCARGA',
     false, true, false,
-    2, '2 a 3', '3 min',
-    0.8,
+    2, '5', '2 min',
+    0.6,
     30,
     false,
     2, '12', '60 seg',
