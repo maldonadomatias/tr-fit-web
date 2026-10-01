@@ -79,18 +79,25 @@ it('refuses a day already finished this week', async () => {
   ).rejects.toMatchObject({ reason: 'day_not_pending' });
 });
 
-// La regla del coach: día 3 es Piernas igual que el día 1 recién hecho.
-it('refuses a day repeating the last session dominant group', async () => {
+it('allows repeating the last group even with a different pending alternative', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach, { days_per_week: 3 });
   const sk = await setupSkeleton(ath, coach);
   await finishDay(ath, sk, 1);
-  await expect(
-    startSession(ath, randomUUID(), { dayOfWeek: 3, force: true }),
-  ).rejects.toMatchObject({ reason: 'same_focus_back_to_back' });
-  // El día de Pecho sí se puede.
-  const out = await startSession(ath, randomUUID(), { dayOfWeek: 2, force: true });
-  expect(out.expectedDay).toBe(2);
+  const out = await startSession(ath, randomUUID(), { dayOfWeek: 3, force: true });
+  expect(out.expectedDay).toBe(3);
+  const persisted = await pool.query('SELECT day_of_week FROM session_logs WHERE id = $1', [out.sessionId]);
+  expect(persisted.rows[0].day_of_week).toBe(3);
+});
+
+it('allows repeating yesterday’s group without force', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach, { days_per_week: 3 });
+  const sk = await setupSkeleton(ath, coach);
+  await finishDay(ath, sk, 1);
+  await pool.query("UPDATE session_logs SET finished_at = NOW() - INTERVAL '1 day' WHERE athlete_id = $1", [ath]);
+  const out = await startSession(ath, randomUUID(), { dayOfWeek: 3 });
+  expect(out.expectedDay).toBe(3);
 });
 
 // Escape: si TODO lo pendiente choca, el atleta no puede quedar sin entrenar.

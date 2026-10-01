@@ -273,34 +273,13 @@ export async function buildDashboard(userId: string): Promise<DashboardPayload> 
     dominantByDay = await dominantGroupByDay(state.active_skeleton_id);
   }
 
-  // Pendientes posteriores al de hoy. Un día queda bloqueado si repite el
-  // grupo dominante de la última sesión terminada — salvo que TODOS los
-  // pendientes lo repitan, en cuyo caso no se bloquea ninguno.
+  // Todos los días pendientes se pueden elegir libremente.
   const pending = await listPendingDays(userId);
   const upcoming = pending.filter((d) => d !== nextDay);
   let nextSessions: NextSession[];
   if (upcoming.length > 0) {
-    // Last finished session overall, not scoped to current week/skeleton.
-    // After a routine change the day_of_week may map to a different group
-    // on the new skeleton; that fails open (does not over-block).
-    const lastR = await pool.query<{ day_of_week: number }>(
-      `SELECT day_of_week FROM session_logs
-        WHERE athlete_id = $1 AND finished_at IS NOT NULL
-        ORDER BY finished_at DESC LIMIT 1`,
-      [userId],
-    );
-    const lastGroup = lastR.rows[0]
-      ? dominantByDay[lastR.rows[0].day_of_week] ?? null
-      : null;
-    const hasFreeAlternative = pending.some(
-      (d) => (dominantByDay[d] ?? null) !== lastGroup,
-    );
     nextSessions = upcoming.map((dayIndex, i) => {
       const dominantGroup = dominantByDay[dayIndex] ?? null;
-      const blocked: 'same_focus' | null =
-        lastGroup && dominantGroup === lastGroup && hasFreeAlternative
-          ? 'same_focus'
-          : null;
       return {
         label: `Sesión ${i + 1}`,
         dayIndex,
@@ -308,7 +287,7 @@ export async function buildDashboard(userId: string): Promise<DashboardPayload> 
         exerciseCount: slotsByDay[dayIndex] ?? 0,
         estimatedMin,
         dominantGroup,
-        blocked,
+        blocked: null,
         pending: true,
       };
     });

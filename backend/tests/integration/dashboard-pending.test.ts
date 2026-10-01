@@ -64,16 +64,16 @@ it('lists the pending days after today, with their dominant group', async () => 
   expect(d.nextSessions.every((s) => s.pending === true)).toBe(true);
 });
 
-it('blocks a pending day repeating the last session group', async () => {
+it('allows a pending day repeating the last session group', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach, { days_per_week: 3 });
   const sk = await setupSkeleton(ath, coach);
   await finishDay(ath, sk, 1); // Piernas
   const d = await buildDashboard(ath);
-  // Pendientes 2 (Pecho) y 3 (Piernas). Hoy es el 2; el 3 queda bloqueado.
+  // Pendientes 2 (Pecho) y 3 (Piernas). Ambos se pueden elegir.
   expect(d.today.dayIndex).toBe(2);
   const day3 = d.nextSessions.find((s) => s.dayIndex === 3);
-  expect(day3?.blocked).toBe('same_focus');
+  expect(day3).toMatchObject({ blocked: null, pending: true, dominantGroup: 'Piernas' });
 });
 
 it('falls back to the cyclic projection when the week is done', async () => {

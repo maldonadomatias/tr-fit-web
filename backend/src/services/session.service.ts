@@ -4,7 +4,6 @@ import type { SetLogPayload } from '../domain/schemas.js';
 import {
   buildTodaySession, listPendingDays, TodayBlockedError,
 } from './engine.service.js';
-import { dominantGroupByDay } from './day-focus.service.js';
 import { runWeeklyProgressionForAthlete } from './progression.service.js';
 import { recordAmrap } from './rm.service.js';
 import { isWarmupName } from './warmup-rule.js';
@@ -14,7 +13,7 @@ export class SessionError extends Error {
   constructor(public reason:
     'session_in_progress' | 'session_finished' | 'not_found' |
     'no_active_skeleton' | 'already_finished' | 'already_trained_today' |
-    'day_not_pending' | 'same_focus_back_to_back') {
+    'day_not_pending') {
     super(reason);
   }
 }
@@ -59,37 +58,13 @@ export async function startSession(
     throw new SessionError('no_active_skeleton');
   }
 
-  // El día lo decide el servidor. Sin elección explícita, el primer pendiente
-  // (lo de siempre). Con elección, tiene que estar pendiente y no repetir el
-  // grupo dominante de la última sesión: ese orden es la separación muscular
-  // que armó el coach, y por eso no hay override.
+  // Sin elección explícita, usar el primer pendiente. El atleta puede elegir
+  // cualquier pendiente de la semana, independientemente del grupo muscular.
   const pending = await listPendingDays(athleteId);
   let dayOfWeek = pending[0] ?? 1;
   if (opts.dayOfWeek != null) {
     if (!pending.includes(opts.dayOfWeek)) {
       throw new SessionError('day_not_pending');
-    }
-    const dominant = await dominantGroupByDay(state.active_skeleton_id);
-    // Last finished session overall, not scoped to current week/skeleton.
-    // After a routine change the day_of_week may map to a different group
-    // on the new skeleton; that fails open (does not over-block).
-    const lastR = await pool.query<{ day_of_week: number }>(
-      `SELECT day_of_week FROM session_logs
-        WHERE athlete_id = $1 AND finished_at IS NOT NULL
-        ORDER BY finished_at DESC LIMIT 1`,
-      [athleteId],
-    );
-    const lastGroup = lastR.rows[0]
-      ? dominant[lastR.rows[0].day_of_week] ?? null
-      : null;
-    const picked = dominant[opts.dayOfWeek] ?? null;
-    // Si TODOS los pendientes chocan, no bloqueamos ninguno: el atleta no
-    // puede quedar sin poder entrenar.
-    const hasFreeAlternative = pending.some(
-      (d) => (dominant[d] ?? null) !== lastGroup,
-    );
-    if (lastGroup && picked === lastGroup && hasFreeAlternative) {
-      throw new SessionError('same_focus_back_to_back');
     }
     dayOfWeek = opts.dayOfWeek;
   }
