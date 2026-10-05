@@ -69,16 +69,22 @@ export async function deleteMediaObjects(paths: string[]): Promise<void> {
 }
 
 /** Upload every image + thumb; on any failure delete what was already uploaded and rethrow. */
-export async function uploadPostMedia(
-  postId: string,
+export const uploadPostMedia = (postId: string, items: MediaInput[]) =>
+  uploadMedia(`community/${postId}`, items);
+
+export const uploadCommentMedia = (commentId: string, item: MediaInput) =>
+  uploadMedia(`community/comments/${commentId}`, [item]).then((r) => r[0]);
+
+async function uploadMedia(
+  dir: string,
   items: MediaInput[]
 ): Promise<StoredMedia[]> {
   const uploaded: string[] = [];
   const out: StoredMedia[] = [];
   try {
     for (const [position, it] of items.entries()) {
-      const storage_path = `community/${postId}/${position}.jpg`;
-      const thumb_path = `community/${postId}/${position}_thumb.jpg`;
+      const storage_path = `${dir}/${position}.jpg`;
+      const thumb_path = `${dir}/${position}_thumb.jpg`;
       const url = await uploadBufferToStorage(
         storage_path,
         it.image.buffer,
@@ -117,7 +123,14 @@ export async function deleteUserCommunityMedia(userId: string): Promise<void> {
       WHERE p.author_id = $1`,
     [userId]
   );
+  const c = await pool.query<{ storage_path: string; thumb_path: string }>(
+    `SELECT m.storage_path, m.thumb_path
+       FROM community_comment_media m
+       JOIN community_comments c ON c.id = m.comment_id
+      WHERE c.author_id = $1`,
+    [userId]
+  );
   await deleteMediaObjects(
-    r.rows.flatMap((row) => [row.storage_path, row.thumb_path])
+    [...r.rows, ...c.rows].flatMap((row) => [row.storage_path, row.thumb_path])
   );
 }

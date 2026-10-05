@@ -323,7 +323,10 @@ describe('/api/community posts', () => {
     const a = await makeUser('athlete');
     const p = await insertPost(a.id);
     const auth = { Authorization: `Bearer ${a.token}` };
-    await request(app).post(`/api/community/posts/${p}/like`).set(auth).expect(204);
+    await request(app)
+      .post(`/api/community/posts/${p}/like`)
+      .set(auth)
+      .expect(204);
     const d = await request(app).get(`/api/community/posts/${p}`).set(auth);
     expect(d.body).toMatchObject({
       my_reaction: '❤️',
@@ -387,6 +390,41 @@ describe('/api/community posts', () => {
       .get(`/api/community/posts/${p}`)
       .set('Authorization', `Bearer ${a.token}`);
     expect(d.body.comment_count).toBe(1);
+  });
+
+  it('comments: photo-only comment is stored, listed and cleaned up on delete', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    const p = await insertPost(a.id);
+    const url = `/api/community/posts/${p}/comments`;
+    const jpg = { filename: 'a.jpg', contentType: 'image/jpeg' };
+    await request(app)
+      .post(url)
+      .set('Authorization', `Bearer ${a.token}`)
+      .field('body', '')
+      .expect(400);
+    storageOps.saved.length = 0;
+    storageOps.deleted.length = 0;
+    const c = await request(app)
+      .post(url)
+      .set('Authorization', `Bearer ${a.token}`)
+      .field('body', '')
+      .field('widths', '1')
+      .field('heights', '1')
+      .attach('images', tinyJpeg, jpg)
+      .attach('thumbs', tinyJpeg, jpg);
+    expect(c.status).toBe(201);
+    expect(c.body.media).toHaveLength(1);
+    expect(storageOps.saved).toHaveLength(2);
+    const list = await request(app)
+      .get(url)
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(list.body.items[0].media[0].thumb_url).toBeTruthy();
+    await request(app)
+      .delete(`/api/community/comments/${c.body.id}`)
+      .set('Authorization', `Bearer ${a.token}`)
+      .expect(204);
+    expect(storageOps.deleted).toHaveLength(2);
   });
 
   it('rejects comment longer than 500 chars', async () => {
@@ -497,9 +535,10 @@ describe('/api/community posts', () => {
 
     await insertPost(b.id, { body: 'oculto', hidden: true });
     const deleted = await insertPost(b.id, { body: 'borrado' });
-    await pool.query(`UPDATE community_posts SET deleted_at = now() WHERE id = $1`, [
-      deleted,
-    ]);
+    await pool.query(
+      `UPDATE community_posts SET deleted_at = now() WHERE id = $1`,
+      [deleted]
+    );
     const quiet = await request(app)
       .get('/api/athlete/me')
       .set('Authorization', `Bearer ${a.token}`);

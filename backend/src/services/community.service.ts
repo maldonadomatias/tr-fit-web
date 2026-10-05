@@ -4,6 +4,7 @@ import logger from '../utils/logger.js';
 import { notifyUser } from './notification.service.js';
 import {
   uploadPostMedia,
+  uploadCommentMedia,
   validateMedia,
   deleteMediaObjects,
   type MediaInput,
@@ -73,6 +74,12 @@ export interface CommentDTO {
   created_at: string;
   author: AuthorDTO;
   can_delete: boolean;
+  media: Array<{
+    url: string;
+    thumb_url: string;
+    width: number;
+    height: number;
+  }>;
 }
 
 export class CommunityError extends Error {
@@ -569,12 +576,16 @@ interface CommentRow {
   author_name: string;
   author_avatar: string | null;
   author_role: Role;
+  media: CommentDTO['media'];
 }
 
 const COMMENT_SELECT = `
   SELECT c.id, c.post_id, c.body, c.created_at, ${CURSOR_TS_SQL('c.created_at')} AS cursor_ts,
          c.author_id, ${AUTHOR_NAME_SQL('u', 'ap', 'cp')} AS author_name,
-         ap.avatar_url AS author_avatar, u.role AS author_role
+         ap.avatar_url AS author_avatar, u.role AS author_role,
+         COALESCE((SELECT json_agg(json_build_object('url', m.url, 'thumb_url', m.thumb_url,
+                                                    'width', m.width, 'height', m.height))
+                     FROM community_comment_media m WHERE m.comment_id = c.id), '[]'::json) AS media
     FROM community_comments c
     JOIN users u ON u.id = c.author_id
     LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
@@ -593,6 +604,7 @@ function toCommentDTO(row: CommentRow, viewer: Viewer): CommentDTO {
       is_coach: isAdminRole(row.author_role),
     },
     can_delete: row.author_id === viewer.id || isAdminRole(viewer.role),
+    media: row.media ?? [],
   };
 }
 
@@ -638,16 +650,50 @@ export async function listComments(
 export async function createComment(
   viewer: Viewer,
   postId: string,
-  body: string
+  body: string,
+  media?: MediaInput
 ): Promise<CommentDTO> {
   await assertCanParticipate(viewer);
   const post = await assertVisiblePost(viewer, postId);
-  const ins = await pool.query<{ id: string }>(
-    `INSERT INTO community_comments (post_id, author_id, body) VALUES ($1, $2, $3) RETURNING id`,
-    [postId, viewer.id, body.trim()]
-  );
+  const text = body.trim();
+  if (!text && !media) throw new CommunityError(400, 'empty_comment');
+  if (media) validateMedia([media]);
+  const commentId = randomUUID();
+  const stored = media ? await uploadCommentMedia(commentId, media) : null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO community_comments (id, post_id, author_id, body) VALUES ($1, $2, $3, $4)`,
+      [commentId, postId, viewer.id, text]
+    );
+    if (stored) {
+      await client.query(
+        `INSERT INTO community_comment_media
+           (comment_id, storage_path, thumb_path, url, thumb_url, width, height)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          commentId,
+          stored.storage_path,
+          stored.thumb_path,
+          stored.url,
+          stored.thumb_url,
+          stored.width,
+          stored.height,
+        ]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    if (stored)
+      await deleteMediaObjects([stored.storage_path, stored.thumb_path]);
+    throw e;
+  } finally {
+    client.release();
+  }
   const r = await pool.query<CommentRow>(`${COMMENT_SELECT} WHERE c.id = $1`, [
-    ins.rows[0].id,
+    commentId,
   ]);
   const dto = toCommentDTO(r.rows[0], viewer);
   if (post.author_id !== viewer.id) {
@@ -674,6 +720,13 @@ export async function deleteComment(
   await pool.query(
     `UPDATE community_comments SET deleted_at = now() WHERE id = $1`,
     [commentId]
+  );
+  const media = await pool.query<{ storage_path: string; thumb_path: string }>(
+    `DELETE FROM community_comment_media WHERE comment_id = $1 RETURNING storage_path, thumb_path`,
+    [commentId]
+  );
+  await deleteMediaObjects(
+    media.rows.flatMap((m) => [m.storage_path, m.thumb_path])
   );
 }
 

@@ -307,20 +307,34 @@ router.get(
 router.post(
   '/posts/:id/comments',
   communityCommentLimiter,
-  handle(async (req, res) => {
+  async (req, res) => {
     if (!uuid.safeParse(req.params.id).success)
       return res.status(404).json({ error: 'post_not_found' });
-    const parsed = z
-      .object({ body: z.string().trim().min(1).max(500) })
-      .safeParse(req.body);
-    if (!parsed.success)
-      return res.status(400).json({ error: 'invalid_payload' });
-    res
-      .status(201)
-      .json(
-        await createComment(viewerOf(req), req.params.id, parsed.data.body)
-      );
-  })
+    if (!(await runUpload(req, res))) return;
+    try {
+      const parsed = z
+        .object({ body: z.string().trim().max(500).default('') })
+        .safeParse(req.body);
+      if (!parsed.success)
+        return res.status(400).json({ error: 'invalid_payload' });
+      const [media, ...extra] = parseMediaFromRequest(req);
+      if (extra.length) throw new CommunityMediaError('too_many_images');
+      res
+        .status(201)
+        .json(
+          await createComment(
+            viewerOf(req),
+            req.params.id,
+            parsed.data.body,
+            media
+          )
+        );
+    } catch (e) {
+      if (sendCommunityError(res, e)) return;
+      logger.error({ err: e }, 'community comment create failed');
+      res.status(500).json({ error: 'upload_failed' });
+    }
+  }
 );
 
 router.delete(
