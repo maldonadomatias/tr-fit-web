@@ -470,4 +470,61 @@ describe('/api/community posts', () => {
       .set('Authorization', `Bearer ${a.token}`);
     expect(me2.body.community_unseen).toBe(false);
   });
+
+  it('community_unseen lights for new posts and ignores own, hidden, deleted and blocked', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    const b = await makeUser('athlete');
+    const coach = await makeUser('admin');
+
+    await insertPost(a.id, { body: 'mio' });
+    const own = await request(app)
+      .get('/api/athlete/me')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(own.body.community_unseen).toBe(false);
+
+    await insertPost(coach.id, { body: 'aviso', kind: 'announcement' });
+    const announced = await request(app)
+      .get('/api/community/unseen')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(announced.status).toBe(200);
+    expect(announced.body).toEqual({ unseen: true });
+
+    await request(app)
+      .post('/api/community/seen')
+      .set('Authorization', `Bearer ${a.token}`)
+      .expect(204);
+
+    await insertPost(b.id, { body: 'oculto', hidden: true });
+    const deleted = await insertPost(b.id, { body: 'borrado' });
+    await pool.query(`UPDATE community_posts SET deleted_at = now() WHERE id = $1`, [
+      deleted,
+    ]);
+    const quiet = await request(app)
+      .get('/api/athlete/me')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(quiet.body.community_unseen).toBe(false);
+
+    await request(app)
+      .post(`/api/community/blocks/${b.id}`)
+      .set('Authorization', `Bearer ${a.token}`)
+      .expect(204);
+    await insertPost(b.id, { body: 'bloqueado' });
+    const mine = await insertPost(a.id, { body: 'otro mio' });
+    await pool.query(
+      `INSERT INTO community_comments (post_id, author_id, body) VALUES ($1, $2, 'hey')`,
+      [mine, b.id]
+    );
+    const blocked = await request(app)
+      .get('/api/community/unseen')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(blocked.body).toEqual({ unseen: false });
+
+    const c = await makeUser('athlete');
+    await insertPost(c.id, { body: 'hola' });
+    const fresh = await request(app)
+      .get('/api/athlete/me')
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(fresh.body.community_unseen).toBe(true);
+  });
 });

@@ -33,6 +33,7 @@ import {
   setBlock,
   acceptTerms,
   markSeen,
+  communityFlags,
   type Viewer,
 } from '../services/community.service.js';
 import {
@@ -386,6 +387,14 @@ router.post(
   handle(async (req, res) => {
     await markSeen(req.user!.id);
     res.status(204).end();
+  })
+);
+
+router.get(
+  '/unseen',
+  handle(async (req, res) => {
+    const flags = await communityFlags(req.user!.id);
+    res.json({ unseen: flags.community_unseen });
   })
 );
 

@@ -758,6 +758,9 @@ export async function communityFlags(userId: string): Promise<{
   community_terms_accepted: boolean;
   community_unseen: boolean;
 }> {
+  // Unread = a visible post from someone else, or a comment on my post, newer
+  // than the last time the athlete opened the wall. Own posts do not count.
+  const since = `> COALESCE(u.community_seen_at, '-infinity'::timestamptz)`;
   const r = await pool.query<{
     enabled: boolean;
     terms: boolean;
@@ -765,12 +768,22 @@ export async function communityFlags(userId: string): Promise<{
   }>(
     `SELECT (SELECT community_launched_on IS NOT NULL FROM platform_fee_config WHERE id = 1) AS enabled,
             u.community_terms_accepted_at IS NOT NULL AS terms,
-            EXISTS (
-              SELECT 1 FROM community_comments c
-                JOIN community_posts p ON p.id = c.post_id
-               WHERE p.author_id = u.id AND p.deleted_at IS NULL
-                 AND c.author_id <> u.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL
-                 AND c.created_at > COALESCE(u.community_seen_at, '-infinity'::timestamptz)
+            (
+              EXISTS (
+                SELECT 1 FROM community_posts p
+                 WHERE p.deleted_at IS NULL AND p.hidden_at IS NULL
+                   AND p.author_id <> u.id
+                   AND p.created_at ${since}
+                   AND ${visibleAuthorsClause('p.author_id', '$1')}
+              )
+              OR EXISTS (
+                SELECT 1 FROM community_comments c
+                  JOIN community_posts p ON p.id = c.post_id
+                 WHERE p.author_id = u.id AND p.deleted_at IS NULL AND p.hidden_at IS NULL
+                   AND c.author_id <> u.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL
+                   AND c.created_at ${since}
+                   AND ${visibleAuthorsClause('c.author_id', '$1')}
+              )
             ) AS unseen
        FROM users u WHERE u.id = $1`,
     [userId]
