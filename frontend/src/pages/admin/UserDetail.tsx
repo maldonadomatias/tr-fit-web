@@ -39,6 +39,7 @@ import { Avatar } from '@/components/admin/Avatar';
 import { RoleBadge } from '@/components/admin/RoleBadge';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { MembershipBadge } from '@/components/admin/MembershipBadge';
+import { VacationPaymentCard } from '@/components/admin/VacationPaymentCard';
 import { Segmented } from '@/components/admin/Segmented';
 import { Donut } from '@/components/admin/Donut';
 import { Timeline, type TimelineEntry } from '@/components/admin/Timeline';
@@ -776,6 +777,13 @@ function MembresiaCard({ user }: { user: AdminUser }) {
           Al reanudar, los días pausados se suman a la fecha de vencimiento.
         </p>
       )}
+      {status === 'vacation' && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          En vacaciones no puede iniciar sesión. El vencimiento sigue en
+          Usuarios. Para volver, registrá el pago de la cuota el día que
+          termina o antes.
+        </p>
+      )}
       {paymentDialog}
     </div>
   );
@@ -792,6 +800,8 @@ function MembresiaTab({ user }: { user: AdminUser }) {
   return (
     <div className="flex flex-col gap-4">
       <MembresiaCard user={user} />
+
+      <VacationPaymentCard user={user} />
 
       <div className="rounded-2xl border bg-card">
         <div className="border-b border-border p-[18px]">
@@ -814,6 +824,7 @@ function MembresiaTab({ user }: { user: AdminUser }) {
                 type="number"
                 min={0}
                 step={1000}
+                aria-label="Cuota mensual"
                 value={cuota}
                 onChange={(e) => setCuota(e.target.value)}
                 className="h-9 w-40 rounded-md border border-border bg-background px-2 text-sm tabular-nums"
@@ -844,8 +855,9 @@ function MembresiaTab({ user }: { user: AdminUser }) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Para dar de alta, renovar o extender acceso usá "Registrar pago" arriba,
-        en Membresía — es lo único que deja un cobro registrado.
+        Para dar de alta, renovar o volver de vacaciones usá "Registrar pago"
+        arriba: es lo que habilita el acceso. "Pago por vacaciones" cobra el
+        mantenimiento y lo deja pausado.
       </p>
     </div>
   );

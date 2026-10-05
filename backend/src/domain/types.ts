@@ -327,7 +327,8 @@ export type MembershipStatus =
   | 'expiring'
   | 'expired'
   | 'cancelled'
-  | 'paused';
+  | 'paused'
+  | 'vacation';
 export type PaymentMethod = 'transfer' | 'cash' | 'mercadopago' | 'other';
 
 export interface Membership {

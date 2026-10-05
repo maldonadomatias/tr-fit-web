@@ -16,6 +16,7 @@ export const MEMBERSHIP_LABELS: Record<string, string> = {
   expired: 'Vencida',
   cancelled: 'Cancelada',
   paused: 'Pausada',
+  vacation: 'Vacaciones',
 };
 
 /**

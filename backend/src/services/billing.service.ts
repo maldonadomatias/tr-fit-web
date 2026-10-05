@@ -7,6 +7,8 @@ export interface BillingInfo {
   amount: number | null;
   currency: string;
   note: string | null;
+  /** Data-maintenance price charged while an athlete is on vacation. */
+  vacation_fee_ars: number;
 }
 
 export interface UpdateBillingInput {
@@ -16,23 +18,27 @@ export interface UpdateBillingInput {
   amount?: number | null;
   currency?: string;
   note?: string | null;
+  vacation_fee_ars?: number;
 }
 
 export async function getBillingInfo(): Promise<BillingInfo> {
   const r = await pool.query<BillingInfo>(
-    `SELECT alias, cbu, holder, amount, currency, note
+    `SELECT alias, cbu, holder, amount, currency, note, vacation_fee_ars
        FROM billing_settings WHERE id = 1`,
   );
-  return (
-    r.rows[0] ?? {
+  const row = r.rows[0];
+  if (!row) {
+    return {
       alias: null, cbu: null, holder: null,
       amount: null, currency: 'ARS', note: null,
-    }
-  );
+      vacation_fee_ars: 10000,
+    };
+  }
+  return { ...row, vacation_fee_ars: Number(row.vacation_fee_ars) };
 }
 
 // Whitelist of updatable columns -> guards against arbitrary column injection.
-const FIELDS = ['alias', 'cbu', 'holder', 'amount', 'currency', 'note'] as const;
+const FIELDS = ['alias', 'cbu', 'holder', 'amount', 'currency', 'note', 'vacation_fee_ars'] as const;
 
 export function buildBillingUpdate(input: UpdateBillingInput): {
   sets: string[];

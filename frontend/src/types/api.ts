@@ -166,7 +166,8 @@ export type MembershipStatus =
   | 'expiring'
   | 'expired'
   | 'cancelled'
-  | 'paused';
+  | 'paused'
+  | 'vacation';
 
 export type AuditType =
   | 'user_created'
@@ -183,6 +184,7 @@ export type AuditType =
   | 'subscription_paused'
   | 'membership_paused'
   | 'membership_resumed'
+  | 'membership_vacation'
   | 'athlete_rm_changed'
   | 'athlete_weight_changed'
   | 'force_logout';

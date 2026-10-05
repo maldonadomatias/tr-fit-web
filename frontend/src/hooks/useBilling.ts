@@ -8,6 +8,7 @@ export interface BillingInfo {
   amount: number | null;
   currency: string;
   note: string | null;
+  vacation_fee_ars: number;
 }
 
 export function useBillingInfo() {

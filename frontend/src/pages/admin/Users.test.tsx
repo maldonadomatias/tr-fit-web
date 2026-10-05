@@ -97,6 +97,34 @@ describe('Usuarios — columnas de membresía', () => {
     expect(row.getByText('No pagado')).toBeTruthy();
   });
 
+  it('shows Vacaciones in place of Aprobado, and keeps a rejected account as Rechazado', () => {
+    const viaje: AdminUser = {
+      ...base,
+      id: 'v',
+      name: 'Diego Viaje',
+      membership_status: 'vacation',
+      paid_until: '2026-11-20T15:00:00.000Z',
+    };
+    const solana: AdminUser = {
+      ...base,
+      id: 'sol',
+      name: 'Solana Sevald',
+      status: 'rejected',
+      membership_status: 'vacation',
+      paid_until: '2026-11-20T15:00:00.000Z',
+    };
+    renderUsers([viaje]);
+    const diego = within(rowOf('Diego Viaje'));
+    expect(diego.getAllByText('Vacaciones')).toHaveLength(2);
+    expect(diego.queryByText('Aprobado')).toBeNull();
+
+    renderUsers([solana]);
+    const row = within(rowOf('Solana Sevald'));
+    expect(row.getByText('Rechazado')).toBeTruthy();
+    expect(row.getByText('Vacaciones')).toBeTruthy();
+    expect(row.queryByText('Aprobado')).toBeNull();
+  });
+
   it('replaces the membership columns for staff accounts', () => {
     renderUsers([staff]);
     const row = within(rowOf('Coach Staff'));
@@ -183,6 +211,27 @@ describe('sortUsers — rechazados', () => {
     );
     // cuota decides first (21000 < 28000), so the rejected row leads.
     expect(desc[0].name).toBe('Carla Rechazada');
+  });
+
+  it('keeps a rejected athlete on vacation in the expiry order', () => {
+    // Solana Sevald: account stays Rechazado, but Pagado hasta sorts normally.
+    const solana: AdminUser = {
+      ...base,
+      id: 'sol',
+      name: 'Solana Sevald',
+      status: 'rejected',
+      membership_status: 'vacation',
+      paid_until: '2026-02-01T15:00:00.000Z',
+    };
+    const out = sortUsers([base, solana, vencida, rechazada], [
+      { key: 'vence', dir: 'asc' },
+    ]);
+    expect(out.map((u) => u.name)).toEqual([
+      'Bruno Vencido',
+      'Solana Sevald',
+      'Ana Atleta',
+      'Carla Rechazada',
+    ]);
   });
 
   it('still sorts them among themselves when they are all there is', () => {

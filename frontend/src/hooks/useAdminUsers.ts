@@ -117,6 +117,32 @@ export function usePauseMembership(id: string) {
   });
 }
 
+export function useRegisterVacation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      amount?: number;
+      paid_until: string;
+      record_payment: boolean;
+    }): Promise<void> => {
+      const { id, ...body } = input;
+      await api.post(`/admin/users/${id}/membership/vacation`, {
+        method: 'transfer',
+        paid_at: new Date().toLocaleDateString('en-CA', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+        }),
+        ...body,
+      });
+    },
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'user', id] });
+      qc.invalidateQueries({ queryKey: ['admin', 'users'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'stats'] });
+    },
+  });
+}
+
 export function useResumeMembership(id: string) {
   const qc = useQueryClient();
   return useMutation({

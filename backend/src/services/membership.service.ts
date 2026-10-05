@@ -73,12 +73,19 @@ export async function registerPayment(
   try {
     await client.query('BEGIN');
 
-    const existing = await client.query<{ paid_until: string | number | null }>(
-      `SELECT paid_until FROM memberships WHERE user_id = $1 FOR UPDATE`, [userId],
+    const existing = await client.query<{
+      paid_until: string | number | null;
+      status: string;
+    }>(
+      `SELECT paid_until, status FROM memberships WHERE user_id = $1 FOR UPDATE`, [userId],
     );
     // Extend from the later of current paid_until or now() (renewal vs top-up).
+    // Vacation coverage is data-maintenance, not prepaid training: the cuota
+    // that brings them back starts today even if "pagado hasta" is still ahead.
     const base = (() => {
-      const cur = existing.rows[0]?.paid_until;
+      const row = existing.rows[0];
+      if (row?.status === 'vacation') return new Date();
+      const cur = row?.paid_until;
       if (cur != null && cur !== Infinity && cur !== 'infinity') {
         const t = new Date(cur).getTime();
         if (t > Date.now()) return new Date(t);
@@ -136,8 +143,90 @@ export async function registerPayment(
 }
 
 export class MembershipError extends Error {
-  constructor(public code: 'not_active' | 'not_paused') {
+  constructor(public code: 'not_active' | 'not_paused' | 'invalid_date' | 'invalid_amount') {
     super(code);
+  }
+}
+
+/**
+ * Calendar date YYYY-MM-DD stored as noon in Argentina (UTC-3, no DST) so the
+ * admin "Vence el" column shows that same day.
+ */
+export function paidUntilOnCalendarDate(isoDate: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!m) throw new MembershipError('invalid_date');
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(Date.UTC(y, mo - 1, d, 15, 0, 0));
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== mo - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    throw new MembershipError('invalid_date');
+  }
+  return dt;
+}
+
+export interface RegisterVacationInput {
+  /** Required when recordPayment is true. */
+  amount?: number;
+  currency?: string;
+  method?: PaymentMethod;
+  /** 'YYYY-MM-DD'. Defaults to today in Argentina. */
+  paidAt?: string;
+  /** 'YYYY-MM-DD' the coach picked as Pagado hasta. */
+  paidUntil: string;
+  recordPayment: boolean;
+  recordedBy?: string | null;
+}
+
+/**
+ * Put an athlete on vacation: block access, keep a real paid_until so they
+ * sort with the other vencimientos, and optionally book the maintenance fee.
+ * Does not approve the account — a rejected athlete stays rejected.
+ */
+export async function registerVacation(
+  userId: string,
+  input: RegisterVacationInput,
+): Promise<Membership> {
+  const until = paidUntilOnCalendarDate(input.paidUntil);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    if (input.recordPayment) {
+      if (input.amount == null || !Number.isFinite(input.amount) || input.amount < 0) {
+        throw new MembershipError('invalid_amount');
+      }
+      const paidAt = input.paidAt
+        ?? new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      await client.query(
+        `INSERT INTO payments
+           (user_id, paid_at, amount, currency, method, reference, covers_until, recorded_by, kind)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'vacation')`,
+        [userId, paidAt, input.amount, input.currency ?? 'ARS', input.method ?? 'transfer',
+         'Mantenimiento de datos', until.toISOString(), input.recordedBy ?? null],
+      );
+    }
+
+    const m = await client.query<Membership>(
+      `INSERT INTO memberships (user_id, status, started_at, paid_until, paused_at, updated_at)
+       VALUES ($1, 'vacation', now(), $2, NULL, now())
+       ON CONFLICT (user_id) DO UPDATE
+         SET status = 'vacation', paid_until = $2, paused_at = NULL, updated_at = now()
+       RETURNING *`,
+      [userId, until.toISOString()],
+    );
+
+    await client.query('COMMIT');
+    return m.rows[0];
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
   }
 }
 

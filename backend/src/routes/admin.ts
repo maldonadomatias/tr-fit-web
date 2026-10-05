@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import {
   registerPayment,
+  registerVacation,
   cancelMembership,
   pauseMembership,
   resumeMembership,
@@ -59,7 +60,7 @@ function canLogIn(
 ): boolean {
   if (!u || u.status !== 'approved') return false;
   if (u.role !== 'athlete') return true;
-  if (u.membership_status === 'paused') return false;
+  if (u.membership_status === 'paused' || u.membership_status === 'vacation') return false;
   const p = u.paid_until;
   if (p == null) return false;
   if (p === Infinity || p === 'infinity') return true; // sentinel used by fixtures + manual grants
@@ -596,6 +597,66 @@ router.post('/users/:id/force-logout', async (req: Request, res: Response) => {
   });
   res.json({ ok: true });
 });
+
+const vacationBody = z.object({
+  amount: z.number().nonnegative().optional(),
+  currency: z.string().min(1).max(8).optional(),
+  method: z.enum(['transfer', 'cash', 'mercadopago', 'other']).optional(),
+  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  paid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // false = only move Pagado hasta. true (default) also books the maintenance fee.
+  record_payment: z.boolean().optional(),
+});
+
+// Vacation hold: block access, charge data-maintenance, set a real paid_until.
+// Does not approve the account. A later normal payment brings them back.
+router.post(
+  '/users/:id/membership/vacation',
+  async (req: Request, res: Response) => {
+    const parsed = vacationBody.safeParse(req.body);
+    if (!parsed.success)
+      return res.status(400).json({ error: 'invalid_payload' });
+    const recordPayment = parsed.data.record_payment !== false;
+    if (recordPayment && parsed.data.amount == null) {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+    if (before.role !== 'athlete') {
+      return res.status(409).json({ error: 'not_athlete' });
+    }
+    try {
+      const membership = await registerVacation(req.params.id, {
+        amount: parsed.data.amount,
+        currency: parsed.data.currency,
+        method: parsed.data.method,
+        paidAt: parsed.data.paid_at,
+        paidUntil: parsed.data.paid_until,
+        recordPayment,
+        recordedBy: req.user!.id,
+      });
+      await logAudit({
+        type: 'membership_vacation',
+        actor: await actorEmail(req),
+        target: before.email,
+        target_id: req.params.id,
+        severity: 'warning',
+        meta: {
+          amount: recordPayment ? parsed.data.amount : null,
+          paid_until: membership.paid_until,
+          record_payment: recordPayment,
+        },
+      });
+      return res.json({ membership });
+    } catch (e) {
+      if (e instanceof MembershipError &&
+          (e.code === 'invalid_date' || e.code === 'invalid_amount')) {
+        return res.status(400).json({ error: e.code });
+      }
+      throw e;
+    }
+  }
+);
 
 // Freeze a membership (injury/vacation): blocks access, stops the paid clock.
 router.post(

@@ -40,6 +40,7 @@ export interface AdminUserRow {
     | 'expired'
     | 'cancelled'
     | 'paused'
+    | 'vacation'
     | null;
   paid_until: string | number | null;
   monthly_fee_ars: number | null;
@@ -423,6 +424,7 @@ export type AuditType =
   | 'membership_cancelled'
   | 'membership_paused'
   | 'membership_resumed'
+  | 'membership_vacation'
   | 'athlete_fee_changed'
   | 'athlete_rm_changed'
   | 'athlete_weight_changed'
@@ -981,7 +983,7 @@ export async function getStats(): Promise<AdminStats> {
      ),
      vigente AS (
        SELECT * FROM athlete
-        WHERE status NOT IN ('cancelled', 'paused')
+        WHERE status NOT IN ('cancelled', 'paused', 'vacation')
           AND (paid_until = 'infinity' OR paid_until >= NOW())
      )
      SELECT

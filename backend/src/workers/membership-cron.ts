@@ -18,7 +18,9 @@ interface Row {
 /**
  * Derives membership.status from paid_until and sends one email per transition.
  * Emails fire only on the status change (active→expiring, *→expired), so the
- * one-time UPDATE is the dedupe — no separate log needed. Cancelled is never touched.
+ * one-time UPDATE is the dedupe — no separate log needed. Cancelled, paused and
+ * vacation are never touched: vacation keeps its label past paid_until so the
+ * coach still sees Vacaciones when the date lapses.
  * Never denies access on its own (login recomputes from paid_until), so a missed
  * tick only delays the email/label.
  */
@@ -29,7 +31,7 @@ export async function runMembershipTick(): Promise<void> {
         SET status = 'expired', updated_at = now()
        FROM users u
       WHERE m.user_id = u.id
-        AND m.status NOT IN ('expired', 'cancelled', 'paused')
+        AND m.status NOT IN ('expired', 'cancelled', 'paused', 'vacation')
         AND m.paid_until IS NOT NULL
         AND m.paid_until <> 'infinity'
         AND m.paid_until < now()

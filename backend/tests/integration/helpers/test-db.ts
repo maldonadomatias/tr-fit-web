@@ -103,7 +103,14 @@ export async function ensureMigrated(): Promise<void> {
               SELECT 1 FROM pg_constraint
                WHERE conname = 'notification_log_type_check'
                  AND pg_get_constraintdef(oid) LIKE '%community_revision%'
-            ) AS m065`
+            ) AS m065,
+            EXISTS (
+              SELECT 1
+                FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'payments'
+                 AND column_name = 'kind'
+            ) AS pay_kind`
   );
   if (
     !r.rows[0].e ||
@@ -113,7 +120,8 @@ export async function ensureMigrated(): Promise<void> {
     !r.rows[0].ca ||
     !r.rows[0].uf ||
     !r.rows[0].aew_scheme ||
-    !r.rows[0].m065
+    !r.rows[0].m065 ||
+    !r.rows[0].pay_kind
   ) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }

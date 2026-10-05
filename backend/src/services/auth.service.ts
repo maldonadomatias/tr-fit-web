@@ -174,10 +174,13 @@ export async function login(
   // expired or missing membership (past the 48h grace window) throws
   // 'payment_required' so the mobile app shows the payment-details screen.
   // ('infinity' paid_until is > now() in Postgres, so backfilled athletes pass.)
-  // Paused (frozen) memberships deny access outright. Checked before the
-  // payment gate: paid_until may lapse during a long pause and the athlete
-  // should see "paused", not "payment required".
-  if (user.role === 'athlete' && user.membership_status === 'paused') {
+  // Paused and vacation memberships deny access outright. Checked before the
+  // payment gate: paid_until may still be in the future (vacation maintenance
+  // or a frozen pause) and the athlete should see "paused", not "payment
+  // required". Vacation reuses membership_paused so the shipped app copy
+  // ("tu membresía está pausada") stays correct without a release.
+  if (user.role === 'athlete' &&
+      (user.membership_status === 'paused' || user.membership_status === 'vacation')) {
     throw new LoginError('membership_paused');
   }
   if (user.role === 'athlete' && !user.membership_active) {
@@ -286,7 +289,8 @@ export async function refresh(
       acct.role === 'athlete' &&
       (acct.status !== 'approved' ||
         !acct.membership_active ||
-        acct.membership_status === 'paused');
+        acct.membership_status === 'paused' ||
+        acct.membership_status === 'vacation');
     if (acct.status === 'rejected' || athleteBlocked) {
       // Revoke the family and force re-login (which surfaces the gate message).
       await client.query(

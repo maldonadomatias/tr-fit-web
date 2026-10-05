@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import {
   useForceLogout,
   usePauseMembership,
+  useRegisterVacation,
   useResumeMembership,
 } from './useAdminUsers';
 
@@ -55,5 +56,28 @@ describe('usePauseMembership / useResumeMembership', () => {
     result.current.mutate();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(api.post).toHaveBeenCalledWith('/admin/users/u1/membership/resume');
+  });
+});
+
+describe('useRegisterVacation', () => {
+  it('POSTs the maintenance charge and the chosen date', async () => {
+    vi.mocked(api.post).mockResolvedValue({ data: { membership: { status: 'vacation' } } });
+    const { result } = renderHook(() => useRegisterVacation(), { wrapper });
+    result.current.mutate({
+      id: 'u1',
+      amount: 10000,
+      paid_until: '2026-11-15',
+      record_payment: true,
+    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/users/u1/membership/vacation',
+      expect.objectContaining({
+        amount: 10000,
+        paid_until: '2026-11-15',
+        record_payment: true,
+        method: 'transfer',
+      }),
+    );
   });
 });

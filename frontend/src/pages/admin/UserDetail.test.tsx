@@ -51,6 +51,7 @@ vi.mock('@/hooks/useAdminUsers', () => ({
   useDeleteUser: mocks.idleMutation,
   useForceLogout: mocks.idleMutation,
   usePauseMembership: mocks.idleMutation,
+  useRegisterVacation: mocks.idleMutation,
   useRegisterPayment: () => ({
     mutate: mocks.registerPayment,
     mutateAsync: mocks.registerPayment,
@@ -118,6 +119,22 @@ vi.mock('@/hooks/useAthleteWeights', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useBilling', () => ({
+  useBillingInfo: () => ({
+    data: {
+      alias: null,
+      cbu: null,
+      holder: null,
+      amount: null,
+      currency: 'ARS',
+      note: null,
+      vacation_fee_ars: 10000,
+    },
+    isLoading: false,
+  }),
+  useUpdateBilling: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 vi.mock('@/hooks/useSetMonthlyFee', () => ({
   useSetMonthlyFee: () => ({
     mutateAsync: mocks.setFee,
@@ -149,13 +166,13 @@ describe('user detail monthly fee', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Membresía' }));
 
-    const input = screen.getByRole('spinbutton');
+    const input = screen.getByRole('spinbutton', { name: 'Cuota mensual' });
     expect(input).toHaveAttribute('min', '0');
     expect(input).not.toHaveAttribute('max');
 
     await user.clear(input);
     await user.type(input, '0');
-    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+    await user.click(screen.getByRole('button', { name: /^Guardar$/ }));
 
     expect(mocks.setFee).toHaveBeenCalledWith(0);
   });

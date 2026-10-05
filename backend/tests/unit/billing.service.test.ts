@@ -12,6 +12,12 @@ describe('buildBillingUpdate', () => {
     expect(sets).toEqual([]);
   });
 
+  it('includes the vacation maintenance price', () => {
+    const { sets, vals } = buildBillingUpdate({ vacation_fee_ars: 10000 });
+    expect(sets).toEqual(['vacation_fee_ars = $1']);
+    expect(vals).toEqual([10000]);
+  });
+
   it('returns empty for empty input', () => {
     expect(buildBillingUpdate({})).toEqual({ sets: [], vals: [] });
   });

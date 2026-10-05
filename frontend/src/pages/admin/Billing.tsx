@@ -19,6 +19,7 @@ export default function Billing() {
     amount: 0,
     currency: 'ARS',
     note: '',
+    vacation_fee_ars: 10000,
   });
 
   useEffect(() => {
@@ -30,6 +31,11 @@ export default function Billing() {
   }
 
   async function save() {
+    const vacationFee = Number(form.vacation_fee_ars);
+    if (!Number.isFinite(vacationFee) || vacationFee < 0) {
+      toast.error('Precio de vacaciones inválido');
+      return;
+    }
     try {
       await update.mutateAsync({
         alias: form.alias,
@@ -38,6 +44,7 @@ export default function Billing() {
         amount: form.amount == null ? null : Number(form.amount),
         currency: form.currency,
         note: form.note,
+        vacation_fee_ars: vacationFee,
       });
       toast.success('Datos de pago guardados');
     } catch {
@@ -92,6 +99,25 @@ export default function Billing() {
             set('amount', e.target.value === '' ? null : Number(e.target.value))
           }
         />
+      </label>
+      <label className="block text-sm">
+        Mantenimiento por vacaciones (ARS)
+        <Input
+          type="number"
+          min={0}
+          aria-label="Mantenimiento por vacaciones"
+          value={form.vacation_fee_ars ?? ''}
+          onChange={(e) =>
+            set(
+              'vacation_fee_ars',
+              e.target.value === '' ? 0 : Number(e.target.value)
+            )
+          }
+        />
+        <span className="mt-1 block text-xs text-muted-foreground">
+          Precio de hoy del mantenimiento de datos. Se puede cambiar. En el
+          alumno también podés cobrar otro monto solo esa vez.
+        </span>
       </label>
       <label className="block text-sm">
         Nota

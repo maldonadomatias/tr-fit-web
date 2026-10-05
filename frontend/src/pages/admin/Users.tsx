@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Search,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -59,9 +60,10 @@ const STATUS_ORDER: Record<string, number> = {
 const MEMBERSHIP_ORDER: Record<string, number> = {
   expired: 0,
   expiring: 1,
-  paused: 2,
-  active: 3,
-  cancelled: 4,
+  vacation: 2,
+  paused: 3,
+  active: 4,
+  cancelled: 5,
 };
 
 const nameOf = (u: AdminUser) => u.name ?? u.email;
@@ -94,6 +96,8 @@ export const DEFAULT_SORT: Sort[] = [{ key: 'vence', dir: 'asc' }];
 /**
  * Sorts by every criterion in order: the first decides, the rest break its
  * ties. Rejected accounts and staff sink regardless of the criteria.
+ * A rejected athlete on vacation stays in the expiry order: the account badge
+ * is still Rechazado, but Pagado hasta behaves like any other vencimiento.
  */
 export function sortUsers(users: AdminUser[], sorts: Sort[]): AdminUser[] {
   const athleteOnly = sorts.some((s) => ATHLETE_ONLY.includes(s.key));
@@ -101,11 +105,12 @@ export function sortUsers(users: AdminUser[], sorts: Sort[]): AdminUser[] {
   // sorting by Estado, which is the one column whose whole job is to order by
   // that. Pinning them there would leave the column unable to reorder
   // anything: with no pending users, approved-vs-rejected is all it has.
+  // Vacation is the other exception: they are a real vencimiento.
   const sinkRejected = !sorts.some((s) => s.key === 'estado');
   return [...users].sort((a, b) => {
     if (sinkRejected) {
-      const aOut = a.status === 'rejected';
-      const bOut = b.status === 'rejected';
+      const aOut = a.status === 'rejected' && a.membership_status !== 'vacation';
+      const bOut = b.status === 'rejected' && b.membership_status !== 'vacation';
       if (aOut !== bOut) return aOut ? 1 : -1;
     }
     if (athleteOnly) {
@@ -505,6 +510,25 @@ function SortHead({
   );
 }
 
+/**
+ * Account column. Vacation replaces Aprobado with Vacaciones. A rejected
+ * account stays Rechazado (Solana Sevald: maintenance charged, baja unchanged).
+ */
+function AccountStatus({ user }: { user: AdminUser }) {
+  if (user.status !== 'rejected' && user.membership_status === 'vacation') {
+    return (
+      <Badge variant="warning" className="gap-1.5">
+        <span
+          className="inline-block size-1.5 rounded-full bg-current"
+          aria-hidden
+        />
+        Vacaciones
+      </Badge>
+    );
+  }
+  return <StatusBadge status={user.status} />;
+}
+
 function ColLabel({ children }: { children: ReactNode }) {
   return (
     <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -562,7 +586,7 @@ function UserRow({
         </div>
       </TableCell>
       <TableCell>
-        <StatusBadge status={user.status} />
+        <AccountStatus user={user} />
       </TableCell>
       {isAthlete ? (
         <>

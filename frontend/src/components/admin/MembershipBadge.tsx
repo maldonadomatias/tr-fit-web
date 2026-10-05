@@ -6,6 +6,7 @@ const VARIANT: Record<MembershipStatus, 'brand' | 'warning' | 'outline'> = {
   active: 'brand',
   expiring: 'warning',
   paused: 'warning',
+  vacation: 'warning',
   expired: 'outline',
   cancelled: 'outline',
 };

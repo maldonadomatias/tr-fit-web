@@ -201,7 +201,7 @@ export const FEE_EXPR = `COALESCE(u.monthly_fee_ars, ap.monthly_fee_ars, 25000)`
 
 /**
  * Estimated pool: approved athletes with a membership that is still on the
- * books (not cancelled/paused) — includes expired and mid-month actives who
+ * books (not cancelled/paused/vacation) — includes expired and mid-month actives who
  * have not renewed yet.
  *
  * Real pool: subset already paid for the current calendar month
@@ -236,7 +236,7 @@ export async function getAthleteBillingRevenue(todayISO?: string): Promise<{
        JOIN memberships m ON m.user_id = u.id
       WHERE u.role = 'athlete'
         AND u.status = 'approved'
-        AND m.status NOT IN ('cancelled', 'paused')`,
+        AND m.status NOT IN ('cancelled', 'paused', 'vacation')`,
     [today]
   );
   const row = r.rows[0];
@@ -289,7 +289,7 @@ export async function getAthleteBillingBreakdown(
        LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
        JOIN memberships m ON m.user_id = u.id
       WHERE u.role = 'athlete' AND u.status = 'approved'
-        AND m.status NOT IN ('cancelled', 'paused')
+        AND m.status NOT IN ('cancelled', 'paused', 'vacation')
       ORDER BY fee DESC, name`,
     [today]
   );
