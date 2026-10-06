@@ -1,5 +1,6 @@
 import admin from 'firebase-admin';
 import { getFirebaseApp } from '../config/firebase.js';
+import logger from '../utils/logger.js';
 
 export type SendStatus = 'sent' | 'token_invalid' | 'failed';
 
@@ -24,6 +25,7 @@ export async function sendPush(
   } catch (e: unknown) {
     const code = (e as { code?: string }).code ?? '';
     if (TOKEN_INVALID_CODES.has(code)) return 'token_invalid';
+    logger.error({ err: e, code }, 'FCM send failed');
     return 'failed';
   }
 }
