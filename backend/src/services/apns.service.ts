@@ -93,9 +93,15 @@ async function postToApns(opts: {
       client.close();
       resolve(status);
     };
-    client.on('error', () => done('failed'));
+    client.on('error', (err) => {
+      logger.warn({ err }, 'APNs connection error');
+      done('failed');
+    });
     try {
-      client.setTimeout(10000, () => done('failed'));
+      client.setTimeout(10000, () => {
+        logger.warn('APNs timeout');
+        done('failed');
+      });
       const headers: Record<string, string> = {
         ':method': 'POST',
         ':path': `/3/device/${opts.deviceToken}`,
@@ -131,10 +137,14 @@ async function postToApns(opts: {
           );
         done(classifyApnsStatus(status, reason, opts.classify400));
       });
-      req.on('error', () => done('failed'));
+      req.on('error', (err) => {
+        logger.warn({ err }, 'APNs request error');
+        done('failed');
+      });
       req.write(opts.body);
       req.end();
-    } catch {
+    } catch (err) {
+      logger.warn({ err }, 'APNs send threw');
       done('failed');
     }
   });
