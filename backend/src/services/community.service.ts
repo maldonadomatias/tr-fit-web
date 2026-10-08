@@ -74,6 +74,8 @@ export interface CommentDTO {
   created_at: string;
   author: AuthorDTO;
   can_delete: boolean;
+  like_count: number;
+  liked_by_me: boolean;
   media: Array<{
     url: string;
     thumb_url: string;
@@ -576,9 +578,12 @@ interface CommentRow {
   author_name: string;
   author_avatar: string | null;
   author_role: Role;
+  like_count: number;
+  liked_by_me: boolean;
   media: CommentDTO['media'];
 }
 
+// $1 is always the viewer id.
 const COMMENT_SELECT = `
   SELECT c.id, c.post_id, c.body, c.created_at, ${CURSOR_TS_SQL('c.created_at')} AS cursor_ts,
          c.author_id, ${AUTHOR_NAME_SQL('u', 'ap', 'cp')} AS author_name,
@@ -586,6 +591,9 @@ const COMMENT_SELECT = `
          COALESCE((SELECT json_agg(json_build_object('url', m.url, 'thumb_url', m.thumb_url,
                                                     'width', m.width, 'height', m.height))
                      FROM community_comment_media m WHERE m.comment_id = c.id), '[]'::json) AS media
+         , (SELECT count(*) FROM community_comment_likes cl WHERE cl.comment_id = c.id)::int AS like_count,
+         EXISTS (SELECT 1 FROM community_comment_likes cl
+                  WHERE cl.comment_id = c.id AND cl.user_id = $1) AS liked_by_me
     FROM community_comments c
     JOIN users u ON u.id = c.author_id
     LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
@@ -604,6 +612,8 @@ function toCommentDTO(row: CommentRow, viewer: Viewer): CommentDTO {
       is_coach: isAdminRole(row.author_role),
     },
     can_delete: row.author_id === viewer.id || isAdminRole(viewer.role),
+    like_count: Number(row.like_count),
+    liked_by_me: !!row.liked_by_me,
     media: row.media ?? [],
   };
 }
@@ -692,7 +702,8 @@ export async function createComment(
   } finally {
     client.release();
   }
-  const r = await pool.query<CommentRow>(`${COMMENT_SELECT} WHERE c.id = $1`, [
+  const r = await pool.query<CommentRow>(`${COMMENT_SELECT} WHERE c.id = $2`, [
+    viewer.id,
     commentId,
   ]);
   const dto = toCommentDTO(r.rows[0], viewer);
@@ -728,6 +739,64 @@ export async function deleteComment(
   await deleteMediaObjects(
     media.rows.flatMap((m) => [m.storage_path, m.thumb_path])
   );
+}
+
+/** Visible, non-deleted comment or 404. Also enforces post visibility for the viewer. */
+async function assertVisibleComment(
+  viewer: Viewer,
+  commentId: string
+): Promise<{ author_id: string }> {
+  const r = await pool.query<{ author_id: string; post_id: string }>(
+    `SELECT author_id, post_id FROM community_comments
+      WHERE id = $1 AND deleted_at IS NULL AND hidden_at IS NULL`,
+    [commentId]
+  );
+  const c = r.rows[0];
+  if (!c) throw new CommunityError(404, 'comment_not_found');
+  await assertVisiblePost(viewer, c.post_id);
+  return c;
+}
+
+/** "Me gusta" on a comment. Idempotent both ways. */
+export async function setCommentLike(
+  viewer: Viewer,
+  commentId: string,
+  liked: boolean
+): Promise<void> {
+  await assertVisibleComment(viewer, commentId);
+  await pool.query(
+    liked
+      ? `INSERT INTO community_comment_likes (comment_id, user_id) VALUES ($1, $2)
+         ON CONFLICT DO NOTHING`
+      : `DELETE FROM community_comment_likes WHERE comment_id = $1 AND user_id = $2`,
+    [commentId, viewer.id]
+  );
+}
+
+export interface CommentLikerDTO {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
+/** Who liked a comment. Only the comment author gets the names; admins do not bypass. */
+export async function listCommentLikers(
+  viewer: Viewer,
+  commentId: string
+): Promise<CommentLikerDTO[]> {
+  const c = await assertVisibleComment(viewer, commentId);
+  if (c.author_id !== viewer.id) throw new CommunityError(403, 'forbidden');
+  const r = await pool.query<CommentLikerDTO>(
+    `SELECT u.id, ${AUTHOR_NAME_SQL('u', 'ap', 'cp')} AS name, ap.avatar_url
+       FROM community_comment_likes l
+       JOIN users u ON u.id = l.user_id
+       LEFT JOIN athlete_profiles ap ON ap.user_id = u.id
+       LEFT JOIN coach_profiles cp ON cp.user_id = u.id
+      WHERE l.comment_id = $1
+      ORDER BY l.created_at DESC, u.id`,
+    [commentId]
+  );
+  return r.rows;
 }
 
 export async function setRsvp(
