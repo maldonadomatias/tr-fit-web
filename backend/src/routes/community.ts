@@ -28,6 +28,8 @@ import {
   listComments,
   createComment,
   deleteComment,
+  setCommentLike,
+  listCommentLikers,
   setRsvp,
   listBlocks,
   setBlock,
@@ -344,6 +346,30 @@ router.delete(
       return res.status(404).json({ error: 'comment_not_found' });
     await deleteComment(viewerOf(req), req.params.id);
     res.status(204).end();
+  })
+);
+
+for (const [method, liked] of [
+  ['put', true],
+  ['delete', false],
+] as const) {
+  router[method](
+    '/comments/:id/like',
+    handle(async (req, res) => {
+      if (!uuid.safeParse(req.params.id).success)
+        return res.status(404).json({ error: 'comment_not_found' });
+      await setCommentLike(viewerOf(req), req.params.id, liked);
+      res.status(204).end();
+    })
+  );
+}
+
+router.get(
+  '/comments/:id/likes',
+  handle(async (req, res) => {
+    if (!uuid.safeParse(req.params.id).success)
+      return res.status(404).json({ error: 'comment_not_found' });
+    res.json({ items: await listCommentLikers(viewerOf(req), req.params.id) });
   })
 );
 

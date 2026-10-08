@@ -427,6 +427,99 @@ describe('/api/community posts', () => {
     expect(storageOps.deleted).toHaveLength(2);
   });
 
+  it('comment likes: count public, toggle idempotent, only comment author lists likers', async () => {
+    await enableCommunity();
+    const postAuthor = await makeUser('athlete', 'Ana');
+    const commenter = await makeUser('athlete', 'Beto');
+    const admin = await makeUser('admin', 'Coach');
+    const p = await insertPost(postAuthor.id);
+    const created = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${commenter.token}`)
+      .send({ body: 'hola' });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ like_count: 0, liked_by_me: false });
+    const cid = created.body.id;
+    const like = (token: string) =>
+      request(app)
+        .put(`/api/community/comments/${cid}/like`)
+        .set('Authorization', `Bearer ${token}`);
+
+    await like(postAuthor.token).expect(204);
+    await like(postAuthor.token).expect(204); // idempotent
+    await like(admin.token).expect(204);
+
+    const asAna = await request(app)
+      .get(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${postAuthor.token}`);
+    expect(asAna.body.items[0]).toMatchObject({
+      like_count: 2,
+      liked_by_me: true,
+    });
+    const asBeto = await request(app)
+      .get(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${commenter.token}`);
+    expect(asBeto.body.items[0]).toMatchObject({
+      like_count: 2,
+      liked_by_me: false,
+    });
+    expect(JSON.stringify(asBeto.body)).not.toContain('Coach Test');
+
+    const own = await request(app)
+      .get(`/api/community/comments/${cid}/likes`)
+      .set('Authorization', `Bearer ${commenter.token}`);
+    expect(own.status).toBe(200);
+    expect(own.body.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: postAuthor.id, name: 'Ana Test' }),
+        expect.objectContaining({ id: admin.id, name: 'Coach Test' }),
+      ])
+    );
+    expect(own.body.items[0]).not.toHaveProperty('email');
+
+    for (const t of [postAuthor.token, admin.token]) {
+      const r = await request(app)
+        .get(`/api/community/comments/${cid}/likes`)
+        .set('Authorization', `Bearer ${t}`);
+      expect(r.status).toBe(403);
+      expect(r.body).toEqual({ error: 'forbidden' });
+    }
+
+    await request(app)
+      .delete(`/api/community/comments/${cid}/like`)
+      .set('Authorization', `Bearer ${postAuthor.token}`)
+      .expect(204);
+    await request(app)
+      .delete(`/api/community/comments/${cid}/like`)
+      .set('Authorization', `Bearer ${postAuthor.token}`)
+      .expect(204); // idempotent
+    const after = await request(app)
+      .get(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${postAuthor.token}`);
+    expect(after.body.items[0]).toMatchObject({
+      like_count: 1,
+      liked_by_me: false,
+    });
+
+    const missing = '00000000-0000-4000-8000-000000000000';
+    const r404 = await request(app)
+      .put(`/api/community/comments/${missing}/like`)
+      .set('Authorization', `Bearer ${postAuthor.token}`);
+    expect(r404.status).toBe(404);
+    const bad = await request(app)
+      .get(`/api/community/comments/not-a-uuid/likes`)
+      .set('Authorization', `Bearer ${commenter.token}`);
+    expect(bad.status).toBe(404);
+
+    await request(app)
+      .delete(`/api/community/comments/${cid}`)
+      .set('Authorization', `Bearer ${commenter.token}`)
+      .expect(204);
+    const gone = await like(admin.token);
+    expect(gone.status).toBe(404);
+    expect(gone.body).toEqual({ error: 'comment_not_found' });
+  });
+
   it('rejects comment longer than 500 chars', async () => {
     await enableCommunity();
     const a = await makeUser('athlete');
