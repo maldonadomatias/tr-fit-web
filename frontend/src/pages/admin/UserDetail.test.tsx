@@ -142,6 +142,29 @@ vi.mock('@/hooks/useSetMonthlyFee', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useProgressionRuns', () => ({
+  useProgressionRuns: () => ({ data: [], isLoading: false }),
+}));
+
+vi.mock('@/hooks/useExerciseRotations', () => ({
+  useExerciseRotations: () => ({
+    isLoading: false,
+    data: [
+      {
+        id: 'r1',
+        created_at: '2026-10-01T12:00:00Z',
+        program_week: 3,
+        day_of_week: 2,
+        muscle_group: 'Espalda',
+        from_exercise_id: 1,
+        from_name: 'Remo con Mancuerna',
+        to_exercise_id: 2,
+        to_name: 'Remo en Polea Baja',
+      },
+    ],
+  }),
+}));
+
 function renderUserDetail() {
   return render(
     <TooltipProvider>
@@ -432,5 +455,19 @@ describe('user detail missing RM', () => {
       value_kg: 150,
       coach_note: null,
     });
+  });
+});
+
+describe('user detail exercise rotations', () => {
+  it('lists the automatic swaps in the Progresión tab', async () => {
+    const user = userEvent.setup();
+    renderUserDetail();
+
+    await user.click(screen.getByRole('tab', { name: 'Progresión' }));
+
+    expect(screen.getByText('Variaciones')).toBeInTheDocument();
+    expect(screen.getByText('Remo con Mancuerna')).toBeInTheDocument();
+    expect(screen.getByText('Remo en Polea Baja')).toBeInTheDocument();
+    expect(screen.getByText('SEM 3')).toBeInTheDocument();
   });
 });
