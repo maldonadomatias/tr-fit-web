@@ -300,7 +300,8 @@ export type NotificationType =
   | 'community_event'
   | 'community_comment'
   | 'community_report'
-  | 'community_revision';
+  | 'community_revision'
+  | 'exercise_rotated';
 
 export type NotificationPrefs = Record<NotificationType, boolean>;
 

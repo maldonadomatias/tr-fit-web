@@ -85,4 +85,9 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
         : `Promedio de publicidad $${average}: el fee de Comunidad se mantiene en $${newFee}.`,
     route: '/(app)/community',
   }),
+  exercise_rotated: ({ from, to }) => ({
+    title: 'Cambiamos un ejercicio',
+    body: `${from} → ${to}. ¡A variar estímulos!`,
+    route: '/(app)/athlete',
+  }),
 };

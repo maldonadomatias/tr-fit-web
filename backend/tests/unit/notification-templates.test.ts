@@ -41,7 +41,7 @@ describe('notification templates', () => {
     expect(r.route).toBe('/(app)/athlete');
   });
 
-  it('covers all 13 types', () => {
+  it('covers all 14 types', () => {
     const keys = Object.keys(TEMPLATES);
     expect(keys.sort()).toEqual([
       'community_announcement',
@@ -49,6 +49,7 @@ describe('notification templates', () => {
       'community_event',
       'community_report',
       'community_revision',
+      'exercise_rotated',
       'membership_expired',
       'membership_expiring',
       'rm_test_week',
@@ -58,6 +59,18 @@ describe('notification templates', () => {
       'sos_resolved',
       'week_start',
     ]);
+  });
+});
+
+describe('exercise_rotated template', () => {
+  it('renders exercise_rotated with both names', () => {
+    const r = TEMPLATES.exercise_rotated({
+      from: 'Remo Gironda',
+      to: 'Remo en T',
+    });
+    expect(r.title).toBe('Cambiamos un ejercicio');
+    expect(r.body).toBe('Remo Gironda → Remo en T. ¡A variar estímulos!');
+    expect(r.route).toBe('/(app)/athlete');
   });
 });
 

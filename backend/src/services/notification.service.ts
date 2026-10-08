@@ -19,6 +19,7 @@ const DEDUP_WINDOW_HOURS: Record<NotificationType, number> = {
   community_comment: 0,
   community_report: 0,
   community_revision: 0,
+  exercise_rotated: 1,
 };
 
 // Routes fire notifyUser without awaiting it so the response is not blocked by
