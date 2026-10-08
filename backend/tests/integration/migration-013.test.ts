@@ -70,7 +70,8 @@ describe('migration 013 — push notifications', () => {
        VALUES ('p4@t.local','x','athlete')
        RETURNING notification_prefs`
     );
-    // 032 adds membership keys; 063 adds community keys; 065 adds revision.
+    // 032 adds membership keys; 063 adds community keys; 065 adds revision;
+    // 071 adds exercise_rotated.
     expect(u[0].notification_prefs).toEqual({
       session_reminder: true,
       session_missed: true,
@@ -85,6 +86,7 @@ describe('migration 013 — push notifications', () => {
       community_comment: true,
       community_report: true,
       community_revision: true,
+      exercise_rotated: true,
     });
   });
 

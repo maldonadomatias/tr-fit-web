@@ -11,6 +11,11 @@ import {
 import { resolveUnit } from './equipment-units.service.js';
 import type { SetLogForGate } from './progression-helpers.js';
 import type { Exercise } from '../domain/types.js';
+import {
+  rotateOneExercise,
+  type RotationRecord,
+} from './exercise-rotation.service.js';
+import { notifyUser } from './notification.service.js';
 import logger from '../utils/logger.js';
 
 export interface ProgressionResult {
@@ -19,6 +24,7 @@ export interface ProgressionResult {
   toWeek: number;
   compliance: number;
   weightsBumped: BumpRecord[];
+  rotation: RotationRecord | null;
   status: 'success' | 'skipped';
 }
 
@@ -59,6 +65,7 @@ export async function runWeeklyProgressionForAthlete(
         toWeek: 0,
         compliance: 0,
         weightsBumped: [],
+        rotation: null,
         status: 'skipped',
       };
     }
@@ -216,6 +223,29 @@ export async function runWeeklyProgressionForAthlete(
       );
     }
 
+    // Variación cada 2 semanas de programa: al entrar a la semana 3, 5, 7…
+    // Savepoint: un fallo de rotación no puede abortar la progresión.
+    let rotation: RotationRecord | null = null;
+    if (toWeek > fromWeek && toWeek >= 3 && toWeek % 2 === 1) {
+      await client.query('SAVEPOINT exercise_rotation');
+      try {
+        rotation = await rotateOneExercise(
+          client,
+          athleteId,
+          state.active_skeleton_id,
+          toWeek
+        );
+        await client.query('RELEASE SAVEPOINT exercise_rotation');
+      } catch (err) {
+        await client.query('ROLLBACK TO SAVEPOINT exercise_rotation');
+        logger.error(
+          { err, athleteId },
+          'exercise rotation failed; progression continues'
+        );
+        rotation = null;
+      }
+    }
+
     await client.query(
       `INSERT INTO progression_runs
          (athlete_id, from_week, to_week, compliance, weights_bumped, status)
@@ -224,12 +254,21 @@ export async function runWeeklyProgressionForAthlete(
     );
 
     await client.query('COMMIT');
+    if (rotation) {
+      void notifyUser(athleteId, 'exercise_rotated', {
+        from: rotation.from_name,
+        to: rotation.to_name,
+      }).catch((err) =>
+        logger.warn({ err, athleteId }, 'exercise_rotated push failed')
+      );
+    }
     return {
       athleteId,
       fromWeek,
       toWeek,
       compliance,
       weightsBumped: bumped,
+      rotation,
       status: 'success',
     };
   } catch (e) {
