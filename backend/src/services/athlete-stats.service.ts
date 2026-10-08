@@ -109,9 +109,10 @@ function num(s: string | null): number {
 
 async function computeBestStreak(athleteId: string): Promise<number> {
   const r = await pool.query<{ day: string }>(
-    `SELECT DISTINCT date_trunc('day', started_at AT TIME ZONE 'UTC')::date::text AS day
-       FROM session_logs
-      WHERE athlete_id = $1 AND finished_at IS NOT NULL
+    `SELECT DISTINCT (s.started_at AT TIME ZONE u.timezone)::date::text AS day
+       FROM session_logs s
+       JOIN users u ON u.id = s.athlete_id
+      WHERE s.athlete_id = $1 AND s.finished_at IS NOT NULL
       ORDER BY day ASC`,
     [athleteId],
   );

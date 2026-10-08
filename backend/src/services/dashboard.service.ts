@@ -5,22 +5,24 @@ import { listCompliance } from './progress.service.js';
 
 /**
  * Returns the length, in days, of the most recent contiguous run of
- * days that ended on today (UTC) or yesterday. Returns 0 when the
+ * days that ended on today or yesterday, in the athlete's timezone (same
+ * calendar day as the rest guard in session.service). Returns 0 when the
  * most-recent finished session is older than yesterday or no
  * finished sessions exist.
  */
 export async function computeStreak(athleteId: string): Promise<number> {
-  const r = await pool.query<{ day: string }>(
-    `SELECT DISTINCT date_trunc('day', started_at AT TIME ZONE 'UTC')::date::text AS day
-       FROM session_logs
-      WHERE athlete_id = $1 AND finished_at IS NOT NULL
+  const r = await pool.query<{ day: string; today: string }>(
+    `SELECT DISTINCT (s.started_at AT TIME ZONE u.timezone)::date::text AS day,
+            (now() AT TIME ZONE u.timezone)::date::text AS today
+       FROM session_logs s
+       JOIN users u ON u.id = s.athlete_id
+      WHERE s.athlete_id = $1 AND s.finished_at IS NOT NULL
       ORDER BY day DESC`,
     [athleteId],
   );
   if (r.rows.length === 0) return 0;
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const today = new Date(r.rows[0].today);
   const yesterday = new Date(today);
   yesterday.setUTCDate(today.getUTCDate() - 1);
 

@@ -22,7 +22,7 @@ beforeEach(() => {
     if (sql.includes('SELECT current_week')) return { rows: [{ current_week: 1, active_skeleton_id: 'sk' }] };
     if (sql.includes('SELECT day_of_week')) return { rows: [{ day_of_week: 1 }] };
     if (sql.includes('finished_at IS NULL')) return { rows: active ? [{ id: 'active' }] : [] };
-    if (sql.includes('s.started_at AT TIME ZONE')) return { rows: trainedToday ? [{ id: 'done' }] : [] };
+    if (sql.includes('s.finished_at IS NOT NULL')) return { rows: trainedToday ? [{ id: 'done' }] : [] };
     if (sql.includes('INSERT INTO session_logs')) return { rows: [{ id: 'new' }] };
     return { rows: [] };
   });

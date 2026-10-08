@@ -65,7 +65,7 @@ describe('computeStreak', () => {
 
   it('counts a single completed day today as 1', async () => {
     const [today] = isoDays([0]);
-    pushHandler((s) => s.includes('FROM session_logs'), [{ day: today }]);
+    pushHandler((s) => s.includes('FROM session_logs'), [{ day: today, today }]);
     const r = await computeStreak('athlete-1');
     expect(r).toBe(1);
   });
@@ -73,7 +73,7 @@ describe('computeStreak', () => {
   it('counts today + yesterday as 2', async () => {
     const days = isoDays([0, 1]);
     pushHandler((s) => s.includes('FROM session_logs'),
-      days.map((day) => ({ day })));
+      days.map((day) => ({ day, today: isoDays([0])[0] })));
     const r = await computeStreak('athlete-1');
     expect(r).toBe(2);
   });
@@ -81,7 +81,7 @@ describe('computeStreak', () => {
   it('returns 0 when most recent log is older than yesterday', async () => {
     const days = isoDays([3, 4, 5]);
     pushHandler((s) => s.includes('FROM session_logs'),
-      days.map((day) => ({ day })));
+      days.map((day) => ({ day, today: isoDays([0])[0] })));
     const r = await computeStreak('athlete-1');
     expect(r).toBe(0);
   });
@@ -89,7 +89,7 @@ describe('computeStreak', () => {
   it('stops at the first gap (today, yesterday, gap, more)', async () => {
     const days = isoDays([0, 1, 3, 4]);
     pushHandler((s) => s.includes('FROM session_logs'),
-      days.map((day) => ({ day })));
+      days.map((day) => ({ day, today: isoDays([0])[0] })));
     const r = await computeStreak('athlete-1');
     expect(r).toBe(2);
   });

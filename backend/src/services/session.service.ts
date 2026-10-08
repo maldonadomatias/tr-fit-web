@@ -90,9 +90,8 @@ export async function startSession(
          FROM session_logs s
          JOIN users u ON u.id = s.athlete_id
         WHERE s.athlete_id = $1 AND s.finished_at IS NOT NULL
-          AND (s.started_at AT TIME ZONE COALESCE(u.timezone, 'America/Argentina/Buenos_Aires'))::date
-              = (COALESCE($2::timestamptz, now())
-                   AT TIME ZONE COALESCE(u.timezone, 'America/Argentina/Buenos_Aires'))::date
+          AND (s.started_at AT TIME ZONE u.timezone)::date
+              = (COALESCE($2::timestamptz, now()) AT TIME ZONE u.timezone)::date
         LIMIT 1`,
       [athleteId, opts.now ?? null],
     );
