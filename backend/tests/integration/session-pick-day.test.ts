@@ -95,7 +95,8 @@ it('allows repeating yesterday’s group without force', async () => {
   const ath = await createAthlete(coach, { days_per_week: 3 });
   const sk = await setupSkeleton(ath, coach);
   await finishDay(ath, sk, 1);
-  await pool.query("UPDATE session_logs SET finished_at = NOW() - INTERVAL '1 day' WHERE athlete_id = $1", [ath]);
+  // A session belongs to the day it started (#126), so move both instants.
+  await pool.query("UPDATE session_logs SET started_at = NOW() - INTERVAL '1 day', finished_at = NOW() - INTERVAL '1 day' WHERE athlete_id = $1", [ath]);
   const out = await startSession(ath, randomUUID(), { dayOfWeek: 3 });
   expect(out.expectedDay).toBe(3);
 });

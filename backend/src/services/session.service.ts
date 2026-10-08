@@ -44,7 +44,7 @@ interface StartSessionResult {
 export async function startSession(
   athleteId: string,
   clientId: string,
-  opts: { force?: boolean; dayOfWeek?: number } = {},
+  opts: { force?: boolean; dayOfWeek?: number; now?: Date } = {},
 ): Promise<StartSessionResult> {
   const stateR = await pool.query<{
     current_week: number; active_skeleton_id: string | null;
@@ -79,17 +79,21 @@ export async function startSession(
     throw new SessionError('session_in_progress');
   }
 
-  // Rest guard: one workout per day. If the athlete already finished a session
-  // today (UTC day, matching the streak logic), block — unless they explicitly
-  // override with "Entrenar de todas formas" (opts.force).
+  // Rest guard: one workout per calendar day in the athlete's own timezone
+  // (resets at 00:00 local, not a rolling 24 h and not the UTC day). A session
+  // belongs to the day it was STARTED: one begun yesterday and closed this
+  // morning does not block today. Override with "Entrenar de todas formas"
+  // (opts.force). `opts.now` only exists so tests can pin the clock.
   if (!opts.force) {
     const trainedTodayR = await pool.query<{ id: string }>(
-      `SELECT id FROM session_logs
-        WHERE athlete_id = $1 AND finished_at IS NOT NULL
-          AND date_trunc('day', finished_at AT TIME ZONE 'UTC')
-              = date_trunc('day', now() AT TIME ZONE 'UTC')
+      `SELECT s.id
+         FROM session_logs s
+         JOIN users u ON u.id = s.athlete_id
+        WHERE s.athlete_id = $1 AND s.finished_at IS NOT NULL
+          AND (s.started_at AT TIME ZONE u.timezone)::date
+              = (COALESCE($2::timestamptz, now()) AT TIME ZONE u.timezone)::date
         LIMIT 1`,
-      [athleteId],
+      [athleteId, opts.now ?? null],
     );
     if (trainedTodayR.rows[0]) {
       throw new SessionError('already_trained_today');
