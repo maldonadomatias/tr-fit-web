@@ -256,6 +256,23 @@ router.get('/users/:id/progression', async (req: Request, res: Response) => {
   );
 });
 
+// Log of the automatic exercise rotation (one accessory every 2 program weeks).
+router.get('/users/:id/rotations', async (req: Request, res: Response) => {
+  const { rows } = await pool.query(
+    `SELECT r.id, r.created_at, r.program_week, r.day_of_week, r.muscle_group,
+            r.from_exercise_id, fe.name AS from_name,
+            r.to_exercise_id, te.name AS to_name
+       FROM exercise_rotations r
+       JOIN exercises fe ON fe.id = r.from_exercise_id
+       JOIN exercises te ON te.id = r.to_exercise_id
+      WHERE r.athlete_id = $1
+      ORDER BY r.created_at DESC
+      LIMIT 50`,
+    [req.params.id]
+  );
+  res.json(rows);
+});
+
 const patchBody = z
   .object({
     role: z.enum(['athlete', 'admin', 'superadmin']).optional(),

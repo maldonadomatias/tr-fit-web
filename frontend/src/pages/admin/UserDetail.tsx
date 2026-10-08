@@ -61,6 +61,7 @@ import {
   useProgressionRuns,
   type ProgressionRun,
 } from '@/hooks/useProgressionRuns';
+import { useExerciseRotations } from '@/hooks/useExerciseRotations';
 import { useSetMonthlyFee } from '@/hooks/useSetMonthlyFee';
 import { useAthleteRms, useSetAthleteRm } from '@/hooks/useAthleteRms';
 import {
@@ -161,7 +162,12 @@ export default function UserDetail() {
 
       {tab === 'resumen' && <ResumenTab user={user} />}
       {tab === 'entrenamientos' && <EntrenamientosTab user={user} />}
-      {tab === 'progresion' && <ProgresionTab user={user} />}
+      {tab === 'progresion' && (
+        <div className="space-y-4">
+          <ProgresionTab user={user} />
+          <RotacionesCard user={user} />
+        </div>
+      )}
       {tab === 'rm' && <RmTab user={user} />}
       {tab === 'estado' && <EstadoTab user={user} isSelf={isSelf} />}
       {tab === 'suscripcion' && <MembresiaTab user={user} />}
@@ -1159,6 +1165,59 @@ function ProgresionTab({ user }: { user: AdminUser }) {
             No se ajustó ningún ejercicio esta semana.
           </div>
         )
+      )}
+    </div>
+  );
+}
+
+// Automatic accessory swaps (one every 2 program weeks), newest first.
+function RotacionesCard({ user }: { user: AdminUser }) {
+  const q = useExerciseRotations(user.id);
+  const rotations = q.data ?? [];
+
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className="border-b border-border p-[18px]">
+        <Eyebrow variant="muted">Variaciones</Eyebrow>
+        <div className="mt-1 text-[17px] font-semibold tracking-tight">
+          Cambios automáticos de ejercicios
+        </div>
+      </div>
+      {q.isLoading ? (
+        <div className="p-[18px]">
+          <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+        </div>
+      ) : rotations.length === 0 ? (
+        <div className="p-[18px] text-sm text-muted-foreground">
+          Todavía no se rotó ningún ejercicio. El primer cambio llega al pasar a
+          la semana 3.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {rotations.map((r) => (
+            <li
+              key={r.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-[18px] py-3"
+            >
+              <span className="rounded-md bg-muted px-2 py-0.5 font-mono text-[11px] font-bold tabular-nums">
+                SEM {r.program_week}
+              </span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {r.muscle_group} · Día {r.day_of_week}
+              </span>
+              <span className="min-w-0 basis-full text-sm sm:basis-auto">
+                <span className="text-muted-foreground line-through">
+                  {r.from_name}
+                </span>
+                {' → '}
+                <span className="font-medium">{r.to_name}</span>
+              </span>
+              <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                {fmtShortDate(r.created_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
