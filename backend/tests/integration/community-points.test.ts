@@ -161,7 +161,7 @@ describe('getLeaderboard ranking', () => {
     expect(lb.me).toEqual({ rank: null, points: 0 });
   });
 
-  it('ties share rank, top is capped at 20 and me carries the viewer rank', async () => {
+  it('ties share rank, top is capped at 5 and me carries the viewer rank', async () => {
     const users = [];
     for (let i = 0; i < 22; i++) users.push(await makeUser('athlete', `U${i}`));
     // U0 y U1: 2 posts (empatan primeros); resto: 1 post; el viewer U21 sin nada más que un post.
@@ -173,7 +173,8 @@ describe('getLeaderboard ranking', () => {
 
     const lb = await getLeaderboard({ id: viewer.id, role: 'athlete' }, NOW);
 
-    expect(lb.top).toHaveLength(20);
+    expect(lb.top).toHaveLength(5);
+    expect(lb.top.some((e) => e.user.id === viewer.id)).toBe(false);
     expect(lb.top[0].rank).toBe(1);
     expect(lb.top[1].rank).toBe(1);
     expect(lb.top[2].rank).toBe(3);
@@ -195,6 +196,22 @@ describe('getLeaderboard ranking', () => {
     const lb = await getLeaderboard({ id: ana.id, role: 'athlete' }, NOW);
 
     expect(lb.top.map((e) => [e.user.name, e.rank])).toEqual([['Caro Test', 2]]);
+  });
+
+  it('points reset every month', async () => {
+    const ana = await makeUser('athlete', 'Ana');
+    await insertPost(ana.id, { createdAt: '2026-10-10T15:00:00Z' });
+
+    const oct = await getLeaderboard({ id: ana.id, role: 'athlete' }, NOW);
+    const nov = await getLeaderboard(
+      { id: ana.id, role: 'athlete' },
+      new Date('2026-11-01T03:30:00Z') // 00:30 BA del 1/11
+    );
+
+    expect(oct.me).toEqual({ rank: 1, points: POINTS.post });
+    expect(nov.month).toBe('2026-11');
+    expect(nov.top).toEqual([]);
+    expect(nov.me).toEqual({ rank: null, points: 0 });
   });
 
   it('empty month', async () => {
