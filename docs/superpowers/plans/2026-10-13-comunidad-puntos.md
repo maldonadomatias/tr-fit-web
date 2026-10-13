@@ -25,7 +25,7 @@
 - **Período:** ranking mensual, mes calendario en `America/Argentina/Buenos_Aires`. Se reinicia solo (no hay nada que resetear: es un filtro por fecha).
 - **Quién entra al ranking:** solo `role='athlete'`, `status='approved'`, no silenciados (`community_muted_until` vencido o null). Coach/admin no compiten.
 - **No suma:** posts/comentarios borrados u ocultos por moderación, interacción sobre posts borrados/ocultos, interacción con uno mismo. Si algo se borra después, los puntos desaparecen (consistente, anti-farmeo).
-- **Visibilidad:** ranking público entre atletas, top 20 + "tu posición". Usuarios bloqueados (en cualquier sentido) no se muestran al viewer, pero los números de puesto son globales (no se renumeran).
+- **Visibilidad:** ranking público entre atletas, top 5 + "tu posición" (fila aparte si quedás fuera del top). Usuarios bloqueados (en cualquier sentido) no se muestran al viewer, pero los números de puesto son globales (no se renumeran).
 - **Los puntos no se canjean** por nada en esta versión. Si el cliente quiere premios/canjes/descuentos → recién ahí se agrega tabla `community_points_ledger` (fuera de alcance).
 - **Fuera de alcance:** likes en comentarios (el backend todavía no los tiene), panel admin, notificaciones push de ranking, insignias.
 
@@ -61,7 +61,7 @@
   ```ts
   export const POINTS: { post: 10; post_photo_bonus: 5; comment: 4; reaction: 1; rsvp: 3; reaction_received: 2; comment_received: 3 };
   export const DAILY_CAPS: { post: 3; comment: 10; reaction: 20 };
-  export const LEADERBOARD_SIZE = 20;
+  export const LEADERBOARD_SIZE = 5;
   export interface LeaderboardEntry { rank: number; points: number; user: { id: string; name: string; avatar_url: string | null } }
   export interface Leaderboard {
     month: string; // 'YYYY-MM' en hora BA
@@ -247,7 +247,7 @@ describe('getLeaderboard ranking', () => {
     expect(lb.me).toEqual({ rank: null, points: 0 });
   });
 
-  it('ties share rank, top is capped at 20 and me carries the viewer rank', async () => {
+  it('ties share rank, top is capped at 5 and me carries the viewer rank', async () => {
     const users = [];
     for (let i = 0; i < 22; i++) users.push(await makeUser('athlete', `U${i}`));
     // U0 y U1: 2 posts (empatan primeros); resto: 1 post; el viewer U21 sin nada más que un post.
@@ -259,7 +259,7 @@ describe('getLeaderboard ranking', () => {
 
     const lb = await getLeaderboard({ id: viewer.id, role: 'athlete' }, NOW);
 
-    expect(lb.top).toHaveLength(20);
+    expect(lb.top).toHaveLength(5);
     expect(lb.top[0].rank).toBe(1);
     expect(lb.top[1].rank).toBe(1);
     expect(lb.top[2].rank).toBe(3);
@@ -326,7 +326,7 @@ export const POINTS = {
 /** Max scoring actions per user per Buenos Aires day. Extra actions still happen, they just don't score. */
 export const DAILY_CAPS = { post: 3, comment: 10, reaction: 20 } as const;
 
-export const LEADERBOARD_SIZE = 20;
+export const LEADERBOARD_SIZE = 5;
 const TZ = 'America/Argentina/Buenos_Aires';
 
 export interface LeaderboardEntry {

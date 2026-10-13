@@ -19,7 +19,7 @@ export const POINTS = {
 /** Max scoring actions per user per Buenos Aires day. Extra actions still happen, they just don't score. */
 export const DAILY_CAPS = { post: 3, comment: 10, reaction: 20 } as const;
 
-export const LEADERBOARD_SIZE = 20;
+export const LEADERBOARD_SIZE = 5;
 const TZ = 'America/Argentina/Buenos_Aires';
 
 export interface LeaderboardEntry {
