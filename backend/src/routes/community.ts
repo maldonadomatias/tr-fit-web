@@ -46,6 +46,7 @@ import {
 } from '../services/community-media.service.js';
 import { createReport } from '../services/community-moderation.service.js';
 import { AdError, recordAdEvent } from '../services/community-ads.service.js';
+import { getLeaderboard } from '../services/community-points.service.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
@@ -451,6 +452,13 @@ router.post(
       return res.status(400).json({ error: 'invalid_payload' });
     await recordAdEvent(req.params.id, req.user!.id, parsed.data.kind);
     res.status(204).end();
+  })
+);
+
+router.get(
+  '/leaderboard',
+  handle(async (req, res) => {
+    res.json(await getLeaderboard(viewerOf(req)));
   })
 );
 
