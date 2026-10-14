@@ -10,6 +10,12 @@ export interface ProgressionBump {
   reps_to: string;
 }
 
+export interface PrincipalWeek {
+  exercise_id: number;
+  exercise_name: string;
+  sets: Array<{ value: number | null; unit: string | null; reps: number }>;
+}
+
 export interface ProgressionRun {
   id: string;
   ran_at: string;
@@ -17,6 +23,8 @@ export interface ProgressionRun {
   to_week: number;
   compliance: number | null;
   weights_bumped: ProgressionBump[];
+  // What the athlete lifted on the main exercises during from_week.
+  principals: PrincipalWeek[];
   status: 'success' | 'partial' | 'failed' | 'skipped';
   error_message: string | null;
 }

@@ -786,8 +786,8 @@ function MembresiaCard({ user }: { user: AdminUser }) {
       {status === 'vacation' && (
         <p className="mt-3 text-xs text-muted-foreground">
           En vacaciones no puede iniciar sesión. El vencimiento sigue en
-          Usuarios. Para volver, registrá el pago de la cuota el día que
-          termina o antes.
+          Usuarios. Para volver, registrá el pago de la cuota el día que termina
+          o antes.
         </p>
       )}
       {paymentDialog}
@@ -1131,6 +1131,32 @@ function ProgresionTab({ user }: { user: AdminUser }) {
       {run.error_message && (
         <div className="px-[18px] py-3 text-[12px] text-destructive">
           {run.error_message}
+        </div>
+      )}
+
+      {run.principals.length > 0 && (
+        <div className="divide-y divide-border border-b border-border">
+          <div className="px-[18px] pt-3 pb-1">
+            <Eyebrow variant="muted">Principales · Sem {run.from_week}</Eyebrow>
+          </div>
+          {run.principals.map((p) => (
+            <div
+              key={p.exercise_id}
+              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-[18px] py-3"
+            >
+              <span className="text-[13px] font-semibold">
+                {p.exercise_name}
+              </span>
+              <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
+                {p.sets
+                  .map(
+                    (s) =>
+                      `${s.value === null ? '—' : `${s.value} ${s.unit ?? 'kg'}`} × ${s.reps}`
+                  )
+                  .join(' · ')}
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
