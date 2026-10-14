@@ -60,7 +60,8 @@ function canLogIn(
 ): boolean {
   if (!u || u.status !== 'approved') return false;
   if (u.role !== 'athlete') return true;
-  if (u.membership_status === 'paused' || u.membership_status === 'vacation') return false;
+  if (u.membership_status === 'paused' || u.membership_status === 'vacation')
+    return false;
   const p = u.paid_until;
   if (p == null) return false;
   if (p === Infinity || p === 'infinity') return true; // sentinel used by fixtures + manual grants
@@ -245,6 +246,65 @@ router.get('/users/:id/progression', async (req: Request, res: Response) => {
     for (const e of nameR.rows) names.set(e.id, e.name);
   }
 
+  // Principals follow the periodization (not the cron), so the run never
+  // records them. Show what the athlete actually lifted on them that week,
+  // taking the role from the skeleton the session was trained on.
+  const weeks = [...new Set(runs.map((r) => r.from_week))];
+  const principalsByWeek = new Map<
+    number,
+    Array<{
+      exercise_id: number;
+      exercise_name: string;
+      sets: Array<{ value: number | null; unit: string | null; reps: number }>;
+    }>
+  >();
+  if (weeks.length) {
+    const { rows } = await pool.query<{
+      week: number;
+      exercise_id: number;
+      exercise_name: string;
+      value: string | null;
+      unit: string | null;
+      reps: number;
+    }>(
+      `SELECT sl.week, sl.exercise_id, e.name AS exercise_name,
+              COALESCE(sl.value, sl.weight_kg)::text AS value,
+              COALESCE(sl.unit, 'kg') AS unit, sl.reps
+         FROM set_logs sl
+         JOIN session_logs s ON s.id = sl.session_log_id
+         JOIN exercises e ON e.id = sl.exercise_id
+        WHERE sl.athlete_id = $1
+          AND sl.week = ANY($2::int[])
+          AND sl.completed AND sl.reps IS NOT NULL
+          AND EXISTS (
+            SELECT 1 FROM skeleton_slots ss
+             WHERE ss.skeleton_id = s.skeleton_id
+               AND ss.exercise_id = sl.exercise_id
+               AND ss.role = 'principal'
+          )
+        ORDER BY sl.week, sl.day_of_week, e.name, sl.set_index`,
+      [req.params.id, weeks]
+    );
+    for (const row of rows) {
+      const list = principalsByWeek.get(row.week) ?? [];
+      let ex = list.find((p) => p.exercise_id === row.exercise_id);
+      if (!ex) {
+        ex = {
+          exercise_id: row.exercise_id,
+          exercise_name: row.exercise_name,
+          sets: [],
+        };
+        list.push(ex);
+      }
+      ex.sets.push({
+        value: row.value === null ? null : Number(row.value),
+        unit: row.unit,
+        reps: row.reps,
+      });
+      principalsByWeek.set(row.week, list);
+    }
+  }
+
   res.json(
     runs.map((r) => ({
       ...r,
@@ -252,6 +312,7 @@ router.get('/users/:id/progression', async (req: Request, res: Response) => {
         ...b,
         exercise_name: names.get(b.exercise_id) ?? `#${b.exercise_id}`,
       })),
+      principals: principalsByWeek.get(r.from_week) ?? [],
     }))
   );
 });
@@ -619,7 +680,10 @@ const vacationBody = z.object({
   amount: z.number().nonnegative().optional(),
   currency: z.string().min(1).max(8).optional(),
   method: z.enum(['transfer', 'cash', 'mercadopago', 'other']).optional(),
-  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  paid_at: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   paid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   // false = only move Pagado hasta. true (default) also books the maintenance fee.
   record_payment: z.boolean().optional(),
@@ -666,8 +730,10 @@ router.post(
       });
       return res.json({ membership });
     } catch (e) {
-      if (e instanceof MembershipError &&
-          (e.code === 'invalid_date' || e.code === 'invalid_amount')) {
+      if (
+        e instanceof MembershipError &&
+        (e.code === 'invalid_date' || e.code === 'invalid_amount')
+      ) {
         return res.status(400).json({ error: e.code });
       }
       throw e;
