@@ -90,6 +90,16 @@ describe('community templates', () => {
     expect(
       TEMPLATES.community_comment({ postId: 'p1', commenter: 'Ana' }).route
     ).toBe('/(app)/community/p1');
+    expect(
+      TEMPLATES.community_comment({
+        postId: 'p1',
+        commenter: 'Ana',
+        reply: '1',
+      })
+    ).toMatchObject({
+      title: 'Nueva respuesta',
+      body: 'Ana respondió tu comentario',
+    });
   });
 });
 

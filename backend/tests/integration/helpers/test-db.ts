@@ -110,7 +110,14 @@ export async function ensureMigrated(): Promise<void> {
                WHERE table_schema = 'public'
                  AND table_name = 'payments'
                  AND column_name = 'kind'
-            ) AS pay_kind`
+            ) AS pay_kind,
+            EXISTS (
+              SELECT 1
+                FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'community_comments'
+                 AND column_name = 'parent_id'
+            ) AS comment_parent`
   );
   if (
     !r.rows[0].e ||
@@ -121,7 +128,8 @@ export async function ensureMigrated(): Promise<void> {
     !r.rows[0].uf ||
     !r.rows[0].aew_scheme ||
     !r.rows[0].m065 ||
-    !r.rows[0].pay_kind
+    !r.rows[0].pay_kind ||
+    !r.rows[0].comment_parent
   ) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }

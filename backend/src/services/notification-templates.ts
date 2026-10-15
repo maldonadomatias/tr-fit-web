@@ -63,11 +63,15 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
     body: preview || 'Hay un evento nuevo en la comunidad',
     route: postId ? `/(app)/community/${postId}` : '/(app)/athlete/community',
   }),
-  community_comment: ({ commenter, postId }) => ({
-    title: 'Nuevo comentario',
+  community_comment: ({ commenter, postId, reply }) => ({
+    title: reply ? 'Nueva respuesta' : 'Nuevo comentario',
     body: commenter
-      ? `${commenter} comentó tu publicación`
-      : 'Comentaron tu publicación',
+      ? reply
+        ? `${commenter} respondió tu comentario`
+        : `${commenter} comentó tu publicación`
+      : reply
+        ? 'Respondieron tu comentario'
+        : 'Comentaron tu publicación',
     route: postId ? `/(app)/community/${postId}` : '/(app)/athlete/community',
   }),
   community_report: ({ reason }) => ({

@@ -70,6 +70,7 @@ export interface ReactionCount {
 export interface CommentDTO {
   id: string;
   post_id: string;
+  parent_id: string | null;
   body: string;
   created_at: string;
   author: AuthorDTO;
@@ -569,6 +570,7 @@ export async function setReaction(
 interface CommentRow {
   id: string;
   post_id: string;
+  parent_id: string | null;
   body: string;
   created_at: Date;
   cursor_ts: string;
@@ -580,7 +582,7 @@ interface CommentRow {
 }
 
 const COMMENT_SELECT = `
-  SELECT c.id, c.post_id, c.body, c.created_at, ${CURSOR_TS_SQL('c.created_at')} AS cursor_ts,
+  SELECT c.id, c.post_id, c.parent_id, c.body, c.created_at, ${CURSOR_TS_SQL('c.created_at')} AS cursor_ts,
          c.author_id, ${AUTHOR_NAME_SQL('u', 'ap', 'cp')} AS author_name,
          ap.avatar_url AS author_avatar, u.role AS author_role,
          COALESCE((SELECT json_agg(json_build_object('url', m.url, 'thumb_url', m.thumb_url,
@@ -595,6 +597,7 @@ function toCommentDTO(row: CommentRow, viewer: Viewer): CommentDTO {
   return {
     id: row.id,
     post_id: row.post_id,
+    parent_id: row.parent_id,
     body: row.body,
     created_at: new Date(row.created_at).toISOString(),
     author: {
@@ -647,16 +650,37 @@ export async function listComments(
   };
 }
 
+/** Parent must be a visible comment on this same post. Returns its author. */
+async function assertReplyParent(
+  viewer: Viewer,
+  postId: string,
+  parentId: string
+): Promise<string> {
+  const r = await pool.query<{ author_id: string }>(
+    `SELECT c.author_id FROM community_comments c
+      WHERE c.id = $1 AND c.post_id = $2
+        AND c.deleted_at IS NULL AND c.hidden_at IS NULL
+        AND ${visibleAuthorsClause('c.author_id', '$3')}`,
+    [parentId, postId, viewer.id]
+  );
+  if (!r.rows[0]) throw new CommunityError(404, 'comment_not_found');
+  return r.rows[0].author_id;
+}
+
 export async function createComment(
   viewer: Viewer,
   postId: string,
   body: string,
-  media?: MediaInput
+  media?: MediaInput,
+  parentId?: string
 ): Promise<CommentDTO> {
   await assertCanParticipate(viewer);
   const post = await assertVisiblePost(viewer, postId);
   const text = body.trim();
   if (!text && !media) throw new CommunityError(400, 'empty_comment');
+  const parentAuthorId = parentId
+    ? await assertReplyParent(viewer, postId, parentId)
+    : null;
   if (media) validateMedia([media]);
   const commentId = randomUUID();
   const stored = media ? await uploadCommentMedia(commentId, media) : null;
@@ -664,8 +688,9 @@ export async function createComment(
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO community_comments (id, post_id, author_id, body) VALUES ($1, $2, $3, $4)`,
-      [commentId, postId, viewer.id, text]
+      `INSERT INTO community_comments (id, post_id, author_id, body, parent_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [commentId, postId, viewer.id, text, parentId ?? null]
     );
     if (stored) {
       await client.query(
@@ -696,12 +721,18 @@ export async function createComment(
     commentId,
   ]);
   const dto = toCommentDTO(r.rows[0], viewer);
-  if (post.author_id !== viewer.id) {
-    void notifyUser(post.author_id, 'community_comment', {
+  const notified = new Set<string>();
+  const ping = (userId: string, reply: boolean) => {
+    if (userId === viewer.id || notified.has(userId)) return;
+    notified.add(userId);
+    void notifyUser(userId, 'community_comment', {
       postId,
       commenter: dto.author.name,
+      ...(reply ? { reply: '1' } : {}),
     }).catch((e) => logger.error({ err: e }, 'community comment push failed'));
-  }
+  };
+  if (parentAuthorId) ping(parentAuthorId, true);
+  ping(post.author_id, false);
   return dto;
 }
 

@@ -392,6 +392,79 @@ describe('/api/community posts', () => {
     expect(d.body.comment_count).toBe(1);
   });
 
+  it('comments: a reply nests under the comment it answers', async () => {
+    await enableCommunity();
+    const a = await makeUser('athlete');
+    const b = await makeUser('athlete');
+    const p = await insertPost(a.id);
+    const root = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${a.token}`)
+      .send({ body: 'raiz' });
+    expect(root.status).toBe(201);
+    expect(root.body.parent_id).toBeNull();
+
+    const reply = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${b.token}`)
+      .send({ body: 'respuesta', parent_id: root.body.id });
+    expect(reply.status).toBe(201);
+    expect(reply.body.parent_id).toBe(root.body.id);
+
+    const nested = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${a.token}`)
+      .send({ body: 'otra vez', parent_id: reply.body.id });
+    expect(nested.status).toBe(201);
+    expect(nested.body.parent_id).toBe(reply.body.id);
+
+    const list = await request(app)
+      .get(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(
+      list.body.items.map((c: { body: string; parent_id: string | null }) => [
+        c.body,
+        c.parent_id,
+      ])
+    ).toEqual([
+      ['raiz', null],
+      ['respuesta', root.body.id],
+      ['otra vez', reply.body.id],
+    ]);
+
+    const other = await insertPost(a.id);
+    const wrongPost = await request(app)
+      .post(`/api/community/posts/${other}/comments`)
+      .set('Authorization', `Bearer ${b.token}`)
+      .send({ body: 'no', parent_id: root.body.id });
+    expect(wrongPost.status).toBe(404);
+
+    const missing = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${b.token}`)
+      .send({
+        body: 'no',
+        parent_id: '00000000-0000-4000-8000-000000000000',
+      });
+    expect(missing.status).toBe(404);
+
+    await request(app)
+      .delete(`/api/community/comments/${reply.body.id}`)
+      .set('Authorization', `Bearer ${b.token}`)
+      .expect(204);
+    const afterDelete = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${a.token}`)
+      .send({ body: 'tarde', parent_id: reply.body.id });
+    expect(afterDelete.status).toBe(404);
+
+    const bad = await request(app)
+      .post(`/api/community/posts/${p}/comments`)
+      .set('Authorization', `Bearer ${b.token}`)
+      .send({ body: 'no', parent_id: 'nope' });
+    expect(bad.status).toBe(400);
+  });
+
   it('comments: photo-only comment is stored, listed and cleaned up on delete', async () => {
     await enableCommunity();
     const a = await makeUser('athlete');

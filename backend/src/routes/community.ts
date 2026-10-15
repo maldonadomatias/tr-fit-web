@@ -314,7 +314,13 @@ router.post(
     if (!(await runUpload(req, res))) return;
     try {
       const parsed = z
-        .object({ body: z.string().trim().max(500).default('') })
+        .object({
+          body: z.string().trim().max(500).default(''),
+          parent_id: z.preprocess(
+            (v) => (v === '' || v == null ? undefined : v),
+            z.string().uuid().optional()
+          ),
+        })
         .safeParse(req.body);
       if (!parsed.success)
         return res.status(400).json({ error: 'invalid_payload' });
@@ -327,7 +333,8 @@ router.post(
             viewerOf(req),
             req.params.id,
             parsed.data.body,
-            media
+            media,
+            parsed.data.parent_id
           )
         );
     } catch (e) {
