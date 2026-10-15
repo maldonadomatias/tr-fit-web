@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Exercise } from '@/types/api';
 import { AddSlotPopover } from './AddSlotPopover';
+import { hyroxSessionPreset } from './hyrox-session-presets';
 
 // Mock the search hook: return a catalog for the empty-query call (used to
 // build the group dropdown) and a subgroup-filtered list when muscle_group is
@@ -31,6 +32,18 @@ const CATALOG: Partial<Exercise>[] = [
     name: 'Press Banca',
     muscle_group: 'Pecho - Mayor',
     is_principal: true,
+  },
+  {
+    id: 174,
+    name: 'HYROX Session LVL 1',
+    muscle_group: 'Cardio',
+    is_principal: false,
+  },
+  {
+    id: 175,
+    name: 'HYROX Session LVL 2',
+    muscle_group: 'Cardio',
+    is_principal: false,
   },
 ];
 
@@ -133,6 +146,126 @@ describe('AddSlotPopover · rol y periodización semanal', () => {
         series: null,
         reps: null,
         descanso: null,
+      })
+    );
+  });
+});
+
+describe('AddSlotPopover · sesiones HYROX', () => {
+  beforeEach(() => {
+    search.mockClear();
+  });
+
+  it('precarga LVL 1 al elegirlo y lo manda como accesorio', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    await user.click(await screen.findByText('HYROX Session LVL 1'));
+
+    const preset = hyroxSessionPreset('HYROX Session LVL 1')!;
+    expect(screen.getByLabelText('Rol en la rutina')).toHaveValue('accesorio');
+    expect(screen.getByDisplayValue(String(preset.series))).toBeInTheDocument();
+    expect(screen.getByDisplayValue(preset.reps)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(preset.descanso)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/cambia variante/i)).toHaveValue(
+      preset.notes
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(onAdd).toHaveBeenCalledWith({
+      exercise_id: 174,
+      exercise_name: 'HYROX Session LVL 1',
+      muscle_group: 'Cardio',
+      role: 'accesorio',
+      notes: preset.notes,
+      series: preset.series,
+      reps: preset.reps,
+      descanso: preset.descanso,
+    });
+  });
+
+  it('precarga LVL 2 aunque el coach no toque el formulario', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    const searchBox = screen.getByPlaceholderText('Buscar ejercicio…');
+    await user.type(searchBox, 'HYROX Session LVL 2');
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+
+    const preset = hyroxSessionPreset('HYROX Session LVL 2')!;
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercise_id: 175,
+        role: 'accesorio',
+        series: preset.series,
+        reps: preset.reps,
+        descanso: preset.descanso,
+        notes: preset.notes,
+      })
+    );
+  });
+
+  it('guarda el reps que el coach cambió sobre el preset', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    await user.click(await screen.findByText('HYROX Session LVL 1'));
+    const reps = screen.getByDisplayValue('2,1 km');
+    await user.clear(reps);
+    await user.type(reps, '1 km');
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercise_id: 174,
+        reps: '1 km',
+        series: 2,
+        notes: expect.stringContaining('CINTA 400'),
+      })
+    );
+  });
+
+  it('respeta un cambio del coach y no arrastra el bloque a otro ejercicio', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    await user.click(await screen.findByText('HYROX Session LVL 1'));
+    const reps = screen.getByDisplayValue('2,1 km');
+    await user.clear(reps);
+    await user.type(reps, '1 km');
+
+    const searchBox = screen.getByPlaceholderText('Buscar ejercicio…');
+    await user.clear(searchBox);
+    expect(screen.getByDisplayValue('1 km')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Curl Femoral'));
+    expect(screen.queryByDisplayValue('1 km')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/CINTA 400/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercise_id: 3,
+        series: null,
+        reps: null,
+        descanso: null,
+        notes: undefined,
       })
     );
   });

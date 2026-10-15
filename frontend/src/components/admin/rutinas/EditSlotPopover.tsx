@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useExercisesSearch } from '@/hooks/useAdminExercises';
 import type { Exercise, RutinaSlot } from '@/types/api';
 import { cn } from '@/lib/utils';
+import { hyroxSessionPreset } from './hyrox-session-presets';
 
 export type SlotOverride = {
   exercise_id: number;
@@ -198,8 +199,32 @@ export function EditSlotPopover({
                   <button
                     type="button"
                     onClick={() => {
+                      const previousName = selected?.name ?? currentExerciseName;
                       setSelected(r);
                       setQuery(r.name);
+                      if (role !== 'accesorio') return;
+                      const preset = hyroxSessionPreset(r.name);
+                      const blank =
+                        !series.trim() &&
+                        !reps.trim() &&
+                        !descanso.trim() &&
+                        !notes.trim();
+                      if (preset && (r.id !== currentExerciseId || blank)) {
+                        setSeries(String(preset.series));
+                        setReps(preset.reps);
+                        setDescanso(preset.descanso);
+                        setNotes(preset.notes);
+                        return;
+                      }
+                      if (
+                        hyroxSessionPreset(previousName) &&
+                        r.id !== currentExerciseId
+                      ) {
+                        setSeries('');
+                        setReps('');
+                        setDescanso('');
+                        setNotes('');
+                      }
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-2 py-1.5 text-left text-[12px] transition hover:bg-muted',

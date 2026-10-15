@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useExercisesSearch } from '@/hooks/useAdminExercises';
 import type { Exercise } from '@/types/api';
 import { cn } from '@/lib/utils';
+import { hyroxSessionPreset } from './hyrox-session-presets';
 
 export type AddedSlotData = {
   exercise_id: number;
@@ -44,6 +45,10 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
   const [reps, setReps] = useState('');
   const [descanso, setDescanso] = useState('');
   const [role, setRole] = useState<AddedSlotData['role']>('accesorio');
+  // True after the coach edits series/reps/rest/notes. A HYROX preset must
+  // not overwrite that edit, and must not leak onto the next exercise.
+  const [schemeDirty, setSchemeDirty] = useState(false);
+  const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,6 +61,8 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
       setReps('');
       setDescanso('');
       setRole('accesorio');
+      setSchemeDirty(false);
+      setAppliedPreset(null);
       setTimeout(() => searchRef.current?.focus(), 30);
     }
   }, [open]);
@@ -75,25 +82,73 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
     muscle_group: selectedGroup || undefined,
   });
 
+  function selectExercise(exercise: Exercise) {
+    const preset = hyroxSessionPreset(exercise.name);
+    const leavingPreset = appliedPreset !== null;
+    setSelected(exercise);
+    setQuery(exercise.name);
+    setRole(
+      preset ? 'accesorio' : exercise.is_principal ? 'principal' : 'accesorio'
+    );
+    if (preset) {
+      setSchemeDirty(false);
+      setSeries(String(preset.series));
+      setReps(preset.reps);
+      setDescanso(preset.descanso);
+      setNotes(preset.notes);
+      setAppliedPreset(exercise.name);
+      return;
+    }
+    if (leavingPreset) {
+      setSchemeDirty(false);
+      setSeries('');
+      setReps('');
+      setDescanso('');
+      setNotes('');
+    }
+    setAppliedPreset(null);
+  }
+
   function commit() {
     const ex = selected ?? results.find((r) => r.name === query.trim()) ?? null;
     if (!ex) return;
-    const commitRole = selected
-      ? role
-      : ex.is_principal
-        ? 'principal'
-        : role === 'principal'
-          ? 'accesorio'
-          : role;
+    const preset = hyroxSessionPreset(ex.name);
+    const untouched =
+      !schemeDirty &&
+      !series.trim() &&
+      !reps.trim() &&
+      !descanso.trim() &&
+      !notes.trim();
+    const commitRole =
+      preset && untouched
+        ? 'accesorio'
+        : selected
+          ? role
+          : ex.is_principal
+            ? 'principal'
+            : role === 'principal'
+              ? 'accesorio'
+              : role;
+    const prescription =
+      preset && untouched
+        ? {
+            notes: preset.notes,
+            series: preset.series,
+            reps: preset.reps,
+            descanso: preset.descanso,
+          }
+        : {
+            notes: notes.trim() || undefined,
+            series: series.trim() ? Number(series) : null,
+            reps: reps.trim() || null,
+            descanso: descanso.trim() || null,
+          };
     onAdd({
       exercise_id: ex.id,
       exercise_name: ex.name,
       muscle_group: ex.muscle_group,
       role: commitRole,
-      notes: notes.trim() || undefined,
-      series: series.trim() ? Number(series) : null,
-      reps: reps.trim() || null,
-      descanso: descanso.trim() || null,
+      ...prescription,
     });
     setOpen(false);
   }
@@ -130,6 +185,13 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
               onChange={(e) => {
                 setQuery(e.target.value);
                 setSelected(null);
+                if (appliedPreset && !schemeDirty) {
+                  setSeries('');
+                  setReps('');
+                  setDescanso('');
+                  setNotes('');
+                  setAppliedPreset(null);
+                }
               }}
               placeholder="Buscar ejercicio…"
               className="h-9 w-full rounded-md border border-input bg-background pl-7 pr-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
@@ -164,9 +226,8 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
                   <button
                     type="button"
                     onClick={() => {
-                      setSelected(r);
-                      setQuery(r.name);
-                      setRole(r.is_principal ? 'principal' : 'accesorio');
+                      if (selected?.id === r.id) return;
+                      selectExercise(r);
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-2 py-1.5 text-left text-[12px] transition hover:bg-muted',
@@ -221,7 +282,10 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
                 min={1}
                 max={6}
                 value={series}
-                onChange={(e) => setSeries(e.target.value)}
+                onChange={(e) => {
+                  setSchemeDirty(true);
+                  setSeries(e.target.value);
+                }}
                 placeholder="3"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
               />
@@ -233,7 +297,10 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
               <input
                 type="text"
                 value={reps}
-                onChange={(e) => setReps(e.target.value)}
+                onChange={(e) => {
+                  setSchemeDirty(true);
+                  setReps(e.target.value);
+                }}
                 placeholder="8 a 10 · 10x10x10 · 10 - 8 - 6"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
               />
@@ -245,7 +312,10 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
               <input
                 type="text"
                 value={descanso}
-                onChange={(e) => setDescanso(e.target.value)}
+                onChange={(e) => {
+                  setSchemeDirty(true);
+                  setDescanso(e.target.value);
+                }}
                 placeholder="Ej: 1:30 a 2 min"
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-ring focus:ring-1 focus:ring-ring"
               />
@@ -263,7 +333,10 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
           </label>
           <Textarea
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) => {
+              setSchemeDirty(true);
+              setNotes(e.target.value);
+            }}
             placeholder="Ej: cambia variante por equipo limitado."
             rows={2}
           />
