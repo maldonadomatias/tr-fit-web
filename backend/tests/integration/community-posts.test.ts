@@ -659,4 +659,42 @@ describe('/api/community posts', () => {
       .set('Authorization', `Bearer ${a.token}`);
     expect(fresh.body.community_unseen).toBe(true);
   });
+
+  it('shadow account posts and comments are visible only to itself', async () => {
+    await enableCommunity();
+    const shadow = await makeUser('athlete');
+    const other = await makeUser('athlete');
+    await pool.query(
+      `UPDATE users SET community_shadow = true WHERE id = $1`,
+      [shadow.id]
+    );
+    const postId = await insertPost(shadow.id, { body: 'review' });
+    const realPost = await insertPost(other.id, { body: 'real' });
+    await pool.query(
+      `INSERT INTO community_comments (post_id, author_id, body) VALUES ($1, $2, 'hey')`,
+      [realPost, shadow.id]
+    );
+
+    const own = await request(app)
+      .get('/api/community/feed')
+      .set('Authorization', `Bearer ${shadow.token}`);
+    expect(own.body.items.map((p: { id: string }) => p.id)).toContain(postId);
+
+    const feed = await request(app)
+      .get('/api/community/feed')
+      .set('Authorization', `Bearer ${other.token}`);
+    const ids = feed.body.items.map((p: { id: string }) => p.id);
+    expect(ids).not.toContain(postId);
+    expect(ids).toContain(realPost);
+
+    const direct = await request(app)
+      .get(`/api/community/posts/${postId}`)
+      .set('Authorization', `Bearer ${other.token}`);
+    expect(direct.status).toBe(404);
+
+    const comments = await request(app)
+      .get(`/api/community/posts/${realPost}/comments`)
+      .set('Authorization', `Bearer ${other.token}`);
+    expect(comments.body.items).toHaveLength(0);
+  });
 });
