@@ -105,7 +105,8 @@ export const AUTHOR_NAME_SQL = (u: string, ap: string, cp: string) =>
   `COALESCE(NULLIF(TRIM(CONCAT(${u}.first_name, ' ', ${u}.last_name)), ''), ${ap}.name, ${cp}.name, 'Usuario')`;
 
 /**
- * The single block filter: excludes authors I blocked and authors who blocked me.
+ * The single author filter: excludes authors I blocked, authors who blocked me,
+ * and shadow accounts (store review user) other than myself.
  * `authorCol` is the SQL column holding the author id, `viewerParam` the placeholder ($n).
  */
 export function visibleAuthorsClause(
@@ -115,7 +116,9 @@ export function visibleAuthorsClause(
   return `NOT EXISTS (
     SELECT 1 FROM community_blocks b
      WHERE (b.blocker_id = ${viewerParam} AND b.blocked_id = ${authorCol})
-        OR (b.blocker_id = ${authorCol} AND b.blocked_id = ${viewerParam}))`;
+        OR (b.blocker_id = ${authorCol} AND b.blocked_id = ${viewerParam}))
+    AND (${authorCol} = ${viewerParam} OR NOT EXISTS (
+    SELECT 1 FROM users su WHERE su.id = ${authorCol} AND su.community_shadow))`;
 }
 
 /** Opaque keyset cursor over (created_at, id, post-offset). ts keeps microseconds as text. */
@@ -707,6 +710,12 @@ export async function createComment(
     commentId,
   ]);
   const dto = toCommentDTO(r.rows[0], viewer);
+  const shadow = await pool.query<{ community_shadow: boolean }>(
+    `SELECT community_shadow FROM users WHERE id = $1`,
+    [viewer.id]
+  );
+  // Shadow accounts are invisible to others, so they must not ping anyone.
+  if (shadow.rows[0]?.community_shadow) return dto;
   if (post.author_id !== viewer.id) {
     void notifyUser(post.author_id, 'community_comment', {
       postId,
