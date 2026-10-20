@@ -18,6 +18,15 @@ describe('buildBillingUpdate', () => {
     expect(vals).toEqual([10000]);
   });
 
+  it('includes promo prices, including a cleared one', () => {
+    const { sets, vals } = buildBillingUpdate({
+      quarterly_promo_ars: 60000,
+      annual_promo_ars: null,
+    });
+    expect(sets).toEqual(['quarterly_promo_ars = $1', 'annual_promo_ars = $2']);
+    expect(vals).toEqual([60000, null]);
+  });
+
   it('returns empty for empty input', () => {
     expect(buildBillingUpdate({})).toEqual({ sets: [], vals: [] });
   });

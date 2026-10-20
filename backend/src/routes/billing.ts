@@ -26,6 +26,8 @@ const updateBody = z.object({
   currency: z.string().optional(),
   note: z.string().nullable().optional(),
   vacation_fee_ars: z.number().nonnegative().optional(),
+  quarterly_promo_ars: z.number().nonnegative().nullable().optional(),
+  annual_promo_ars: z.number().nonnegative().nullable().optional(),
 });
 
 router.put('/admin/info', requireAuth, requireAdmin, async (req, res) => {

@@ -42,6 +42,19 @@ export function nextExpiry(paidUntil: string | null): Date {
   return addCalendarMonth(cur.getTime() > now.getTime() ? cur : now);
 }
 
+function fmtWithYear(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('es-AR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+    .format(d)
+    .replace('.', '');
+}
+
 /**
  * Confirmation step before registering a payment — the one action that books
  * revenue and grants access, so it should never fire on a single stray click.
@@ -53,6 +66,8 @@ export function ConfirmPaymentDialog({
   pending,
   onClose,
   onConfirm,
+  title,
+  expiresAt,
 }: {
   open: boolean;
   user: AdminUser;
@@ -60,14 +75,21 @@ export function ConfirmPaymentDialog({
   pending: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  /** Overrides the default "¿Registrar pago de …?" heading. */
+  title?: string;
+  /** When set, this is the vencimiento the charge will write (promos). */
+  expiresAt?: Date;
 }) {
   const status = user.membership_status;
+  const fmt = expiresAt ? fmtWithYear : fmtShortDate;
+  const next = expiresAt ?? nextExpiry(user.paid_until);
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            ¿Registrar pago de {user.name ?? user.email.split('@')[0]}?
+            {title ??
+              `¿Registrar pago de ${user.name ?? user.email.split('@')[0]}?`}
           </DialogTitle>
           <DialogDescription>
             Queda asentado como cobrado y le habilita el acceso. Revisá que los
@@ -100,12 +122,10 @@ export function ConfirmPaymentDialog({
             <dt className="text-muted-foreground">Vence</dt>
             <dd className="tabular-nums">
               <span className="text-muted-foreground">
-                {user.paid_until ? fmtShortDate(user.paid_until) : '—'}
+                {user.paid_until ? fmt(user.paid_until) : '—'}
               </span>
               <span className="mx-1.5 text-muted-foreground">→</span>
-              <span className="font-semibold">
-                {fmtShortDate(nextExpiry(user.paid_until))}
-              </span>
+              <span className="font-semibold">{fmt(next)}</span>
             </dd>
           </div>
         </dl>

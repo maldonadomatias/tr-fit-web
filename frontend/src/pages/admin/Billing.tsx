@@ -20,6 +20,8 @@ export default function Billing() {
     currency: 'ARS',
     note: '',
     vacation_fee_ars: 10000,
+    quarterly_promo_ars: null,
+    annual_promo_ars: null,
   });
 
   useEffect(() => {
@@ -36,6 +38,16 @@ export default function Billing() {
       toast.error('Precio de vacaciones inválido');
       return;
     }
+    const quarterly = form.quarterly_promo_ars;
+    const annual = form.annual_promo_ars;
+    if (quarterly != null && (!Number.isFinite(quarterly) || quarterly < 0)) {
+      toast.error('Precio de promo trimestral inválido');
+      return;
+    }
+    if (annual != null && (!Number.isFinite(annual) || annual < 0)) {
+      toast.error('Precio de promo anual inválido');
+      return;
+    }
     try {
       await update.mutateAsync({
         alias: form.alias,
@@ -45,6 +57,8 @@ export default function Billing() {
         currency: form.currency,
         note: form.note,
         vacation_fee_ars: vacationFee,
+        quarterly_promo_ars: quarterly,
+        annual_promo_ars: annual,
       });
       toast.success('Datos de pago guardados');
     } catch {
@@ -116,6 +130,44 @@ export default function Billing() {
         />
         <span className="mt-1 block text-xs text-muted-foreground">
           Precio de hoy del mantenimiento de datos. Se puede cambiar. En el
+          alumno también podés cobrar otro monto solo esa vez.
+        </span>
+      </label>
+      <label className="block text-sm">
+        Promo trimestral (ARS)
+        <Input
+          type="number"
+          min={0}
+          aria-label="Promo trimestral"
+          value={form.quarterly_promo_ars ?? ''}
+          onChange={(e) =>
+            set(
+              'quarterly_promo_ars',
+              e.target.value === '' ? null : Number(e.target.value)
+            )
+          }
+        />
+        <span className="mt-1 block text-xs text-muted-foreground">
+          Precio de la promo de 3 meses. Vacío si todavía no la usás. En el
+          alumno también podés cobrar otro monto solo esa vez.
+        </span>
+      </label>
+      <label className="block text-sm">
+        Promo anual (ARS)
+        <Input
+          type="number"
+          min={0}
+          aria-label="Promo anual"
+          value={form.annual_promo_ars ?? ''}
+          onChange={(e) =>
+            set(
+              'annual_promo_ars',
+              e.target.value === '' ? null : Number(e.target.value)
+            )
+          }
+        />
+        <span className="mt-1 block text-xs text-muted-foreground">
+          Precio de la promo de 12 meses. Vacío si todavía no la usás. En el
           alumno también podés cobrar otro monto solo esa vez.
         </span>
       </label>

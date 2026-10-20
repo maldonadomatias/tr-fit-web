@@ -117,7 +117,14 @@ export async function ensureMigrated(): Promise<void> {
                WHERE table_schema = 'public'
                  AND table_name = 'users'
                  AND column_name = 'community_shadow'
-            ) AS community_shadow`
+            ) AS community_shadow,
+            EXISTS (
+              SELECT 1
+                FROM information_schema.columns
+               WHERE table_schema = 'public'
+                 AND table_name = 'billing_settings'
+                 AND column_name = 'quarterly_promo_ars'
+            ) AS promo_prices`
   );
   if (
     !r.rows[0].e ||
@@ -129,7 +136,8 @@ export async function ensureMigrated(): Promise<void> {
     !r.rows[0].aew_scheme ||
     !r.rows[0].m065 ||
     !r.rows[0].pay_kind ||
-    !r.rows[0].community_shadow
+    !r.rows[0].community_shadow ||
+    !r.rows[0].promo_prices
   ) {
     execSync('npm run db:migrate', { stdio: 'inherit', env: childEnv });
   }

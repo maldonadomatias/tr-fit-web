@@ -185,6 +185,7 @@ export type AuditType =
   | 'membership_paused'
   | 'membership_resumed'
   | 'membership_vacation'
+  | 'membership_promo'
   | 'athlete_rm_changed'
   | 'athlete_weight_changed'
   | 'force_logout';

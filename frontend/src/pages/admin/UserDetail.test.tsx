@@ -9,6 +9,7 @@ import UserDetail from './UserDetail';
 const mocks = vi.hoisted(() => ({
   setFee: vi.fn(),
   registerPayment: vi.fn(),
+  registerPromo: vi.fn(),
   newAthlete: {
     id: 'new-athlete-id',
     email: 'new-athlete@test.local',
@@ -52,6 +53,11 @@ vi.mock('@/hooks/useAdminUsers', () => ({
   useForceLogout: mocks.idleMutation,
   usePauseMembership: mocks.idleMutation,
   useRegisterVacation: mocks.idleMutation,
+  useRegisterPromo: () => ({
+    mutate: mocks.registerPromo,
+    mutateAsync: mocks.registerPromo,
+    isPending: false,
+  }),
   useRegisterPayment: () => ({
     mutate: mocks.registerPayment,
     mutateAsync: mocks.registerPayment,
@@ -129,6 +135,8 @@ vi.mock('@/hooks/useBilling', () => ({
       currency: 'ARS',
       note: null,
       vacation_fee_ars: 10000,
+      quarterly_promo_ars: 60000,
+      annual_promo_ars: 200000,
     },
     isLoading: false,
   }),
@@ -224,6 +232,37 @@ describe('user detail register payment', () => {
     expect(mocks.registerPayment.mock.calls[0][0]).toMatchObject({
       id: 'new-athlete-id',
     });
+  });
+});
+
+describe('user detail promos', () => {
+  beforeEach(() => {
+    mocks.registerPromo.mockReset();
+  });
+
+  it('confirms before booking a quarterly promo at the saved price', async () => {
+    const user = userEvent.setup();
+    renderUserDetail();
+
+    await user.click(screen.getByRole('tab', { name: 'Membresía' }));
+    expect(
+      screen.getByRole('spinbutton', { name: 'Precio promo trimestral' })
+    ).toHaveValue(60000);
+    expect(
+      screen.getByRole('spinbutton', { name: 'Precio promo anual' })
+    ).toHaveValue(200000);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Registrar promo trimestral' })
+    );
+    expect(mocks.registerPromo).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toHaveTextContent(/promo trimestral/i);
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar pago' }));
+    expect(mocks.registerPromo).toHaveBeenCalledWith(
+      { id: 'new-athlete-id', plan: 'quarterly', amount: 60000 },
+      expect.any(Object)
+    );
   });
 });
 

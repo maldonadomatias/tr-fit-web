@@ -16,6 +16,7 @@ const LABELS: Record<AuditType, string> = {
   membership_paused: 'Membresía pausada',
   membership_resumed: 'Membresía reanudada',
   membership_vacation: 'Pago por vacaciones',
+  membership_promo: 'Promo registrada',
   athlete_rm_changed: 'RM actualizado',
   athlete_weight_changed: 'Peso de ejercicio actualizado',
   force_logout: 'Logout forzado',
@@ -30,6 +31,10 @@ export function activitySub(ev: ActivityEvent): string | null {
   if (!meta) return null;
   if (ev.type === 'role_changed' && meta.from && meta.to) {
     return `${String(meta.from)} → ${String(meta.to)}`;
+  }
+  if (ev.type === 'membership_promo') {
+    if (meta.plan === 'annual') return 'Anual';
+    if (meta.plan === 'quarterly') return 'Trimestral';
   }
   if (
     (ev.type === 'subscription_created' ||

@@ -10,6 +10,7 @@ import {
   useForceLogout,
   usePauseMembership,
   useRegisterVacation,
+  useRegisterPromo,
   useResumeMembership,
 } from './useAdminUsers';
 
@@ -34,6 +35,25 @@ describe('useForceLogout', () => {
     const { result } = renderHook(() => useForceLogout('u1'), { wrapper });
     result.current.mutate();
     await waitFor(() => expect(result.current.isError).toBe(true));
+  });
+});
+
+describe('useRegisterPromo', () => {
+  it('POSTs the plan and the amount', async () => {
+    vi.mocked(api.post).mockResolvedValue({
+      data: { membership: { status: 'active' } },
+    });
+    const { result } = renderHook(() => useRegisterPromo(), { wrapper });
+    result.current.mutate({ id: 'u1', plan: 'annual', amount: 200000 });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(api.post).toHaveBeenCalledWith(
+      '/admin/users/u1/membership/promo',
+      expect.objectContaining({
+        plan: 'annual',
+        amount: 200000,
+        method: 'transfer',
+      }),
+    );
   });
 });
 

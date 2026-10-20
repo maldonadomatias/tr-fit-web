@@ -9,6 +9,8 @@ export interface BillingInfo {
   currency: string;
   note: string | null;
   vacation_fee_ars: number;
+  quarterly_promo_ars: number | null;
+  annual_promo_ars: number | null;
 }
 
 export function useBillingInfo() {

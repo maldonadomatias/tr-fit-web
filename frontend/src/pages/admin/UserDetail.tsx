@@ -40,6 +40,7 @@ import { RoleBadge } from '@/components/admin/RoleBadge';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { MembershipBadge } from '@/components/admin/MembershipBadge';
 import { VacationPaymentCard } from '@/components/admin/VacationPaymentCard';
+import { PromoPaymentCard } from '@/components/admin/PromoPaymentCard';
 import { Segmented } from '@/components/admin/Segmented';
 import { Donut } from '@/components/admin/Donut';
 import { Timeline, type TimelineEntry } from '@/components/admin/Timeline';
@@ -808,6 +809,8 @@ function MembresiaTab({ user }: { user: AdminUser }) {
       <MembresiaCard user={user} />
 
       <VacationPaymentCard user={user} />
+      <PromoPaymentCard user={user} plan="quarterly" />
+      <PromoPaymentCard user={user} plan="annual" />
 
       <div className="rounded-2xl border bg-card">
         <div className="border-b border-border p-[18px]">
@@ -863,7 +866,8 @@ function MembresiaTab({ user }: { user: AdminUser }) {
       <p className="text-xs text-muted-foreground">
         Para dar de alta, renovar o volver de vacaciones usá "Registrar pago"
         arriba: es lo que habilita el acceso. "Pago por vacaciones" cobra el
-        mantenimiento y lo deja pausado.
+        mantenimiento y lo deja pausado. "Promo trimestral" y "Promo anual"
+        cobran ese precio y extienden el acceso 3 o 12 meses.
       </p>
     </div>
   );

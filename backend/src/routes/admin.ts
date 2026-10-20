@@ -5,6 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/role.js';
 import {
   registerPayment,
+  registerPromo,
   registerVacation,
   cancelMembership,
   pauseMembership,
@@ -688,6 +689,51 @@ const vacationBody = z.object({
   // false = only move Pagado hasta. true (default) also books the maintenance fee.
   record_payment: z.boolean().optional(),
 });
+
+const promoBody = z.object({
+  plan: z.enum(['quarterly', 'annual']),
+  amount: z.number().nonnegative(),
+  currency: z.string().min(1).max(8).optional(),
+  method: z.enum(['transfer', 'cash', 'mercadopago', 'other']).optional(),
+  paid_at: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+// Prepaid promo: 3 months (trimestral) or 12 (anual). Grants access, like a cuota.
+router.post(
+  '/users/:id/membership/promo',
+  async (req: Request, res: Response) => {
+    const parsed = promoBody.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: 'invalid_payload' });
+    const before = await getUser(req.params.id);
+    if (!before) return res.status(404).json({ error: 'not_found' });
+    if (before.role !== 'athlete') {
+      return res.status(409).json({ error: 'not_athlete' });
+    }
+    const membership = await registerPromo(req.params.id, {
+      plan: parsed.data.plan,
+      amount: parsed.data.amount,
+      currency: parsed.data.currency,
+      method: parsed.data.method,
+      paidAt: parsed.data.paid_at,
+      recordedBy: req.user!.id,
+    });
+    await logAudit({
+      type: 'membership_promo',
+      actor: await actorEmail(req),
+      target: before.email,
+      target_id: req.params.id,
+      severity: 'brand',
+      meta: {
+        plan: parsed.data.plan,
+        amount: parsed.data.amount,
+        paid_until: membership.paid_until,
+      },
+    });
+    const after = await getUser(req.params.id);
+    await notifyApproved(before, after);
+    return res.status(201).json({ membership });
+  }
+);
 
 // Vacation hold: block access, charge data-maintenance, set a real paid_until.
 // Does not approve the account. A later normal payment brings them back.

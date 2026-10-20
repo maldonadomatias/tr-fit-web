@@ -58,6 +58,9 @@ export interface RegisterPaymentInput {
   reference?: string | null;
   periodDays?: number; // default 30; ignored if coversUntil given
   coversUntil?: string; // explicit ISO end; overrides periodDays
+  /** Calendar months added when coversUntil and periodDays are absent. Default 1. */
+  months?: number;
+  kind?: 'membership' | 'quarterly' | 'annual';
   recordedBy?: string | null;
 }
 
@@ -96,19 +99,22 @@ export async function registerPayment(
     // Extension policy (from `base` = later of current expiry or now):
     //   1. explicit coversUntil  → use as-is
     //   2. explicit periodDays   → +N days (custom-period callers, unchanged)
-    //   3. default               → +1 calendar month (same day next month,
+    //   3. explicit months      → +N calendar months (promos: 3 or 12)
+    //   4. default              → +1 calendar month (same day next month,
     //      clamped) so renewals track the calendar, e.g. 6/07 → 6/08.
     const coversUntil = input.coversUntil
       ? new Date(input.coversUntil)
       : input.periodDays != null
         ? new Date(base.getTime() + input.periodDays * 86_400_000)
-        : addCalendarMonth(base);
+        : addCalendarMonth(base, input.months ?? 1);
 
     await client.query(
-      `INSERT INTO payments (user_id, paid_at, amount, currency, method, reference, covers_until, recorded_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO payments
+         (user_id, paid_at, amount, currency, method, reference, covers_until, recorded_by, kind)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [userId, input.paidAt, input.amount, input.currency ?? 'ARS', input.method,
-       input.reference ?? null, coversUntil.toISOString(), input.recordedBy ?? null],
+       input.reference ?? null, coversUntil.toISOString(), input.recordedBy ?? null,
+       input.kind ?? 'membership'],
     );
 
     const m = await client.query<Membership>(
@@ -140,6 +146,43 @@ export async function registerPayment(
   } finally {
     client.release();
   }
+}
+
+export type PromoPlan = 'quarterly' | 'annual';
+
+const PROMO_MONTHS: Record<PromoPlan, number> = { quarterly: 3, annual: 12 };
+const PROMO_REFERENCE: Record<PromoPlan, string> = {
+  quarterly: 'Promo trimestral',
+  annual: 'Promo anual',
+};
+
+export interface RegisterPromoInput {
+  plan: PromoPlan;
+  amount: number;
+  currency?: string;
+  method?: PaymentMethod;
+  paidAt: string;
+  recordedBy?: string | null;
+}
+
+/**
+ * Prepaid promo: same enable/extend path as a cuota, for 3 or 12 calendar
+ * months. Coming back from vacation starts today. Approves the account.
+ */
+export async function registerPromo(
+  userId: string,
+  input: RegisterPromoInput,
+): Promise<Membership> {
+  return registerPayment(userId, {
+    amount: input.amount,
+    currency: input.currency,
+    method: input.method ?? 'transfer',
+    paidAt: input.paidAt,
+    reference: PROMO_REFERENCE[input.plan],
+    months: PROMO_MONTHS[input.plan],
+    kind: input.plan,
+    recordedBy: input.recordedBy,
+  });
 }
 
 export class MembershipError extends Error {

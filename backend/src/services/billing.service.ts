@@ -9,6 +9,10 @@ export interface BillingInfo {
   note: string | null;
   /** Data-maintenance price charged while an athlete is on vacation. */
   vacation_fee_ars: number;
+  /** Saved promo price for a 3-month prepay. Null until the coach sets it. */
+  quarterly_promo_ars: number | null;
+  /** Saved promo price for a 12-month prepay. Null until the coach sets it. */
+  annual_promo_ars: number | null;
 }
 
 export interface UpdateBillingInput {
@@ -19,11 +23,20 @@ export interface UpdateBillingInput {
   currency?: string;
   note?: string | null;
   vacation_fee_ars?: number;
+  quarterly_promo_ars?: number | null;
+  annual_promo_ars?: number | null;
+}
+
+function moneyOrNull(v: string | number | null | undefined): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
 export async function getBillingInfo(): Promise<BillingInfo> {
   const r = await pool.query<BillingInfo>(
-    `SELECT alias, cbu, holder, amount, currency, note, vacation_fee_ars
+    `SELECT alias, cbu, holder, amount, currency, note, vacation_fee_ars,
+            quarterly_promo_ars, annual_promo_ars
        FROM billing_settings WHERE id = 1`,
   );
   const row = r.rows[0];
@@ -32,13 +45,23 @@ export async function getBillingInfo(): Promise<BillingInfo> {
       alias: null, cbu: null, holder: null,
       amount: null, currency: 'ARS', note: null,
       vacation_fee_ars: 10000,
+      quarterly_promo_ars: null,
+      annual_promo_ars: null,
     };
   }
-  return { ...row, vacation_fee_ars: Number(row.vacation_fee_ars) };
+  return {
+    ...row,
+    vacation_fee_ars: Number(row.vacation_fee_ars),
+    quarterly_promo_ars: moneyOrNull(row.quarterly_promo_ars),
+    annual_promo_ars: moneyOrNull(row.annual_promo_ars),
+  };
 }
 
 // Whitelist of updatable columns -> guards against arbitrary column injection.
-const FIELDS = ['alias', 'cbu', 'holder', 'amount', 'currency', 'note', 'vacation_fee_ars'] as const;
+const FIELDS = [
+  'alias', 'cbu', 'holder', 'amount', 'currency', 'note', 'vacation_fee_ars',
+  'quarterly_promo_ars', 'annual_promo_ars',
+] as const;
 
 export function buildBillingUpdate(input: UpdateBillingInput): {
   sets: string[];
