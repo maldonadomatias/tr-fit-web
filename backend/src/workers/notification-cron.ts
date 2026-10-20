@@ -32,16 +32,22 @@ export async function runNotificationTick(now: DateTime = DateTime.now()): Promi
         await notifyUser(u.id, 'session_reminder');
       }
 
-      // session_missed — local 21h + today was training day + no finished session today
+      // session_missed — local 21h + today is a training day + no session
+      // started today in the athlete's timezone. An open session counts:
+      // finished_at is often set hours later, so requiring it pinged people
+      // who had already trained. The UTC day flips at 21:00 ART, so the
+      // calendar day has to be computed in the athlete's zone, same as the
+      // rest guard, using this tick's clock rather than a second now().
       if (localHour === 21 && u.days_specific?.includes(todayKey)) {
         const had = await pool.query(
           `SELECT 1 FROM session_logs
             WHERE athlete_id = $1
-              AND started_at >= date_trunc('day', now() AT TIME ZONE $2)
-              AND finished_at IS NOT NULL`,
-          [u.id, u.timezone],
+              AND (started_at AT TIME ZONE $2::text)::date
+                  = ($3::timestamptz AT TIME ZONE $2::text)::date
+            LIMIT 1`,
+          [u.id, u.timezone, now.toJSDate()],
         );
-        if ((had.rowCount ?? 0) === 0) {
+        if (had.rows.length === 0) {
           await notifyUser(u.id, 'session_missed');
         }
       }
