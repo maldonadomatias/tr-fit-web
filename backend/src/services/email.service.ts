@@ -18,6 +18,10 @@ async function send(opts: {
   subject: string;
   html: string;
 }): Promise<void> {
+  if (env.EXTERNAL_EFFECTS_ENABLED === 'false') {
+    logger.info({ channel: 'email' }, 'external effect blocked in rehearsal');
+    return;
+  }
   try {
     const result = await resend.emails.send({
       from: `${env.EMAIL_FROM_NAME} <${env.EMAIL_FROM}>`,

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getStorageBucket } from '../config/firebase.js';
+import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -16,6 +17,9 @@ export async function uploadBufferToStorage(
   contentType: string,
   opts: { resumable?: boolean } = {}
 ): Promise<string> {
+  if (env.EXTERNAL_EFFECTS_ENABLED === 'false') {
+    throw new Error('external_effects_disabled');
+  }
   const token = randomUUID();
   const bucket = getStorageBucket();
   await bucket.file(objectPath).save(buffer, {
@@ -31,6 +35,10 @@ export async function uploadBufferToStorage(
 
 /** Best-effort delete: a missing object or network error is logged, never thrown. */
 export async function deleteFromStorage(objectPath: string): Promise<void> {
+  if (env.EXTERNAL_EFFECTS_ENABLED === 'false') {
+    logger.info('storage delete blocked in rehearsal');
+    return;
+  }
   try {
     await getStorageBucket().file(objectPath).delete();
   } catch (e) {

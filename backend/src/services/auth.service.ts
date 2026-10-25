@@ -739,6 +739,10 @@ export async function deleteAccount(
 
 async function deleteAvatarObject(avatarUrl: string | null): Promise<void> {
   if (!avatarUrl) return;
+  if (env.EXTERNAL_EFFECTS_ENABLED === 'false') {
+    logger.info('avatar delete blocked in rehearsal');
+    return;
+  }
   try {
     const encoded = new URL(avatarUrl).pathname.split('/o/')[1] ?? '';
     const objectPath = decodeURIComponent(encoded);

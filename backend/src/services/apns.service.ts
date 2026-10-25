@@ -80,6 +80,10 @@ async function postToApns(opts: {
   expiration?: number;
   classify400: 'any400' | 'device';
 }): Promise<ApnsStatus> {
+  if (env.EXTERNAL_EFFECTS_ENABLED === 'false') {
+    logger.info('APNs push blocked in rehearsal');
+    return 'failed';
+  }
   if (!env.APNS_KEY_P8 || !env.APNS_KEY_ID) {
     logger.warn('APNs not configured; skipping push');
     return 'failed';

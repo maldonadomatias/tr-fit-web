@@ -62,6 +62,9 @@ Reglas duras:
 export async function adjustSkeleton(
   input: AdjustSkeletonInput,
 ): Promise<AiSkeletonOutput> {
+  if (env.EXTERNAL_EFFECTS_ENABLED === 'false') {
+    throw new Error('external_effects_disabled');
+  }
   const { template, profile, exercises, reasons } = input;
   const N = profile.days_per_week;
   const minutes = profile.exercise_minutes ?? 60;
