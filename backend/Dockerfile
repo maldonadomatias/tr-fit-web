@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5001
 
 # Start server
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]
