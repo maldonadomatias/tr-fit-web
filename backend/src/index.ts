@@ -7,6 +7,7 @@ import { startMembershipCron } from './workers/membership-cron.js';
 import { startPlatformFeeCron } from './workers/platform-fee-cron.js';
 import { startRegenWorker } from './workers/regen-worker.js';
 import { startLiveActivityWorker } from './workers/live-activity-worker.js';
+import { shouldStartBackgroundJobs } from './workers/background-jobs.js';
 
 dotenv.config();
 
@@ -29,11 +30,13 @@ app.listen(PORT, '::', () => {
   logger.info(`Server running on port ${PORT} (IPv6 dual-stack)`);
 });
 
-if (process.env.NODE_ENV !== 'test') {
+if (shouldStartBackgroundJobs(process.env.NODE_ENV, process.env.BACKGROUND_JOBS_ENABLED)) {
   startProgressionCron();
   startNotificationCron();
   startMembershipCron();
   startPlatformFeeCron();
   startRegenWorker();
   startLiveActivityWorker();
+} else {
+  logger.info('Background jobs disabled');
 }
