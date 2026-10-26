@@ -175,4 +175,74 @@ describe('toAlternativePayloads', () => {
     expect(out.unit).toBe('kg');
     expect(out.suggested_value).toBeNull();
   });
+
+  // Ticket #142: the alternative was logged as a dropset (10x10x10). The next
+  // day the slot to replace is straight sets. Reps stay the slot's; the
+  // weight still has to come back.
+  it('suggests the dropset weight when today\'s reps are straight sets', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
+    const r = await pool.query<Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>>(
+      `SELECT id, name, muscle_group, equipment FROM exercises
+         WHERE equipment = 'maquina' ORDER BY id LIMIT 1`,
+    );
+    if (r.rows.length === 0) return;
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_value, current_weight_kg, unit, updated_by, scheme)
+       VALUES ($1, $2, 40, 40, 'kg', 'athlete_correction', 'dropset')`,
+      [ath, r.rows[0].id],
+    );
+    const [out] = await toAlternativePayloads(ath, r.rows, '8');
+    expect(out.suggested_value).toBe(40);
+    expect(out.suggested_drops).toBeUndefined();
+  });
+
+  it('prefers the straight-set weight when both ladders exist and today is straight', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
+    const r = await pool.query<Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>>(
+      `SELECT id, name, muscle_group, equipment FROM exercises
+         WHERE equipment = 'maquina' ORDER BY id LIMIT 1`,
+    );
+    if (r.rows.length === 0) return;
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_value, current_weight_kg, unit, updated_by, scheme)
+       VALUES ($1, $2, 25, 25, 'kg', 'athlete_correction', 'normal'),
+              ($1, $2, 40, 40, 'kg', 'athlete_correction', 'dropset')`,
+      [ath, r.rows[0].id],
+    );
+    const [out] = await toAlternativePayloads(ath, r.rows, '8');
+    expect(out.suggested_value).toBe(25);
+  });
+
+  it('returns the alternative\'s own drop gaps when today is a dropset', async () => {
+    const coach = await createAdmin();
+    const ath = await createAthlete(coach, { equipment: 'gym_completo', level: 'medio' });
+    const r = await pool.query<Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>>(
+      `SELECT id, name, muscle_group, equipment FROM exercises
+         WHERE equipment = 'maquina' ORDER BY id LIMIT 1`,
+    );
+    if (r.rows.length === 0) return;
+    const id = r.rows[0].id;
+    await pool.query(
+      `INSERT INTO athlete_exercise_weights
+         (athlete_id, exercise_id, current_value, current_weight_kg, unit, updated_by, scheme)
+       VALUES ($1, $2, 40, 40, 'kg', 'athlete_correction', 'dropset')`,
+      [ath, id],
+    );
+    await pool.query(
+      `INSERT INTO set_logs
+         (athlete_id, exercise_id, week, day_of_week, set_index, value, unit, reps, completed, drop_index)
+       VALUES
+         ($1, $2, 1, 1, 1, 40, 'kg', 10, TRUE, 1),
+         ($1, $2, 1, 1, 1, 30, 'kg', 10, TRUE, 2),
+         ($1, $2, 1, 1, 1, 20, 'kg', 10, TRUE, 3)`,
+      [ath, id],
+    );
+    const [out] = await toAlternativePayloads(ath, r.rows, '10x10x10');
+    expect(out.suggested_value).toBe(40);
+    expect(out.suggested_drops).toEqual([40, 30, 20]);
+  });
 });

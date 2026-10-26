@@ -35,6 +35,23 @@ async function setupSession() {
   return { ath, sessionId, principalId: p.rows[0].id };
 }
 
+it('syncSets remembers the logged weight so the next session can suggest it', async () => {
+  const { ath, sessionId, principalId } = await setupSession();
+  await syncSets(ath, sessionId, [{
+    exercise_id: principalId, set_index: 1, unit: 'kg' as const, value: 80, reps: 8,
+    completed: true, client_id: randomUUID(), client_ts: new Date().toISOString(),
+  }]);
+  const w = await pool.query<{ v: number; reps: string | null }>(
+    `SELECT current_value::float8 AS v, current_reps_text AS reps
+       FROM athlete_exercise_weights
+      WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = 'normal'`,
+    [ath, principalId],
+  );
+  expect(Number(w.rows[0].v)).toBe(80);
+  // Reps stay the slot's. Sync must not invent a rep ladder from one set.
+  expect(w.rows[0].reps).toBeNull();
+});
+
 it('syncSets accepts all on first sync, idempotent on re-sync', async () => {
   const { ath, sessionId, principalId } = await setupSession();
   const sets = [1, 2, 3].map((i) => ({

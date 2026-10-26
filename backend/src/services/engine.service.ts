@@ -2,11 +2,13 @@ import pool from '../db/connect.js';
 import {
   applyIncrement,
   qualifiesForProgression,
+  pickSuggestedWeight,
   resolveAccessoryReps,
   roundWeightForEquipment,
   suggestDropWeights,
   targetRepsForSet,
   weightScheme,
+  type SchemeWeightRow,
 } from './progression-helpers.js';
 import type { SetLogForGate } from './progression-helpers.js';
 import { estimateEpley1RM } from './epley.service.js';
@@ -487,8 +489,32 @@ async function buildItem(
   // changes (e.g. user switches polea from kg to ladrillos).
   const unit = await resolveUnit(athleteId, exercise.equipment);
   // Drop stale suggested value if the recorded unit no longer matches.
-  const aewValue =
+  let aewValue: number | null =
     !w?.unit || w.unit === unit ? (w?.current_value ?? null) : null;
+  // Accessories (and a machine-occupied swap that lands on one) keep the
+  // slot's reps. The weight still comes through when it was logged on the
+  // other ladder — straight 4×8 vs the alternative's 10x10x10.
+  let useDropGaps = true;
+  if (slot.role === 'accesorio') {
+    const otherScheme = scheme === 'dropset' ? 'normal' : 'dropset';
+    const other = wByEx.get(`${slot.exercise_id}:${otherScheme}`);
+    const weights: SchemeWeightRow[] = [];
+    if (w) weights.push({ scheme, value: w.current_value, unit: w.unit });
+    if (other)
+      weights.push({
+        scheme: otherScheme,
+        value: other.current_value,
+        unit: other.unit,
+      });
+    const picked = pickSuggestedWeight({
+      slotReps: slot.reps ?? cfg.accesorio_reps,
+      targetUnit: unit,
+      weights,
+      lastDrops: lastDropsByEx.get(slot.exercise_id) ?? [],
+    });
+    aewValue = picked.value;
+    useDropGaps = picked.useDropGaps;
+  }
   const notes = slot.notes ?? null;
 
   // Serve-time safety net (bug 2026-07-04): warm-up exercises occasionally
@@ -680,7 +706,7 @@ async function buildItem(
     const suggestedDrops = suggestDropWeights(
       dropCount,
       item.suggested_value,
-      lastDropsByEx.get(exercise.id) ?? []
+      useDropGaps ? (lastDropsByEx.get(exercise.id) ?? []) : []
     );
     if (suggestedDrops) item = { ...item, suggested_drops: suggestedDrops };
   }

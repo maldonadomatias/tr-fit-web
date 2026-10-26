@@ -195,6 +195,85 @@ export function weightScheme(reps: string | null | undefined): WeightScheme {
   return repSchemeFamily(value).startsWith('dropset:') ? 'dropset' : 'normal';
 }
 
+export interface SchemeWeightRow {
+  scheme: WeightScheme;
+  value: number | null;
+  unit: string | null;
+}
+
+function freshWeight(
+  row: SchemeWeightRow | undefined,
+  targetUnit: string
+): number | null {
+  if (!row || row.value == null) return null;
+  const n = Number(row.value);
+  if (!Number.isFinite(n)) return null;
+  // 10 ladrillos is not 10 kg. A missing unit is still usable.
+  if (row.unit && row.unit !== targetUnit) return null;
+  return n;
+}
+
+/**
+ * Weight to prefill for a slot, including a "máquina ocupada" alternative.
+ *
+ * The ladder that matches today's reps wins (straight sets and dropsets do
+ * not share a cell). When that ladder is empty — the alternative was only
+ * ever logged under the other rep scheme, or the row was never written —
+ * the other ladder's weight still applies. Callers keep the slot's own
+ * series/reps either way: a 4×8 does not become a 10x10x10 just because
+ * that is how the replacement was trained last time.
+ *
+ * `useDropGaps` is true only when the value belongs to the dropset ladder,
+ * so a straight-set fallback is not stretched across 40-30-20 gaps.
+ */
+export function pickSuggestedWeight(args: {
+  slotReps: string | null | undefined;
+  targetUnit: string;
+  weights: SchemeWeightRow[];
+  lastDrops?: number[];
+  lastStraight?: number | null;
+}): { value: number | null; useDropGaps: boolean } {
+  const preferred = weightScheme(args.slotReps);
+  const other: WeightScheme = preferred === 'dropset' ? 'normal' : 'dropset';
+  const byScheme = (scheme: WeightScheme) =>
+    freshWeight(
+      args.weights.find((w) => w.scheme === scheme),
+      args.targetUnit
+    );
+  const lastDrops = (args.lastDrops ?? []).filter(
+    (n) => typeof n === 'number' && Number.isFinite(n)
+  );
+  const lastStraight =
+    args.lastStraight != null && Number.isFinite(args.lastStraight)
+      ? args.lastStraight
+      : null;
+
+  const preferredAew = byScheme(preferred);
+  if (preferredAew != null) {
+    return {
+      value: preferredAew,
+      useDropGaps: preferred === 'dropset' && lastDrops.length > 0,
+    };
+  }
+  // Last time they actually performed this scheme, even if the weight row
+  // was never upserted (offline sync used to skip it).
+  if (preferred === 'dropset' && lastDrops.length > 0) {
+    return { value: lastDrops[0], useDropGaps: true };
+  }
+  if (preferred === 'normal' && lastStraight != null) {
+    return { value: lastStraight, useDropGaps: false };
+  }
+  const otherAew = byScheme(other);
+  if (otherAew != null) return { value: otherAew, useDropGaps: false };
+  if (preferred === 'normal' && lastDrops.length > 0) {
+    return { value: lastDrops[0], useDropGaps: false };
+  }
+  if (preferred === 'dropset' && lastStraight != null) {
+    return { value: lastStraight, useDropGaps: false };
+  }
+  return { value: null, useDropGaps: false };
+}
+
 /**
  * Resolves the reps prescription for an accessory without letting stale
  * per-exercise progression erase a coach-authored per-slot scheme.

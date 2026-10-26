@@ -2,6 +2,12 @@ import pool from '../db/connect.js';
 import type { Exercise, AthleteProfile } from '../domain/types.js';
 import { athleteLevelRank } from './level-helpers.js';
 import { resolveUnit, type Unit } from './equipment-units.service.js';
+import {
+  pickSuggestedWeight,
+  suggestDropWeights,
+  type SchemeWeightRow,
+  type WeightScheme,
+} from './progression-helpers.js';
 
 // NOTE: this file ranks Exercise.level_min inline inside the SQL CASE
 // expression (principiante=1, intermedio=2, avanzado=3) — the equivalent
@@ -116,6 +122,105 @@ export interface AlternativePayload {
   equipment: string;
   unit: Unit;
   suggested_value: number | null;
+  // Present only when today's slot is a dropset and this exercise has its own
+  // drop history. The slot's rep count is NOT replaced.
+  suggested_drops?: number[];
+}
+
+/**
+ * Last completed drop series per exercise (heaviest first), plus the last
+ * straight-set weight. Used when the weight row for that scheme was never
+ * written — the offline sync path used to store the set and skip the
+ * suggestion.
+ */
+async function loadLastLoggedWeights(
+  athleteId: string,
+  exerciseIds: number[],
+): Promise<{
+  drops: Map<number, { unit: string | null; values: number[] }>;
+  straight: Map<number, { unit: string | null; value: number }>;
+}> {
+  const drops = new Map<number, { unit: string | null; values: number[] }>();
+  const straight = new Map<number, { unit: string | null; value: number }>();
+  if (exerciseIds.length === 0) return { drops, straight };
+
+  const dropR = await pool.query<{
+    exercise_id: number;
+    drop_index: number;
+    unit: string | null;
+    value: number;
+  }>(
+    `WITH last_drop_series AS (
+       SELECT DISTINCT ON (exercise_id)
+              exercise_id, week, day_of_week, set_index
+         FROM set_logs
+        WHERE athlete_id = $1
+          AND exercise_id = ANY($2::int[])
+          AND drop_index IS NOT NULL
+          AND completed = TRUE
+          AND COALESCE(value, weight_kg) IS NOT NULL
+        ORDER BY exercise_id, logged_at DESC, week DESC, set_index DESC
+     )
+     SELECT sl.exercise_id,
+            sl.drop_index,
+            sl.unit,
+            COALESCE(sl.value, sl.weight_kg)::float8 AS value
+       FROM set_logs sl
+       JOIN last_drop_series ls
+         ON sl.exercise_id = ls.exercise_id
+        AND sl.week = ls.week
+        AND sl.day_of_week = ls.day_of_week
+        AND sl.set_index = ls.set_index
+      WHERE sl.athlete_id = $1
+        AND sl.drop_index IS NOT NULL
+        AND sl.completed = TRUE
+        AND COALESCE(sl.value, sl.weight_kg) IS NOT NULL
+      ORDER BY sl.exercise_id, sl.drop_index`,
+    [athleteId, exerciseIds],
+  );
+  for (const row of dropR.rows) {
+    const entry = drops.get(row.exercise_id) ?? { unit: row.unit, values: [] };
+    entry.values[row.drop_index - 1] = Number(row.value);
+    drops.set(row.exercise_id, entry);
+  }
+  for (const [id, entry] of drops) {
+    entry.values = entry.values.filter(
+      (v): v is number => typeof v === 'number' && Number.isFinite(v),
+    );
+    drops.set(id, entry);
+  }
+
+  const straightR = await pool.query<{
+    exercise_id: number;
+    unit: string | null;
+    value: number;
+  }>(
+    `SELECT DISTINCT ON (exercise_id)
+            exercise_id,
+            unit,
+            COALESCE(value, weight_kg)::float8 AS value
+       FROM set_logs
+      WHERE athlete_id = $1
+        AND exercise_id = ANY($2::int[])
+        AND drop_index IS NULL
+        AND completed = TRUE
+        AND COALESCE(value, weight_kg) IS NOT NULL
+      ORDER BY exercise_id, logged_at DESC`,
+    [athleteId, exerciseIds],
+  );
+  for (const row of straightR.rows) {
+    straight.set(row.exercise_id, { unit: row.unit, value: Number(row.value) });
+  }
+  return { drops, straight };
+}
+
+function loggedNumber(
+  row: { unit: string | null; value: number } | undefined,
+  targetUnit: Unit,
+): number | null {
+  if (!row || !Number.isFinite(row.value)) return null;
+  if (row.unit && row.unit !== targetUnit) return null;
+  return row.value;
 }
 
 /**
@@ -127,10 +232,17 @@ export interface AlternativePayload {
  * A value logged under a unit that no longer matches is dropped (10 ladrillos
  * is not 10 kg) — same rule as the session engine. No history yet → null, and
  * the athlete enters the weight.
+ *
+ * `slotReps` is the prescription the athlete still has to do today. The rep
+ * count is not taken from the alternative: a 4×8 stays a 4×8 even when the
+ * replacement was last trained as 10x10x10. The weight still comes back —
+ * from the matching ladder, or from the other one when that cell is empty
+ * (ticket #142).
  */
 export async function toAlternativePayloads(
   athleteId: string,
   exercises: Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>[],
+  slotReps?: string | null,
 ): Promise<AlternativePayload[]> {
   if (exercises.length === 0) return [];
   const equipments = [...new Set(exercises.map((e) => e.equipment))];
@@ -139,34 +251,59 @@ export async function toAlternativePayloads(
       equipments.map(async (eq) => [eq, await resolveUnit(athleteId, eq)] as const),
     ),
   );
+  const ids = exercises.map((e) => e.id);
   const wR = await pool.query<{
     exercise_id: number;
-    current_value: string | null;
+    scheme: WeightScheme;
+    current_value: number | null;
     unit: Unit | null;
   }>(
     `SELECT exercise_id,
-            COALESCE(current_value, current_weight_kg) AS current_value,
+            scheme,
+            COALESCE(current_value, current_weight_kg)::float8 AS current_value,
             unit
        FROM athlete_exercise_weights
-      -- El sugerido de un swap sale de la carga normal; el dropset lo ajusta el coach.
-      WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])
-        AND scheme = 'normal'`,
-    [athleteId, exercises.map((e) => e.id)],
+      WHERE athlete_id = $1 AND exercise_id = ANY($2::int[])`,
+    [athleteId, ids],
   );
-  const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));
+  const wByEx = new Map<number, SchemeWeightRow[]>();
+  for (const row of wR.rows) {
+    const list = wByEx.get(row.exercise_id) ?? [];
+    list.push({
+      scheme: row.scheme,
+      value: row.current_value,
+      unit: row.unit,
+    });
+    wByEx.set(row.exercise_id, list);
+  }
+  const logged = await loadLastLoggedWeights(athleteId, ids);
 
   return exercises.map((e) => {
     const unit = unitByEquipment.get(e.equipment)!;
-    const w = wByEx.get(e.id);
-    const staleUnit = !!w?.unit && w.unit !== unit;
+    const dropEntry = logged.drops.get(e.id);
+    const lastDrops =
+      dropEntry && (!dropEntry.unit || dropEntry.unit === unit)
+        ? dropEntry.values
+        : [];
+    const picked = pickSuggestedWeight({
+      slotReps,
+      targetUnit: unit,
+      weights: wByEx.get(e.id) ?? [],
+      lastDrops,
+      lastStraight: loggedNumber(logged.straight.get(e.id), unit),
+    });
+    const dropCount = (slotReps?.match(/\d+/g) ?? []).length;
+    const suggestedDrops = picked.useDropGaps
+      ? suggestDropWeights(dropCount, picked.value, lastDrops)
+      : null;
     return {
       id: e.id,
       name: e.name,
       muscle_group: e.muscle_group,
       equipment: e.equipment,
       unit,
-      suggested_value:
-        !w || staleUnit || w.current_value === null ? null : Number(w.current_value),
+      suggested_value: picked.value,
+      ...(suggestedDrops ? { suggested_drops: suggestedDrops } : {}),
     };
   });
 }

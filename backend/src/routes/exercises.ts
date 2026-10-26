@@ -90,9 +90,14 @@ router.get('/:id/alternatives', async (req: Request, res: Response) => {
   // Each alternative carries its OWN logging unit and its OWN working weight:
   // swapping "cuádriceps sentado" (polea → ladrillos) for a hack (kg) must not
   // keep asking for ladrillos, nor suggest the polea's weight.
-  const out = await toAlternativePayloads(req.user!.id, alts);
+  // `reps` is today's prescription. The response does not change that count;
+  // it only picks which of the alternative's weight ladders to suggest.
+  const reps = typeof req.query.reps === 'string' ? req.query.reps : null;
+  const out = await toAlternativePayloads(req.user!.id, alts, reps);
   // `alternative` stays for app builds older than the picker list.
-  return res.status(200).json({ alternative: out[0] ?? null, alternatives: out });
+  return res
+    .status(200)
+    .json({ alternative: out[0] ?? null, alternatives: out });
 });
 
 export default router;

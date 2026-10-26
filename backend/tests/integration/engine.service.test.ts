@@ -259,6 +259,40 @@ it('accesorio uses athlete_exercise_weights and reps fallback', async () => {
   expect(acc.reps).toBe('8 a 10');
 });
 
+// Ticket #142: the reps the athlete has to do stay the slot's. A weight that
+// only exists on the other ladder (the alternative was a 10x10x10, today is
+// 3×10) is still suggested.
+it('accessory keeps slot reps and falls back to the other weight ladder', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach);
+  const { accesorioId, skeletonId } = await setup4DaySkeleton(ath, coach);
+  await setProgramWeek(ath, 1);
+  await pool.query(
+    `UPDATE skeleton_slots SET reps = '10', series = 3
+      WHERE skeleton_id = $1 AND exercise_id = $2`,
+    [skeletonId, accesorioId]
+  );
+  await pool.query(
+    `UPDATE athlete_exercise_weights
+        SET current_value = NULL, current_weight_kg = NULL, current_reps_text = NULL
+      WHERE athlete_id = $1 AND exercise_id = $2 AND scheme = 'normal'`,
+    [ath, accesorioId]
+  );
+  await pool.query(
+    `INSERT INTO athlete_exercise_weights
+       (athlete_id, exercise_id, current_weight_kg, current_value, unit, updated_by, scheme)
+     VALUES ($1, $2, 40, 40, 'kg', 'athlete_correction', 'dropset')
+     ON CONFLICT (athlete_id, exercise_id, scheme) DO UPDATE
+       SET current_value = 40, current_weight_kg = 40, unit = 'kg'`,
+    [ath, accesorioId]
+  );
+  const session = await buildTodaySession(ath, 1);
+  const acc = session.find((s) => s.exercise.id === accesorioId)!;
+  expect(acc.reps).toBe('10');
+  expect(acc.suggested_value).toBe(40);
+  expect(acc.suggested_drops).toBeUndefined();
+});
+
 it('profile equipment-units override stale AEW.unit and drop suggested value', async () => {
   const coach = await createAdmin();
   const ath = await createAthlete(coach);

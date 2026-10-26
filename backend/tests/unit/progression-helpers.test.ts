@@ -11,6 +11,7 @@ import {
   applySchemeIncrement,
   advanceReps,
   isExcludedFromAutoProgression,
+  pickSuggestedWeight,
   resolveAccessoryReps,
   roundWeightForEquipment,
   suggestDropWeights,
@@ -346,6 +347,79 @@ describe('suggestDropWeights', () => {
     expect(suggestDropWeights(5, 42.5, [40, 30, 20])).toEqual([
       42.5, 32.5, 22.5, 22.5, 22.5,
     ]);
+  });
+});
+
+describe('pickSuggestedWeight — alternative / mismatched reps (ticket #142)', () => {
+  it('uses the matching ladder when both exist', () => {
+    expect(
+      pickSuggestedWeight({
+        slotReps: '8',
+        targetUnit: 'kg',
+        weights: [
+          { scheme: 'normal', value: 25, unit: 'kg' },
+          { scheme: 'dropset', value: 40, unit: 'kg' },
+        ],
+        lastDrops: [40, 30, 20],
+      })
+    ).toEqual({ value: 25, useDropGaps: false });
+  });
+
+  it("falls back to the other ladder when today's reps do not match the saved one", () => {
+    // Today is 4×8. The alternative was only ever logged as 10x10x10.
+    const picked = pickSuggestedWeight({
+      slotReps: '8',
+      targetUnit: 'kg',
+      weights: [{ scheme: 'dropset', value: 40, unit: 'kg' }],
+      lastDrops: [40, 30, 20],
+    });
+    expect(picked.value).toBe(40);
+    // Straight sets must not inherit 40-30-20 gaps.
+    expect(picked.useDropGaps).toBe(false);
+  });
+
+  it('keeps drop gaps when today is a dropset and that ladder has history', () => {
+    expect(
+      pickSuggestedWeight({
+        slotReps: '10x10x10',
+        targetUnit: 'kg',
+        weights: [{ scheme: 'dropset', value: 42.5, unit: 'kg' }],
+        lastDrops: [40, 30, 20],
+      })
+    ).toEqual({ value: 42.5, useDropGaps: true });
+  });
+
+  it('uses the last logged drops when the dropset row was never written', () => {
+    expect(
+      pickSuggestedWeight({
+        slotReps: '10x10x10',
+        targetUnit: 'kg',
+        weights: [],
+        lastDrops: [40, 30, 20],
+      })
+    ).toEqual({ value: 40, useDropGaps: true });
+  });
+
+  it('uses a straight-set weight for a dropset slot with no drop history', () => {
+    const picked = pickSuggestedWeight({
+      slotReps: '10x10x10',
+      targetUnit: 'kg',
+      weights: [{ scheme: 'normal', value: 25, unit: 'kg' }],
+    });
+    expect(picked).toEqual({ value: 25, useDropGaps: false });
+  });
+
+  it('drops a weight logged in the wrong unit before falling back', () => {
+    expect(
+      pickSuggestedWeight({
+        slotReps: '8',
+        targetUnit: 'kg',
+        weights: [
+          { scheme: 'normal', value: 10, unit: 'ladrillos' },
+          { scheme: 'dropset', value: 40, unit: 'kg' },
+        ],
+      }).value
+    ).toBe(40);
   });
 });
 

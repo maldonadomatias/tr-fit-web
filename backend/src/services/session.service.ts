@@ -173,11 +173,34 @@ export async function logSet(
     [sessionId],
   );
 
-  // Persist the logged weight as the athlete's current suggestion for this
-  // exercise, so the next session pre-fills it (instead of "— kg"). Skips
-  // warmup/bodyweight/time/distance sets, where value is null. For dropsets
-  // only the heaviest drop (drop_index = 1) seeds; the lighter drops (2, 3 …)
-  // must not drag the suggestion down. Normal sets carry drop_index = NULL.
+  // The rep prescription stays on the slot. Only the weight is remembered, on
+  // the ladder this set actually belongs to (straight vs dropset).
+  await rememberLoggedWeight(athleteId, payload);
+
+  return { setId: r.rows[0].id, created: r.rows[0].was_insert };
+}
+
+/**
+ * Persist the logged weight as the athlete's current suggestion for this
+ * exercise, so the next session — including a later "máquina ocupada" swap
+ * to the same alternative — pre-fills it. Skips warmup/bodyweight/time sets,
+ * where value is null. For dropsets only the heaviest drop (drop_index = 1)
+ * seeds; the lighter drops must not drag the suggestion down.
+ *
+ * Does not write `current_reps_text`. Today's series/reps belong to the slot
+ * the athlete was prescribed; copying the alternative's ladder would turn a
+ * 4×8 into whatever that machine was trained as last time.
+ */
+export async function rememberLoggedWeight(
+  athleteId: string,
+  payload: {
+    exercise_id: number;
+    value: number | null;
+    unit: string;
+    completed: boolean;
+    drop_index?: number | null;
+  },
+): Promise<void> {
   const seedsWeight = payload.drop_index == null || payload.drop_index === 1;
   // El bucket sale del propio set: un dropset/superserie loguea un drop_index
   // por serie, un set normal lo manda en NULL. Así el peso del primer drop no
@@ -197,8 +220,6 @@ export async function logSet(
       [athleteId, payload.exercise_id, payload.value, payload.unit, scheme],
     );
   }
-
-  return { setId: r.rows[0].id, created: r.rows[0].was_insert };
 }
 
 export async function getActive(

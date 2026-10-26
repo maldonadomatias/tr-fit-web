@@ -335,10 +335,15 @@ router.post('/exclusions', async (req, res) => {
       routineExcludeIds
     );
     // The replacement logs in its own unit and at its own weight, not the
-    // excluded exercise's.
+    // excluded exercise's. `reps` is the slot the athlete still has to do.
+    const reps =
+      typeof (req.body ?? {}).reps === 'string'
+        ? (req.body as { reps: string }).reps
+        : null;
     const [payload] = await toAlternativePayloads(
       req.user!.id,
-      replacement ? [replacement] : []
+      replacement ? [replacement] : [],
+      reps
     );
     res.json({ replacement: payload ?? null });
   } catch (e) {

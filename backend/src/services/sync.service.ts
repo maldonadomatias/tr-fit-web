@@ -1,5 +1,6 @@
 import pool from '../db/connect.js';
 import type { SetLogPayload } from '../domain/schemas.js';
+import { rememberLoggedWeight } from './session.service.js';
 
 export interface SyncResult {
   accepted: Array<{ clientId: string; setId: string; syncedAt: string }>;
@@ -71,6 +72,10 @@ export async function syncSets(
       setId: r.rows[0].id,
       syncedAt: r.rows[0].synced_at,
     });
+    // The live logSet path remembers the weight. A set that only lands here
+    // (gym wifi: the first POST failed, the queue flushed later) used to
+    // leave the alternative with no suggestion the next day.
+    await rememberLoggedWeight(athleteId, set);
   }
 
   await pool.query(
