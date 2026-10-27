@@ -56,7 +56,7 @@ const adminPostFields = z
       .transform((v) => v === true || v === 'true' || v === '1'),
   })
   .refine((d) => d.kind !== 'event' || !!d.event_starts_at, {
-    message: 'event_starts_at required',
+    error: 'event_starts_at required',
   });
 
 router.post('/posts', async (req, res) => {

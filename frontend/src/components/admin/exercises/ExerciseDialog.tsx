@@ -153,7 +153,7 @@ interface Props {
 
 export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
   const isEdit = exercise !== null;
-  const form = useForm<FormValues>({
+  const form = useForm<z.input<typeof schema>, unknown, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: exerciseToForm(exercise),
   });
