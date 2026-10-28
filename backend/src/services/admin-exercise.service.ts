@@ -30,9 +30,19 @@ export interface Exercise {
   modality: ExerciseModality;
   default_target: string | null;
   rep_cycle_threshold: number;
+  default_series: number | null;
+  default_descanso: string | null;
+  default_notes: string | null;
 }
 
-export type CreateExerciseInput = Omit<Exercise, 'id' | 'archived_at'>;
+export type CreateExerciseInput = Omit<
+  Exercise,
+  'id' | 'archived_at' | 'default_series' | 'default_descanso' | 'default_notes'
+> & {
+  default_series?: number | null;
+  default_descanso?: string | null;
+  default_notes?: string | null;
+};
 export type UpdateExerciseInput = Partial<CreateExerciseInput>;
 
 export interface ListExercisesFilters {
@@ -59,7 +69,8 @@ const SELECT_COLS = `
   is_principal, is_unilateral, level_min,
   contraindicated_for, default_increment_kg, alternatives_ids,
   video_url, illustration_url, archived_at,
-  modality, default_target, rep_cycle_threshold
+  modality, default_target, rep_cycle_threshold,
+  default_series, default_descanso, default_notes
 `;
 
 export async function listExercises(
@@ -128,10 +139,19 @@ export async function getExercise(id: number): Promise<Exercise> {
   return normalize(r.rows[0]);
 }
 
+function cleanText(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 function normalize(row: Exercise): Exercise {
   return {
     ...row,
     default_increment_kg: Number(row.default_increment_kg),
+    default_series: row.default_series == null ? null : Number(row.default_series),
+    default_descanso: row.default_descanso ?? null,
+    default_notes: row.default_notes ?? null,
   };
 }
 
@@ -143,8 +163,8 @@ export async function createExercise(input: CreateExerciseInput): Promise<Exerci
           is_principal, is_unilateral, level_min,
           contraindicated_for, default_increment_kg, alternatives_ids,
           video_url, illustration_url, modality, default_target,
-          rep_cycle_threshold)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          rep_cycle_threshold, default_series, default_descanso, default_notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING ${SELECT_COLS}`,
       [
         input.name, input.muscle_group, input.equipment, input.movement_pattern,
@@ -152,6 +172,9 @@ export async function createExercise(input: CreateExerciseInput): Promise<Exerci
         input.contraindicated_for, input.default_increment_kg, input.alternatives_ids,
         input.video_url, input.illustration_url, input.modality, input.default_target,
         input.rep_cycle_threshold,
+        input.default_series ?? null,
+        cleanText(input.default_descanso),
+        cleanText(input.default_notes),
       ],
     );
     return normalize(r.rows[0]);
@@ -181,10 +204,18 @@ export async function updateExercise(
   const keys = Object.keys(patch) as Array<keyof UpdateExerciseInput>;
   if (keys.length === 0) return getExercise(id);
 
+  const cleaned: UpdateExerciseInput = { ...patch };
+  if ('default_descanso' in cleaned) {
+    cleaned.default_descanso = cleanText(cleaned.default_descanso);
+  }
+  if ('default_notes' in cleaned) {
+    cleaned.default_notes = cleanText(cleaned.default_notes);
+  }
+
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const k of keys) {
-    params.push(patch[k]);
+    params.push(cleaned[k]);
     sets.push(`${k} = $${params.length}`);
   }
   params.push(id);

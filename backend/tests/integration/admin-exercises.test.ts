@@ -326,6 +326,41 @@ describe('modality and default_target', () => {
   });
 });
 
+describe('default slot prescription', () => {
+  it('persists series, rest and coach notes, and clears them', async () => {
+    const created = await createExercise({
+      ...baseInput,
+      name: `Preset ${Date.now()}`,
+      is_principal: false,
+      modality: 'tiempo',
+      default_target: '45 seg',
+      default_series: 3,
+      default_descanso: '1 min',
+      default_notes: 'Ritmo constante.',
+    });
+    expect(created.default_series).toBe(3);
+    expect(created.default_descanso).toBe('1 min');
+    expect(created.default_notes).toBe('Ritmo constante.');
+    expect(created.default_target).toBe('45 seg');
+
+    const listed = await listExercises({ q: created.name });
+    expect(listed.items[0]).toMatchObject({
+      default_series: 3,
+      default_descanso: '1 min',
+      default_notes: 'Ritmo constante.',
+    });
+
+    const cleared = await updateExercise(created.id, {
+      default_series: null,
+      default_descanso: '   ',
+      default_notes: '',
+    });
+    expect(cleared.default_series).toBeNull();
+    expect(cleared.default_descanso).toBeNull();
+    expect(cleared.default_notes).toBeNull();
+  });
+});
+
 describe('GET /api/exercises (skeleton-builder consumer)', () => {
   it('200 for admin role, excludes archived', async () => {
     const admin = await createAdmin();

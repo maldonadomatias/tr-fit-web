@@ -46,6 +46,19 @@ const listQuery = z.object({
 
 const ModalityEnum = z.enum(['reps', 'tiempo', 'distancia']);
 
+// Missing keys stay missing so a partial PATCH does not wipe the prescription.
+// An empty string clears the column (the CHECK rejects '').
+const optionalText = (max: number) =>
+  z.preprocess(
+    (value) => {
+      if (value === undefined) return undefined;
+      if (value === null) return null;
+      if (typeof value === 'string' && value.trim() === '') return null;
+      return value;
+    },
+    z.string().trim().max(max).nullable().optional(),
+  );
+
 const createBody = z.object({
   name: z.string().trim().min(1).max(120),
   muscle_group: z.string().trim().min(1).max(60),
@@ -62,6 +75,9 @@ const createBody = z.object({
   modality: ModalityEnum.default('reps'),
   default_target: z.string().trim().max(60).nullable().default(null),
   rep_cycle_threshold: z.number().int().min(1).max(50).default(12),
+  default_series: z.number().int().min(1).max(6).nullable().optional(),
+  default_descanso: optionalText(40),
+  default_notes: optionalText(2000),
 });
 
 const updateBody = createBody.partial();
@@ -102,7 +118,12 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'invalid_payload', issues: parsed.error.issues });
   }
   try {
-    const exercise = await createExercise(parsed.data);
+    const exercise = await createExercise({
+      ...parsed.data,
+      default_series: parsed.data.default_series ?? null,
+      default_descanso: parsed.data.default_descanso ?? null,
+      default_notes: parsed.data.default_notes ?? null,
+    });
     res.status(201).json({ exercise });
   } catch (err) {
     mapError(err, res);

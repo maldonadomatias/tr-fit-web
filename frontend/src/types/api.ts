@@ -348,6 +348,10 @@ export interface Exercise {
   modality: ExerciseModality;
   default_target: string | null;
   rep_cycle_threshold: number;
+  /** Copied into the slot when the coach adds this exercise to a routine. */
+  default_series?: number | null;
+  default_descanso?: string | null;
+  default_notes?: string | null;
   archived_at: string | null;
 }
 
