@@ -170,7 +170,7 @@ export async function runWeeklyProgressionForAthlete(
       const adv = advanceReps(currentReps, { threshold, resetReps });
 
       // Resolve unit before the bump: dropset kg uses a 2.5 plate, ladrillos +1.
-      const unit = w.unit ?? (await resolveUnit(athleteId, ex.equipment));
+      const unit = w.unit ?? (await resolveUnit(athleteId, ex.equipment, ex.id));
 
       let newWeight: number | null =
         w.current_value === null ? null : Number(w.current_value);

@@ -22,7 +22,21 @@ export const DEFAULT_UNIT_BY_EQUIPMENT: Record<string, Unit> = {
   elastico: 'kg',
 };
 
-export async function resolveUnit(athleteId: string, equipment: string): Promise<Unit> {
+// Per-exercise override (athlete_exercise_units, set from the in-session Ayuda
+// sheet) wins over the per-equipment preference, which wins over the default.
+export async function resolveUnit(
+  athleteId: string,
+  equipment: string,
+  exerciseId?: number,
+): Promise<Unit> {
+  if (exerciseId != null) {
+    const ex = await pool.query<{ unit: Unit }>(
+      `SELECT unit FROM athlete_exercise_units
+         WHERE athlete_id = $1 AND exercise_id = $2`,
+      [athleteId, exerciseId],
+    );
+    if (ex.rows[0]) return ex.rows[0].unit;
+  }
   const r = await pool.query<{ unit: Unit }>(
     `SELECT unit FROM athlete_equipment_units
        WHERE athlete_id = $1 AND equipment = $2`,
@@ -56,5 +70,19 @@ export async function setUserUnit(
      ON CONFLICT (athlete_id, equipment) DO UPDATE SET
        unit = EXCLUDED.unit, updated_at = NOW()`,
     [athleteId, equipment, unit],
+  );
+}
+
+export async function setExerciseUnit(
+  athleteId: string,
+  exerciseId: number,
+  unit: Unit,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO athlete_exercise_units (athlete_id, exercise_id, unit, updated_at)
+     VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (athlete_id, exercise_id) DO UPDATE SET
+       unit = EXCLUDED.unit, updated_at = NOW()`,
+    [athleteId, exerciseId, unit],
   );
 }

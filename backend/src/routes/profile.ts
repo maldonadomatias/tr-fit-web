@@ -8,6 +8,7 @@ import { createMeasurement, listMeasurements } from '../services/measurement.ser
 import {
   listUserUnits,
   setUserUnit,
+  setExerciseUnit,
   DEFAULT_UNIT_BY_EQUIPMENT,
   EquipmentUnitsError,
 } from '../services/equipment-units.service.js';
@@ -95,6 +96,32 @@ router.put(
       }
       throw e;
     }
+  },
+);
+
+const setExerciseUnitPayload = z.object({ unit: z.enum(['kg', 'ladrillos']) });
+
+// Per-exercise override, set from the in-session Ayuda sheet.
+router.put(
+  '/exercise-units/:exerciseId',
+  requireAuth,
+  requireRole('athlete'),
+  async (req, res) => {
+    const exerciseId = Number(req.params.exerciseId);
+    const parsed = setExerciseUnitPayload.safeParse(req.body);
+    if (!Number.isInteger(exerciseId) || exerciseId <= 0 || !parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
+    try {
+      await setExerciseUnit(req.user!.id, exerciseId, parsed.data.unit);
+    } catch (e) {
+      // FK violation: exercise does not exist.
+      if ((e as { code?: string }).code === '23503') {
+        return res.status(404).json({ error: 'exercise_not_found' });
+      }
+      throw e;
+    }
+    return res.json({ ok: true, unit: parsed.data.unit });
   },
 );
 

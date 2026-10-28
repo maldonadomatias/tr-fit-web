@@ -19,7 +19,7 @@ jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: fakePool,
 }));
 
-const { resolveUnit, listUserUnits, setUserUnit, DEFAULT_UNIT_BY_EQUIPMENT, EquipmentUnitsError } =
+const { resolveUnit, listUserUnits, setUserUnit, setExerciseUnit, DEFAULT_UNIT_BY_EQUIPMENT, EquipmentUnitsError } =
   await import('../../src/services/equipment-units.service.js');
 
 beforeEach(() => { handlers.length = 0; });
@@ -85,5 +85,30 @@ describe('setUserUnit', () => {
     await expect(setUserUnit('a1', 'polea', 'kg')).resolves.toBeUndefined();
     expect(received).not.toBeNull();
     expect(received!.params).toEqual(['a1', 'polea', 'kg']);
+  });
+});
+
+describe('per-exercise override', () => {
+  it('exercise override wins over equipment preference', async () => {
+    handlers.push((sql, params) =>
+      sql.includes('FROM athlete_exercise_units') && params?.[1] === 42
+        ? { rows: [{ unit: 'kg' }], rowCount: 1 }
+        : null,
+    );
+    handlers.push((sql) =>
+      sql.includes('FROM athlete_equipment_units') ? { rows: [{ unit: 'ladrillos' }], rowCount: 1 } : null,
+    );
+    expect(await resolveUnit('a1', 'polea', 42)).toBe('kg');
+    expect(await resolveUnit('a1', 'polea', 7)).toBe('ladrillos');
+  });
+
+  it('setExerciseUnit upserts', async () => {
+    let params: unknown[] | undefined;
+    handlers.push((sql, p) => {
+      if (sql.includes('INSERT INTO athlete_exercise_units')) { params = p; return { rows: [], rowCount: 1 }; }
+      return null;
+    });
+    await setExerciseUnit('a1', 42, 'ladrillos');
+    expect(params).toEqual(['a1', 42, 'ladrillos']);
   });
 });

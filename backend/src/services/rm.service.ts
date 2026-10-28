@@ -22,7 +22,7 @@ export async function recordRm(input: RecordRmInput): Promise<{ rmId: string }> 
       [input.exerciseId],
     );
     const equipment = exR.rows[0]?.equipment ?? 'barra';
-    const unit = await resolveUnit(input.athleteId, equipment);
+    const unit = await resolveUnit(input.athleteId, equipment, input.exerciseId);
 
     const r = await client.query<{ id: string }>(
       `INSERT INTO rm_tests
