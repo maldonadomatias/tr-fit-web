@@ -137,7 +137,7 @@ router.get('/users', async (req: Request, res: Response) => {
 });
 
 const createBody = z.object({
-  email: z.string().email().max(255),
+  email: z.email().max(255),
   password: z.string().min(8).max(128),
   role: z.enum(['athlete', 'admin', 'superadmin']).optional(),
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
@@ -340,7 +340,7 @@ const patchBody = z
     status: z.enum(['pending', 'approved', 'rejected']).optional(),
     email_verified: z.boolean().optional(),
   })
-  .refine((o) => Object.keys(o).length > 0, { message: 'empty_patch' });
+  .refine((o) => Object.keys(o).length > 0, { error: 'empty_patch' });
 
 router.patch('/users/:id', async (req: Request, res: Response) => {
   const parsed = patchBody.safeParse(req.body);
@@ -496,7 +496,7 @@ router.delete(
 );
 
 const monthlyFeeBody = z.object({
-  monthly_fee_ars: z.number().nonnegative({ message: 'out_of_range' }),
+  monthly_fee_ars: z.number().nonnegative({ error: 'out_of_range' }),
 });
 
 router.put('/users/:id/monthly-fee', async (req, res) => {

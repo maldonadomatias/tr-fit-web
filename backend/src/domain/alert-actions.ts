@@ -60,7 +60,7 @@ export const reduceIntensityPayload = z.object({
     (v.sets_delta != null && v.sets_delta < 0) ||
     (v.weight_pct != null && v.weight_pct < 1.0) ||
     (v.rpe_delta != null && v.rpe_delta < 0),
-  { message: 'at least one field must express a reduction (sets_delta<0, weight_pct<1.0, or rpe_delta<0)' },
+  { error: 'at least one field must express a reduction (sets_delta<0, weight_pct<1.0, or rpe_delta<0)' },
 );
 export const rescheduleRmPayload = z.object({
   target_week: z.number().int().min(1).max(30),
