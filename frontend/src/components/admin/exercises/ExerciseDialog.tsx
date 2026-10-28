@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
@@ -58,6 +59,11 @@ const PATTERNS = [
 ] as const;
 const LEVELS = ['principiante', 'intermedio', 'avanzado'] as const;
 const MODALITIES = ['reps', 'tiempo', 'distancia'] as const;
+const MODALITY_LABELS: Record<(typeof MODALITIES)[number], string> = {
+  reps: 'Reps',
+  tiempo: 'Tiempo',
+  distancia: 'Distancia',
+};
 
 const schema = z.object({
   name: z.string().trim().min(1, 'Requerido').max(120),
@@ -74,6 +80,19 @@ const schema = z.object({
   illustration_url: z.union([z.string().url(), z.literal('')]).nullable(),
   modality: z.enum(MODALITIES),
   default_target: z.string().trim().max(60),
+  default_series: z
+    .string()
+    .trim()
+    .refine(
+      (value) => {
+        if (value === '') return true;
+        const series = Number(value);
+        return Number.isInteger(series) && series >= 1 && series <= 6;
+      },
+      'Entre 1 y 6'
+    ),
+  default_descanso: z.string().trim().max(40, 'Máximo 40 caracteres'),
+  default_notes: z.string().trim().max(2000, 'Máximo 2000 caracteres'),
   rep_cycle_threshold: z.coerce.number().int().min(1).max(50),
 });
 
@@ -96,6 +115,9 @@ function exerciseToForm(e: Exercise | null): FormValues {
       illustration_url: '',
       modality: 'reps',
       default_target: '',
+      default_series: '',
+      default_descanso: '',
+      default_notes: '',
       rep_cycle_threshold: 12,
     };
   }
@@ -114,6 +136,9 @@ function exerciseToForm(e: Exercise | null): FormValues {
     illustration_url: e.illustration_url ?? '',
     modality: e.modality,
     default_target: e.default_target ?? '',
+    default_series: e.default_series != null ? String(e.default_series) : '',
+    default_descanso: e.default_descanso ?? '',
+    default_notes: e.default_notes ?? '',
     rep_cycle_threshold: e.rep_cycle_threshold,
   };
 }
@@ -141,6 +166,11 @@ function formToPayload(v: FormValues): CreateExerciseInput {
     modality: v.modality,
     default_target:
       v.default_target.trim() === '' ? null : v.default_target.trim(),
+    default_series:
+      v.default_series.trim() === '' ? null : Number(v.default_series),
+    default_descanso:
+      v.default_descanso.trim() === '' ? null : v.default_descanso.trim(),
+    default_notes: v.default_notes.trim() === '' ? null : v.default_notes.trim(),
     rep_cycle_threshold: Number(v.rep_cycle_threshold),
   };
 }
@@ -444,19 +474,73 @@ export function ExerciseDialog({ open, onOpenChange, exercise }: Props) {
                   <SelectContent>
                     {MODALITIES.map((m) => (
                       <SelectItem key={m} value={m}>
-                        {m}
+                        {MODALITY_LABELS[m]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="default_target">Objetivo por defecto</Label>
+                <Label htmlFor="default_target">Reps, tiempo o distancia</Label>
                 <Input
                   id="default_target"
                   {...form.register('default_target')}
-                  placeholder="ej. 5 min, 2 km, 10"
+                  placeholder={
+                    form.watch('modality') === 'tiempo'
+                      ? 'ej. 30 seg, 5 min'
+                      : form.watch('modality') === 'distancia'
+                        ? 'ej. 2,1 km'
+                        : 'ej. 8 a 10, 10x10x10'
+                  }
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  En un calentamiento este es el objetivo. Si cargás series,
+                  descanso o comentarios, también se copian al agregar el
+                  ejercicio a una rutina.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="default_series">Series</Label>
+                <Input
+                  id="default_series"
+                  type="number"
+                  min={1}
+                  max={6}
+                  {...form.register('default_series')}
+                  placeholder="3"
+                />
+                {form.formState.errors.default_series && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {form.formState.errors.default_series.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="default_descanso">Descanso</Label>
+                <Input
+                  id="default_descanso"
+                  {...form.register('default_descanso')}
+                  placeholder="Ej: 1:30 a 2 min"
+                />
+                {form.formState.errors.default_descanso && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {form.formState.errors.default_descanso.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="default_notes">Comentarios del entrenador</Label>
+                <Textarea
+                  id="default_notes"
+                  rows={4}
+                  {...form.register('default_notes')}
+                  placeholder="Bloque, variantes o indicaciones que se copian al agregar el ejercicio."
+                />
+                {form.formState.errors.default_notes && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {form.formState.errors.default_notes.message}
+                  </p>
+                )}
               </div>
               <div>
                 <Label htmlFor="rep_cycle_threshold">

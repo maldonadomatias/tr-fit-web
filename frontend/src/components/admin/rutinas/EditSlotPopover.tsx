@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useExercisesSearch } from '@/hooks/useAdminExercises';
 import type { Exercise, RutinaSlot } from '@/types/api';
 import { cn } from '@/lib/utils';
-import { hyroxSessionPreset } from './hyrox-session-presets';
+import { nextSlotForm } from './catalog-slot-preset';
 
 export type SlotOverride = {
   exercise_id: number;
@@ -52,6 +52,9 @@ export function EditSlotPopover({
   const [query, setQuery] = useState(currentExerciseName);
   const [selectedGroup, setSelectedGroup] = useState(currentMuscleGroup ?? '');
   const [selected, setSelected] = useState<Exercise | null>(null);
+  // Survives search edits, which clear `selected`. Used to drop a block
+  // that was just applied when the coach picks a different exercise.
+  const [picked, setPicked] = useState<Exercise | null>(null);
   const [notes, setNotes] = useState(currentNotes ?? '');
   const [series, setSeries] = useState(
     currentSeries != null ? String(currentSeries) : ''
@@ -65,11 +68,21 @@ export function EditSlotPopover({
       setQuery(currentExerciseName);
       setSelectedGroup(currentMuscleGroup ?? '');
       setSelected(null);
+      setPicked(null);
       setNotes(currentNotes ?? '');
       setSeries(currentSeries != null ? String(currentSeries) : '');
       setReps(currentReps ?? '');
       setDescanso(currentDescanso ?? '');
-      setTimeout(() => searchRef.current?.focus(), 30);
+      const focusSearch = window.setTimeout(() => {
+        const field = searchRef.current;
+        const popover = field?.closest('[data-slot="popover-content"]');
+        const active = document.activeElement;
+        if (popover && active instanceof Node && popover.contains(active) && active !== popover) {
+          return;
+        }
+        field?.focus();
+      }, 30);
+      return () => window.clearTimeout(focusSearch);
     }
   }, [
     open,
@@ -199,32 +212,21 @@ export function EditSlotPopover({
                   <button
                     type="button"
                     onClick={() => {
-                      const previousName = selected?.name ?? currentExerciseName;
+                      const previous = picked ?? { name: currentExerciseName };
+                      setPicked(r);
                       setSelected(r);
                       setQuery(r.name);
                       if (role !== 'accesorio') return;
-                      const preset = hyroxSessionPreset(r.name);
-                      const blank =
-                        !series.trim() &&
-                        !reps.trim() &&
-                        !descanso.trim() &&
-                        !notes.trim();
-                      if (preset && (r.id !== currentExerciseId || blank)) {
-                        setSeries(String(preset.series));
-                        setReps(preset.reps);
-                        setDescanso(preset.descanso);
-                        setNotes(preset.notes);
-                        return;
-                      }
-                      if (
-                        hyroxSessionPreset(previousName) &&
-                        r.id !== currentExerciseId
-                      ) {
-                        setSeries('');
-                        setReps('');
-                        setDescanso('');
-                        setNotes('');
-                      }
+                      const next = nextSlotForm(
+                        { series, reps, descanso, notes },
+                        previous,
+                        r,
+                        { sameExercise: r.id === currentExerciseId }
+                      );
+                      setSeries(next.series);
+                      setReps(next.reps);
+                      setDescanso(next.descanso);
+                      setNotes(next.notes);
                     }}
                     className={cn(
                       'flex w-full items-center justify-between px-2 py-1.5 text-left text-[12px] transition hover:bg-muted',

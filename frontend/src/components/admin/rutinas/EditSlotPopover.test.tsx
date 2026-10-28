@@ -18,6 +18,16 @@ const CATALOG: Partial<Exercise>[] = [
     muscle_group: 'Cardio',
     is_principal: false,
   },
+  {
+    id: 180,
+    name: 'Remo en seco',
+    muscle_group: 'Cardio',
+    is_principal: false,
+    default_series: 3,
+    default_target: '45 seg',
+    default_descanso: '1 min',
+    default_notes: 'Ritmo constante.',
+  },
 ];
 
 vi.mock('@/hooks/useAdminExercises', () => ({
@@ -66,6 +76,41 @@ describe('EditSlotPopover · sesiones HYROX', () => {
         reps: '2,1 km',
         descanso: '3 min',
         notes: preset.notes,
+      })
+    );
+  });
+
+  it('al cambiar a un ejercicio con prescripción guardada copia ese bloque', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <EditSlotPopover
+        role="accesorio"
+        currentExerciseId={3}
+        currentExerciseName="Curl Femoral"
+        currentMuscleGroup="Piernas - Femorales"
+        currentNotes="nota propia"
+        currentSeries={3}
+        currentReps="10"
+        currentDescanso="1 min"
+        onSave={onSave}
+        onDelete={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Editar slot' }));
+    const searchBox = screen.getByDisplayValue('Curl Femoral');
+    await user.clear(searchBox);
+    await user.click(await screen.findByText('Remo en seco'));
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        exercise_id: 180,
+        series: 3,
+        reps: '45 seg',
+        descanso: '1 min',
+        notes: 'Ritmo constante.',
       })
     );
   });

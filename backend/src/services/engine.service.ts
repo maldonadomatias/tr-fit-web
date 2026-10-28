@@ -485,7 +485,7 @@ async function buildItem(
   // Falls back to equipment default. Previously prioritized AEW.unit, which
   // froze the unit to whatever was logged first and ignored later profile
   // changes (e.g. user switches polea from kg to ladrillos).
-  const unit = await resolveUnit(athleteId, exercise.equipment);
+  const unit = await resolveUnit(athleteId, exercise.equipment, exercise.id);
   // Drop stale suggested value if the recorded unit no longer matches.
   const aewValue =
     !w?.unit || w.unit === unit ? (w?.current_value ?? null) : null;

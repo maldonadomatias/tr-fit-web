@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useExercisesSearch } from '@/hooks/useAdminExercises';
 import type { Exercise } from '@/types/api';
 import { cn } from '@/lib/utils';
-import { hyroxSessionPreset } from './hyrox-session-presets';
+import { catalogSlotPreset, nextSlotForm } from './catalog-slot-preset';
 
 export type AddedSlotData = {
   exercise_id: number;
@@ -45,7 +45,7 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
   const [reps, setReps] = useState('');
   const [descanso, setDescanso] = useState('');
   const [role, setRole] = useState<AddedSlotData['role']>('accesorio');
-  // True after the coach edits series/reps/rest/notes. A HYROX preset must
+  // True after the coach edits series/reps/rest/notes. A catalog preset must
   // not overwrite that edit, and must not leak onto the next exercise.
   const [schemeDirty, setSchemeDirty] = useState(false);
   const [appliedPreset, setAppliedPreset] = useState<string | null>(null);
@@ -63,7 +63,17 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
       setRole('accesorio');
       setSchemeDirty(false);
       setAppliedPreset(null);
-      setTimeout(() => searchRef.current?.focus(), 30);
+      const focusSearch = window.setTimeout(() => {
+        const field = searchRef.current;
+        const popover = field?.closest('[data-slot="popover-content"]');
+        const active = document.activeElement;
+        // Don't pull the cursor back if the coach already moved into the form.
+        if (popover && active instanceof Node && popover.contains(active) && active !== popover) {
+          return;
+        }
+        field?.focus();
+      }, 30);
+      return () => window.clearTimeout(focusSearch);
     }
   }, [open]);
 
@@ -83,36 +93,39 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
   });
 
   function selectExercise(exercise: Exercise) {
-    const preset = hyroxSessionPreset(exercise.name);
-    const leavingPreset = appliedPreset !== null;
+    const preset = catalogSlotPreset(exercise);
+    // Search edits null out `selected`, so a block already on screen is
+    // remembered by name. A series value marks it as a block to clear.
+    const previous =
+      selected ??
+      (appliedPreset ? { name: appliedPreset, default_series: 1 } : null);
+    const next = nextSlotForm(
+      { series, reps, descanso, notes },
+      previous,
+      exercise,
+      { sameExercise: false }
+    );
     setSelected(exercise);
     setQuery(exercise.name);
     setRole(
-      preset ? 'accesorio' : exercise.is_principal ? 'principal' : 'accesorio'
+      preset?.forceAccessory
+        ? 'accesorio'
+        : exercise.is_principal
+          ? 'principal'
+          : 'accesorio'
     );
-    if (preset) {
-      setSchemeDirty(false);
-      setSeries(String(preset.series));
-      setReps(preset.reps);
-      setDescanso(preset.descanso);
-      setNotes(preset.notes);
-      setAppliedPreset(exercise.name);
-      return;
-    }
-    if (leavingPreset) {
-      setSchemeDirty(false);
-      setSeries('');
-      setReps('');
-      setDescanso('');
-      setNotes('');
-    }
-    setAppliedPreset(null);
+    setSchemeDirty(false);
+    setSeries(next.series);
+    setReps(next.reps);
+    setDescanso(next.descanso);
+    setNotes(next.notes);
+    setAppliedPreset(preset?.replacesBlock ? exercise.name : null);
   }
 
   function commit() {
     const ex = selected ?? results.find((r) => r.name === query.trim()) ?? null;
     if (!ex) return;
-    const preset = hyroxSessionPreset(ex.name);
+    const preset = catalogSlotPreset(ex);
     const untouched =
       !schemeDirty &&
       !series.trim() &&
@@ -120,7 +133,7 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
       !descanso.trim() &&
       !notes.trim();
     const commitRole =
-      preset && untouched
+      preset?.forceAccessory && untouched
         ? 'accesorio'
         : selected
           ? role
@@ -132,7 +145,7 @@ export function AddSlotPopover({ disabled, onAdd }: AddSlotPopoverProps) {
     const prescription =
       preset && untouched
         ? {
-            notes: preset.notes,
+            notes: preset.notes ?? undefined,
             series: preset.series,
             reps: preset.reps,
             descanso: preset.descanso,

@@ -608,6 +608,11 @@ export async function listMissingPrincipalRms(
     [athleteId]
   );
   const override = new Map(units.rows.map((row) => [row.equipment, row.unit]));
+  const exUnits = await pool.query<{ exercise_id: number; unit: Unit }>(
+    `SELECT exercise_id, unit FROM athlete_exercise_units WHERE athlete_id = $1`,
+    [athleteId]
+  );
+  const exOverride = new Map(exUnits.rows.map((row) => [row.exercise_id, row.unit]));
 
   return r.rows.flatMap((row) => {
     if (
@@ -623,6 +628,7 @@ export async function listMissingPrincipalRms(
         exercise_name: row.exercise_name,
         program_week: row.program_week,
         unit:
+          exOverride.get(row.exercise_id) ??
           override.get(row.equipment) ??
           DEFAULT_UNIT_BY_EQUIPMENT[row.equipment] ??
           'kg',
@@ -662,7 +668,7 @@ export async function setAthleteRm(
     ]);
     if (!exR.rows[0]) throw new Error('exercise_not_found');
     const equipment = exR.rows[0].equipment ?? 'barra';
-    const unit = await resolveUnit(athleteId, equipment);
+    const unit = await resolveUnit(athleteId, equipment, input.exerciseId);
 
     const prev = await client.query<{ value_kg: string }>(
       `SELECT value_kg::text AS value_kg FROM rm_tests
@@ -793,7 +799,7 @@ export async function setAthleteWeight(
     input.exerciseId,
   ]);
   if (!exR.rows[0]) throw new Error('exercise_not_found');
-  const unit = await resolveUnit(athleteId, exR.rows[0].equipment ?? 'barra');
+  const unit = await resolveUnit(athleteId, exR.rows[0].equipment ?? 'barra', input.exerciseId);
 
   const prev = await pool.query<{ current_value: string | null }>(
     `SELECT COALESCE(current_value, current_weight_kg)::text AS current_value

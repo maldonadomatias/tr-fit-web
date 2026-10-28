@@ -45,6 +45,16 @@ const CATALOG: Partial<Exercise>[] = [
     muscle_group: 'Cardio',
     is_principal: false,
   },
+  {
+    id: 180,
+    name: 'Remo en seco',
+    muscle_group: 'Cardio',
+    is_principal: false,
+    default_series: 3,
+    default_target: '45 seg',
+    default_descanso: '1 min',
+    default_notes: 'Ritmo constante.',
+  },
 ];
 
 const search = vi.fn(
@@ -268,5 +278,33 @@ describe('AddSlotPopover · sesiones HYROX', () => {
         notes: undefined,
       })
     );
+  });
+
+  it('precarga series, tiempo, descanso y comentarios guardados en el ejercicio', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<AddSlotPopover onAdd={onAdd} />);
+
+    await user.click(
+      screen.getByRole('button', { name: /agregar ejercicio/i })
+    );
+    await user.click(await screen.findByText('Remo en seco'));
+
+    expect(screen.getByDisplayValue('3')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('45 seg')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('1 min')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Ritmo constante.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Agregar' }));
+    expect(onAdd).toHaveBeenCalledWith({
+      exercise_id: 180,
+      exercise_name: 'Remo en seco',
+      muscle_group: 'Cardio',
+      role: 'accesorio',
+      notes: 'Ritmo constante.',
+      series: 3,
+      reps: '45 seg',
+      descanso: '1 min',
+    });
   });
 });

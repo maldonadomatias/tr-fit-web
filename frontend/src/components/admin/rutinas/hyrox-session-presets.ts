@@ -1,7 +1,7 @@
 /**
  * Default slot prescription for Tato's HYROX sessions (Molpo #128).
- * Applied when the coach adds the exercise to a routine.
- * Reps match `exercises.default_target` already stored for these names.
+ * Fallback when the catalog row has no series, rest, or coach notes yet.
+ * A saved prescription on the exercise wins (Molpo #143).
  */
 export type HyroxSessionPreset = {
   series: number;

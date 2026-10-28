@@ -133,10 +133,9 @@ export async function toAlternativePayloads(
   exercises: Pick<Exercise, 'id' | 'name' | 'muscle_group' | 'equipment'>[],
 ): Promise<AlternativePayload[]> {
   if (exercises.length === 0) return [];
-  const equipments = [...new Set(exercises.map((e) => e.equipment))];
-  const unitByEquipment = new Map(
+  const unitByEx = new Map(
     await Promise.all(
-      equipments.map(async (eq) => [eq, await resolveUnit(athleteId, eq)] as const),
+      exercises.map(async (e) => [e.id, await resolveUnit(athleteId, e.equipment, e.id)] as const),
     ),
   );
   const wR = await pool.query<{
@@ -156,7 +155,7 @@ export async function toAlternativePayloads(
   const wByEx = new Map(wR.rows.map((r) => [r.exercise_id, r]));
 
   return exercises.map((e) => {
-    const unit = unitByEquipment.get(e.equipment)!;
+    const unit = unitByEx.get(e.id)!;
     const w = wByEx.get(e.id);
     const staleUnit = !!w?.unit && w.unit !== unit;
     return {
