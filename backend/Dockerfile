@@ -14,6 +14,6 @@ COPY --from=build /app/dist ./dist
 RUN mkdir -p uploads && chown node:node uploads
 
 USER node
-EXPOSE 5000
-# npm start migrates, then serves. Keep both without npm as PID 1.
-CMD ["sh", "-c", "node dist/db/migrate.js && exec node dist/index.js"]
+EXPOSE 5001
+# Migrations run manually (npm run db:migrate), not on boot.
+CMD ["node", "dist/index.js"]

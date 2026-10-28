@@ -6,6 +6,7 @@ const schema = z.object({
   PORT: z.coerce.number().default(5001),
   DATABASE_URL: z.url(),
   JWT_SECRET: z.string().min(8),
+  EXTERNAL_EFFECTS_ENABLED: z.enum(['true', 'false']).default('true'),
   JWT_EXPIRES_IN: z.string().default('15m'),
   OPENAI_API_KEY: z.string().min(8),
   OPENAI_MODEL: z.string().default('gpt-4o-2024-08-06'),
