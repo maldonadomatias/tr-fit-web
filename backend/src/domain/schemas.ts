@@ -106,15 +106,15 @@ export const onboardingPayload = z
     measurements: measurementPayload.optional(),
   })
   .refine((d) => d.days_specific.length === d.days_per_week, {
-    message: 'days_specific length must equal days_per_week',
+    error: 'days_specific length must equal days_per_week',
     path: ['days_specific'],
   })
   .refine((d) => new Set(d.days_specific).size === d.days_specific.length, {
-    message: 'days_specific must not contain duplicates',
+    error: 'days_specific must not contain duplicates',
     path: ['days_specific'],
   })
   .refine((d) => d.leg_days == null || d.leg_days <= d.days_per_week, {
-    message: 'leg_days must not exceed days_per_week',
+    error: 'leg_days must not exceed days_per_week',
     path: ['leg_days'],
   })
   .refine(
@@ -124,7 +124,7 @@ export const onboardingPayload = z
       return derived != null && derived >= 12 && derived <= 100;
     },
     {
-      message:
+      error:
         'birth_date must be a valid date with derived age between 12 and 100',
       path: ['birth_date'],
     }
@@ -139,7 +139,7 @@ export const onboardingPayload = z
       return derived == null || Math.abs(derived - d.age) <= 1;
     },
     {
-      message: 'age is inconsistent with birth_date',
+      error: 'age is inconsistent with birth_date',
       path: ['age'],
     }
   );
@@ -168,17 +168,17 @@ export const profileUpdatePayload = z
   .partial()
   .strict()
   .refine((d) => Object.keys(d).length > 0, {
-    message: 'at least one field required',
+    error: 'at least one field required',
   })
   .refine(
     (d) =>
       d.leg_days == null ||
       d.days_per_week == null ||
       d.leg_days <= d.days_per_week,
-    { message: 'leg_days must not exceed days_per_week', path: ['leg_days'] }
+    { error: 'leg_days must not exceed days_per_week', path: ['leg_days'] }
   )
   .refine((d) => d.days_specific == null || d.days_per_week != null, {
-    message: 'days_per_week is required with days_specific',
+    error: 'days_per_week is required with days_specific',
     path: ['days_per_week'],
   })
   .refine(
@@ -186,7 +186,7 @@ export const profileUpdatePayload = z
       d.days_specific == null ||
       new Set(d.days_specific).size === d.days_specific.length,
     {
-      message: 'days_specific must not contain duplicates',
+      error: 'days_specific must not contain duplicates',
       path: ['days_specific'],
     }
   )
@@ -194,7 +194,7 @@ export const profileUpdatePayload = z
     (d) =>
       d.days_specific == null || d.days_specific.length === d.days_per_week,
     {
-      message: 'days_specific length must equal days_per_week',
+      error: 'days_specific length must equal days_per_week',
       path: ['days_specific'],
     }
   )
@@ -205,7 +205,7 @@ export const profileUpdatePayload = z
       return derived != null && derived >= 12 && derived <= 100;
     },
     {
-      message:
+      error:
         'birth_date must be a valid date with derived age between 12 and 100',
       path: ['birth_date'],
     }
@@ -339,7 +339,7 @@ export type RmPayload = z.infer<typeof rmPayload>;
 
 export const signupPayload = z
   .object({
-    email: z.string().email().toLowerCase(),
+    email: z.email().toLowerCase(),
     password: z.string().min(8).max(200),
     // Optional as a group so already-released app builds can keep signing up.
     firstName: z.string().trim().min(1).max(100).optional(),
@@ -357,11 +357,11 @@ export const signupPayload = z
         contact.every((value) => value != null)
       );
     },
-    { message: 'signup contact fields must be provided together' }
+    { error: 'signup contact fields must be provided together' }
   );
 
 export const loginPayload = z.object({
-  email: z.string().email().toLowerCase(),
+  email: z.email().toLowerCase(),
   password: z.string().min(1),
 });
 
@@ -378,16 +378,16 @@ export const deleteAccountPayload = z.object({
 });
 
 export const forgotPasswordPayload = z.object({
-  email: z.string().email().toLowerCase(),
+  email: z.email().toLowerCase(),
 });
 
 export const verifyResetCodePayload = z.object({
-  email: z.string().email().toLowerCase(),
+  email: z.email().toLowerCase(),
   code: z.string().regex(/^\d{6}$/),
 });
 
 export const resetPasswordPayload = z.object({
-  email: z.string().email().toLowerCase(),
+  email: z.email().toLowerCase(),
   code: z.string().regex(/^\d{6}$/),
   newPassword: z.string().max(200),
 });
@@ -473,7 +473,7 @@ export const liveActivityRegisterPayload = z.object({
   apnsToken: z.string().min(1),
   activityName: z.string().min(1),
   endMs: z.number().int().positive(),
-  props: z.record(z.unknown()),
+  props: z.record(z.string(), z.unknown()),
 });
 
 export const notificationPrefsPayload = z
@@ -515,7 +515,7 @@ export const adminSlotPatchPayload = z
     descanso: z.string().min(1).max(40).nullable().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
-    message: 'empty_patch',
+    error: 'empty_patch',
   });
 
 export const adminReorderPayload = z.object({
@@ -544,7 +544,7 @@ export const adminTrainingDaysPayload = z
   .refine(
     (value) => new Set(value.days_specific).size === value.days_specific.length,
     {
-      message: 'days_specific must not contain duplicates',
+      error: 'days_specific must not contain duplicates',
       path: ['days_specific'],
     }
   );
@@ -556,7 +556,7 @@ export type AdminTrainingDaysInput = z.infer<typeof adminTrainingDaysPayload>;
 
 export const alertResolvePayload = z.object({
   action: z.enum(ALERT_RESOLUTION_ACTIONS),
-  payload: z.record(z.unknown()).default({}),
+  payload: z.record(z.string(), z.unknown()).default({}),
   note: z.string().max(2000).optional(),
 });
 export type AlertResolvePayload = z.infer<typeof alertResolvePayload>;

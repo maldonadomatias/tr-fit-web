@@ -4,7 +4,7 @@ import { z } from 'zod';
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().default(5001),
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.url(),
   JWT_SECRET: z.string().min(8),
   EXTERNAL_EFFECTS_ENABLED: z.enum(['true', 'false']).default('true'),
   JWT_EXPIRES_IN: z.string().default('15m'),
@@ -14,11 +14,11 @@ const schema = z.object({
   PROGRESSION_CRON_SCHEDULE: z.string().default('0 23 * * 0'),
   COMPLIANCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.6),
   RESEND_API_KEY: z.string().min(8),
-  EMAIL_FROM: z.string().email().default('onboarding@resend.dev'),
+  EMAIL_FROM: z.email().default('onboarding@resend.dev'),
   EMAIL_FROM_NAME: z.string().default('TR Fit'),
-  EMAIL_LOGO_URL: z.string().url().or(z.literal('')).default(''),
-  SUPPORT_EMAIL: z.string().email().optional(),
-  APP_URL: z.string().url().default('http://localhost:5001'),
+  EMAIL_LOGO_URL: z.url().or(z.literal('')).default(''),
+  SUPPORT_EMAIL: z.email().optional(),
+  APP_URL: z.url().default('http://localhost:5001'),
   APP_DEEP_LINK_SCHEME: z.string().default('trfit'),
   FIREBASE_SERVICE_ACCOUNT_JSON: z
     .string()
@@ -32,7 +32,7 @@ const schema = z.object({
   APNS_TEAM_ID: z.string().default('W6DLX49R4D'),
   APNS_BUNDLE_ID: z.string().default('com.trfit.app'),
   APNS_HOST: z.string().default('api.push.apple.com'),
-  OWNER_COACH_EMAIL: z.string().email(),
+  OWNER_COACH_EMAIL: z.email(),
 });
 
 export const env = schema.parse(process.env);
