@@ -419,6 +419,9 @@ export default function PlatformFee() {
       {/* Superadmin config editor */}
       {isSuper && (
         <ConfigEditor
+          // Remount after any save/adjust so stale form state (e.g. the old
+          // next_adjustment_date) is never re-sent on "Guardar".
+          key={config.updated_at}
           config={config}
           onSave={async (patch) => {
             try {

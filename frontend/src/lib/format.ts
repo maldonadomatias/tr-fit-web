@@ -16,7 +16,11 @@ const SHORT_DATE = new Intl.DateTimeFormat('es-AR', {
 
 export function fmtShortDate(value: string | Date | null | undefined): string {
   if (!value) return '—';
-  const d = typeof value === 'string' ? new Date(value) : value;
+  // Date-only 'YYYY-MM-DD' parses as UTC midnight → shows the day before in AR.
+  const d =
+    typeof value === 'string'
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00` : value)
+      : value;
   return SHORT_DATE.format(d).replace('.', '');
 }
 
