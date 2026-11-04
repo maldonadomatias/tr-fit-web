@@ -97,6 +97,19 @@ function maskEmailsIn(text: string): string {
   return text.replace(/[^\s<>"',;:]+@[^\s<>"',;]+/g, maskEmail);
 }
 
+// Callers log the rethrown error as `err`, so mask it in place too.
+function maskErrorInPlace(err: unknown): void {
+  if (typeof err !== 'object' || err === null) {
+    return;
+  }
+  const fields = err as Record<string, unknown>;
+  for (const key of ['message', 'response', 'stack']) {
+    if (typeof fields[key] === 'string') {
+      fields[key] = maskEmailsIn(fields[key]);
+    }
+  }
+}
+
 function smtpFields(err: unknown): {
   code?: string;
   responseCode?: number;
@@ -160,6 +173,7 @@ export function createMailer(config: MailConfig, deps: MailerDeps = {}) {
 
           return { messageId: info.messageId };
         } catch (err) {
+          maskErrorInPlace(err);
           lastError = err;
           const fields = smtpFields(err);
           const retry = isTransientError(err) && attempt < MAX_ATTEMPTS;

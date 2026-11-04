@@ -206,6 +206,28 @@ describe('createMailer', () => {
     expect(logged).not.toContain('juan.perez@example.com');
   });
 
+  it('masks addresses in the rethrown error so callers logging err stay masked', async () => {
+    const text =
+      '554 Message rejected: Email address is not verified. The following identities failed the check in region US-EAST-1: juan.perez@example.com';
+    const err = Object.assign(new Error(`Message failed: ${text}`), {
+      responseCode: 554,
+      response: text,
+    });
+    const { mailer } = harness([err]);
+
+    const thrown = (await mailer.sendMail(input).catch((e: unknown) => e)) as {
+      message: string;
+      response: string;
+      stack: string;
+    };
+
+    expect(thrown).toBe(err);
+    for (const field of [thrown.message, thrown.response, thrown.stack]) {
+      expect(field).toContain('j***@example.com');
+      expect(field).not.toContain('juan.perez@example.com');
+    }
+  });
+
   it('log mode sends through jsonTransport without network', async () => {
     const logger = fakeLogger();
     const mailer = createMailer(

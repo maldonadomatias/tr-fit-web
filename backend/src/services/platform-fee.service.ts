@@ -16,6 +16,7 @@ import { adRevenueForMonth } from './community-ads.service.js';
 import { notifyUser } from './notification.service.js';
 import { sendCommunityRevisionEmail } from './email.service.js';
 import logger from '../utils/logger.js';
+import { maskEmail } from './mailer/mailer.js';
 
 export type BillingPhase = 'testflight' | 'production';
 
@@ -405,7 +406,7 @@ export async function applyCommunityRevisionIfDue(
       });
     } catch (e) {
       logger.error(
-        { err: e, email: a.email },
+        { err: e, email: maskEmail(a.email) },
         'community revision email failed'
       );
     }

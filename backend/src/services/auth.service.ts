@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import pool from '../db/connect.js';
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
+import { maskEmail } from './mailer/mailer.js';
 import type { AuthLoginResult } from '../domain/types.js';
 import {
   generateToken,
@@ -96,7 +97,7 @@ export async function signup(
     try {
       await sendVerifyEmail(email, token);
     } catch (e) {
-      logger.error({ err: e, userId, email }, 'verify email send failed');
+      logger.error({ err: e, userId, email: maskEmail(email) }, 'verify email send failed');
       emailSendFailed = true;
     }
 
@@ -491,7 +492,7 @@ export async function forgotPassword(
   try {
     await sendPasswordResetEmail(email, code);
   } catch (e) {
-    logger.error({ err: e, email }, 'failed to send reset code email');
+    logger.error({ err: e, email: maskEmail(email) }, 'failed to send reset code email');
   }
 }
 

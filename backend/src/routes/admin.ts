@@ -34,6 +34,7 @@ import {
 import { getLoggedSessions } from '../services/logged-sessions.service.js';
 import { sendAccountApprovedEmail } from '../services/email.service.js';
 import logger from '../utils/logger.js';
+import { maskEmail } from '../services/mailer/mailer.js';
 
 const router = Router();
 router.use(requireAuth, requireAdmin);
@@ -96,7 +97,7 @@ async function notifyApproved(
     });
   } catch (e) {
     logger.error(
-      { err: e, email: after.email },
+      { err: e, email: maskEmail(after.email) },
       'account approved email failed'
     );
   }
