@@ -1,6 +1,7 @@
-import { Resend } from 'resend';
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
+import { loadMailConfig } from './mailer/config.js';
+import { createMailer } from './mailer/mailer.js';
 import {
   verifyTemplate,
   resetCodeTemplate,
@@ -11,7 +12,44 @@ import {
   communityRevisionTemplate,
 } from './email-templates.js';
 
-const resend = new Resend(env.RESEND_API_KEY);
+// Built on first send, not at import: a missing SMTP config must not stop the
+// app from booting, only make each send fail (callers already catch it).
+let mailer: ReturnType<typeof createMailer> | undefined;
+
+function getMailer(): ReturnType<typeof createMailer> {
+  if (!mailer) {
+    try {
+      mailer = createMailer(loadMailConfig());
+    } catch (e) {
+      logger.error({ err: e }, 'mail not configured');
+      throw e;
+    }
+  }
+  return mailer;
+}
+
+// Plain-text part derived from the existing HTML templates, links kept visible.
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<(head|style|script)[\s\S]*?<\/\1>/gi, '')
+    .replace(/<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, url, label) => {
+      const text = label.replace(/<[^>]+>/g, '').trim();
+      return text && text !== url ? `${text}: ${url}` : url;
+    })
+    .replace(/<br\s*\/?>|<\/(p|div|h[1-6]|tr|li|table)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 async function send(opts: {
   to: string;
@@ -22,26 +60,14 @@ async function send(opts: {
     logger.info({ channel: 'email' }, 'external effect blocked in rehearsal');
     return;
   }
-  try {
-    const result = await resend.emails.send({
-      from: `${env.EMAIL_FROM_NAME} <${env.EMAIL_FROM}>`,
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-      ...(env.SUPPORT_EMAIL ? { replyTo: env.SUPPORT_EMAIL } : {}),
-    });
-    // Resend v6 returns { data, error } discriminated union — check error
-    if (result && 'error' in result && result.error) {
-      const err = new Error(
-        (result.error as { message?: string }).message ?? 'resend send failed'
-      );
-      logger.error({ err: result.error, to: opts.to }, 'resend send failed');
-      throw err;
-    }
-  } catch (e) {
-    logger.error({ err: e, to: opts.to }, 'resend send failed');
-    throw e;
-  }
+  // SMTP failures are logged by the mailer (code, response, masked recipient).
+  await getMailer().sendMail({
+    to: opts.to,
+    subject: opts.subject,
+    html: opts.html,
+    text: htmlToText(opts.html),
+    ...(env.SUPPORT_EMAIL ? { replyTo: env.SUPPORT_EMAIL } : {}),
+  });
 }
 
 export async function sendVerifyEmail(

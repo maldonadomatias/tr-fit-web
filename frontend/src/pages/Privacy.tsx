@@ -100,7 +100,7 @@ export default function Privacy() {
           notificaciones push al dispositivo.
         </li>
         <li>
-          <strong>Resend</strong>: envía emails transaccionales (verificación,
+          <strong>Amazon Web Services (Amazon SES)</strong>: envía emails transaccionales (verificación,
           recuperación de contraseña, alertas).
         </li>
         <li>

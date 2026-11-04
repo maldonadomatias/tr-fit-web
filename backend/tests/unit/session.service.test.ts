@@ -6,7 +6,6 @@ process.env.OWNER_COACH_EMAIL ??= 'owner-test@example.local';
 process.env.DATABASE_URL ??= 'postgres://postgres:postgres@localhost:5432/trfit_test';
 process.env.JWT_SECRET ??= 'jwt-test-secret-12345';
 process.env.OPENAI_API_KEY ??= 'sk-test-12345';
-process.env.RESEND_API_KEY ??= 'rk-test-12345';
 
 // Real DB pool — used by the logSet integration describe block.
 // Fallthrough to real DB is opt-in via realFallbackEnabled flag, so the
