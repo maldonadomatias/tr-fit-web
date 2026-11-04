@@ -4,7 +4,6 @@ process.env.OPENAI_API_KEY = 'test-openai-key';
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   'postgres://postgres:postgres@localhost:5432/trfit_test';
-process.env.MAIL_FROM = 'TR Fit <test@trfit.local>';
 process.env.APP_URL = 'http://localhost:5001';
 process.env.APP_DEEP_LINK_SCHEME = 'trfit';
 process.env.OWNER_COACH_EMAIL ??= 'owner-test@example.local';

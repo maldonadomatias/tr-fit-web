@@ -6,8 +6,8 @@ const sendEmail = jest.fn<() => Promise<{ messageId: string }>>();
 const saveFile = jest.fn<() => Promise<void>>();
 const deleteFile = jest.fn<() => Promise<void>>();
 
-jest.unstable_mockModule('nodemailer', () => ({
-  default: { createTransport: () => ({ sendMail: sendEmail }) },
+jest.unstable_mockModule('../mailer/index.js', () => ({
+  sendMail: sendEmail,
 }));
 jest.unstable_mockModule('../../config/firebase.js', () => ({
   getFirebaseApp: jest.fn(),

@@ -1,82 +1,88 @@
 import { jest } from '@jest/globals';
 
-type SendArgs = {
-  from: string;
-  to: string;
-  subject: string;
-  html: string;
-  text: string;
-  replyTo?: string;
-};
-const sendMail = jest.fn<(opts: SendArgs) => Promise<{ messageId: string }>>();
-const createTransport = jest.fn(() => ({ sendMail }));
+// The real mail client runs; only the HTTP call to the mail service is faked.
+type FetchInit = { headers: Record<string, string>; body: string };
+const fetchMock = jest.fn<(url: string, init: FetchInit) => Promise<Response>>();
+globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-jest.unstable_mockModule('nodemailer', () => ({
-  default: { createTransport },
-}));
+const savedEnv = { ...process.env };
+process.env.MAILER_URL = 'http://mailer:3000';
+process.env.MAILER_API_KEY = 'mk_test';
 
 const { sendVerifyEmail, sendPasswordResetEmail } = await import(
   '../../src/services/email.service.js'
 );
 
-const savedEnv = { ...process.env };
+function ok(): Response {
+  return new Response(JSON.stringify({ messageId: 'msg_1' }), { status: 200 });
+}
+
+function lastBody(): Record<string, string> {
+  return JSON.parse(fetchMock.mock.calls.at(-1)![1].body);
+}
 
 beforeEach(() => {
-  sendMail.mockReset();
-  process.env = { ...savedEnv };
+  fetchMock.mockReset();
 });
 afterAll(() => {
   process.env = savedEnv;
 });
 
-function lastCall(): SendArgs {
-  return sendMail.mock.calls.at(-1)![0];
-}
-
-it('sendVerifyEmail sends the verify link from MAIL_FROM in html and text', async () => {
-  sendMail.mockResolvedValue({ messageId: 'msg_1' });
+it('sendVerifyEmail posts the verify link in html and text to the mail service', async () => {
+  fetchMock.mockResolvedValue(ok());
   await sendVerifyEmail('user@test.local', 'token-abc');
 
-  expect(sendMail).toHaveBeenCalledTimes(1);
-  const call = lastCall();
-  expect(call.from).toBe(process.env.MAIL_FROM);
-  expect(call.to).toBe('user@test.local');
-  expect(call.subject).toMatch(/verific/i);
-  expect(call.html).toMatch(/verify-email\?token=token-abc/);
-  expect(call.text).toMatch(/verify-email\?token=token-abc/);
-  expect(call.text).not.toMatch(/<[a-z]/i);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toBe('http://mailer:3000/v1/send');
+  expect(init.headers.authorization).toBe('Bearer mk_test');
+  const body = lastBody();
+  expect(body).not.toHaveProperty('from');
+  expect(body.to).toBe('user@test.local');
+  expect(body.subject).toMatch(/verific/i);
+  expect(body.html).toMatch(/verify-email\?token=token-abc/);
+  expect(body.text).toMatch(/verify-email\?token=token-abc/);
+  expect(body.text).not.toMatch(/<[a-z]/i);
 });
 
 it('sendPasswordResetEmail sends the 6-digit code in html and text', async () => {
-  sendMail.mockResolvedValue({ messageId: 'msg_2' });
+  fetchMock.mockResolvedValue(ok());
   await sendPasswordResetEmail('user@test.local', '123456');
 
-  const call = lastCall();
-  expect(call.subject).toMatch(/código|code/i);
-  expect(call.html).toContain('123456');
-  expect(call.text).toContain('123456');
-  expect(call.html).not.toMatch(/reset-password\?token=/);
+  const body = lastBody();
+  expect(body.subject).toMatch(/código|code/i);
+  expect(body.html).toContain('123456');
+  expect(body.text).toContain('123456');
+  expect(body.html).not.toMatch(/reset-password\?token=/);
 });
 
-it('propagates permanent SMTP errors', async () => {
-  sendMail.mockRejectedValue(
-    Object.assign(new Error('Message rejected'), { responseCode: 554 })
+it('propagates SES rejections with the SMTP fields', async () => {
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        code: 'EMESSAGE',
+        responseCode: 554,
+        response: '554 Message rejected: u***@test.local',
+      }),
+      { status: 502 }
+    )
   );
-  await expect(sendVerifyEmail('x@y.z', 't')).rejects.toThrow('Message rejected');
+  await expect(sendVerifyEmail('x@y.z', 't')).rejects.toMatchObject({
+    name: 'MailerError',
+    status: 502,
+    code: 'EMESSAGE',
+    responseCode: 554,
+  });
 });
 
-it('fails the send, not the import, when SMTP is missing in production', async () => {
+it('fails the send, not the import, when the mail service is not configured', async () => {
   jest.resetModules();
-  process.env.NODE_ENV = 'production';
-  delete process.env.SMTP_HOST;
-  delete process.env.SMTP_USER;
-  delete process.env.SMTP_PASS;
+  delete process.env.MAILER_URL;
+  delete process.env.MAILER_API_KEY;
   const fresh = await import('../../src/services/email.service.js');
-  createTransport.mockClear();
 
   await expect(fresh.sendVerifyEmail('x@y.z', 't')).rejects.toThrow(
-    /Invalid mail config:[\s\S]*SMTP_HOST/
+    'Invalid mail config: MAILER_URL, MAILER_API_KEY'
   );
-  expect(createTransport).not.toHaveBeenCalled();
-  expect(sendMail).not.toHaveBeenCalled();
+  expect(fetchMock).not.toHaveBeenCalled();
 });

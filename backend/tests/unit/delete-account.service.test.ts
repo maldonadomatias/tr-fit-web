@@ -1,11 +1,8 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('nodemailer', () => {
+jest.unstable_mockModule('../../src/services/mailer/index.js', () => {
   const send = jest.fn();
-  return {
-    default: { createTransport: () => ({ sendMail: send }) },
-    __mockSend: send,
-  };
+  return { sendMail: send, __mockSend: send };
 });
 
 // ── Mock Firebase Storage bucket ───────────────────────────────────────

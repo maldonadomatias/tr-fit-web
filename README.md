@@ -167,6 +167,10 @@ NODE_ENV=development
 DATABASE_URL=postgres://user:password@localhost:5432/mydb
 FRONTEND_URL=http://localhost:3000
 LOG_LEVEL=info
+# Mail: central mail service over HTTP (see backend/env.example)
+MAILER_URL=http://mailer-<uuid>:3000
+MAILER_API_KEY=mk_...
+MAIL_BRAND_NAME=TR Fit
 ```
 
 ### Frontend (.env)
