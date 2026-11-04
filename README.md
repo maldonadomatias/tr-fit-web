@@ -190,6 +190,11 @@ npm run db:migrate
 2. Name it with a sequential number: `002_your_migration_name.sql`
 3. Run migrations: `npm run db:migrate`
 
+In production the backend container applies pending migrations on every boot,
+using the owner role in `MIGRATION_DATABASE_URL`, before starting the API. Keep
+migrations backward compatible (add, don't drop or rename in the same deploy):
+the previous container keeps serving while the new one boots.
+
 ## 🎨 Adding shadcn/ui Components
 
 This template is configured for shadcn/ui. To add components:

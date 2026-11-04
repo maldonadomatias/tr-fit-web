@@ -6,8 +6,15 @@ dotenv.config();
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import pool from './connect.js';
 import logger from '../utils/logger.js';
+
+// The app connects as a role without CREATE on the schema; migrations need the
+// owner. MIGRATION_DATABASE_URL carries it so only this process gets it.
+// Swapped before connect.js loads, since it reads DATABASE_URL on import.
+if (process.env.MIGRATION_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.MIGRATION_DATABASE_URL;
+}
+const { default: pool } = await import('./connect.js');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +25,9 @@ async function migrate() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // One migrator at a time: a second container booting waits here, then
+    // sees everything already applied.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('trfit:migrate'))");
 
     // Create migrations table if it doesn't exist
     await client.query(`

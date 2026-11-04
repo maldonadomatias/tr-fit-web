@@ -15,5 +15,6 @@ RUN mkdir -p uploads && chown node:node uploads
 
 USER node
 EXPOSE 5001
-# Migrations run manually (npm run db:migrate), not on boot.
-CMD ["node", "dist/index.js"]
+# Pending migrations run on every boot, as the owner role from
+# MIGRATION_DATABASE_URL. If one fails the API does not start.
+CMD ["sh", "-c", "node dist/db/migrate.js && exec node dist/index.js"]
