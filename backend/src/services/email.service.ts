@@ -1,7 +1,6 @@
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
-import { loadMailConfig } from './mailer/config.js';
-import { createMailer } from './mailer/mailer.js';
+import { sendMail } from './mailer/index.js';
 import {
   verifyTemplate,
   resetCodeTemplate,
@@ -11,22 +10,6 @@ import {
   accountApprovedTemplate,
   communityRevisionTemplate,
 } from './email-templates.js';
-
-// Built on first send, not at import: a missing SMTP config must not stop the
-// app from booting, only make each send fail (callers already catch it).
-let mailer: ReturnType<typeof createMailer> | undefined;
-
-function getMailer(): ReturnType<typeof createMailer> {
-  if (!mailer) {
-    try {
-      mailer = createMailer(loadMailConfig());
-    } catch (e) {
-      logger.error({ err: e }, 'mail not configured');
-      throw e;
-    }
-  }
-  return mailer;
-}
 
 // Plain-text part derived from the existing HTML templates, links kept visible.
 export function htmlToText(html: string): string {
@@ -60,8 +43,9 @@ async function send(opts: {
     logger.info({ channel: 'email' }, 'external effect blocked in rehearsal');
     return;
   }
-  // SMTP failures are logged by the mailer (code, response, masked recipient).
-  await getMailer().sendMail({
+  // The mail client validates its config on first send and throws MailerError
+  // (status, code, responseCode, response); callers log it.
+  await sendMail({
     to: opts.to,
     subject: opts.subject,
     html: opts.html,

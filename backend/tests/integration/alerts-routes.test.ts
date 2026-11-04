@@ -1,15 +1,12 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('nodemailer', () => {
+jest.unstable_mockModule('../../src/services/mailer/index.js', () => {
   const send = jest.fn();
-  return {
-    default: { createTransport: () => ({ sendMail: send }) },
-    __mockSend: send,
-  };
+  return { sendMail: send, __mockSend: send };
 });
 
-type MockSend = jest.Mock<(opts: { to: string; subject: string; html: string; from: string }) => Promise<{ messageId: string }>>;
-const mailMod = (await import('nodemailer')) as unknown as { __mockSend: MockSend };
+type MockSend = jest.Mock<(opts: { to: string; subject: string; html: string }) => Promise<{ messageId: string }>>;
+const mailMod = (await import('../../src/services/mailer/index.js')) as unknown as { __mockSend: MockSend };
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
