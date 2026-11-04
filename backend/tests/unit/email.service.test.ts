@@ -1,61 +1,82 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('resend', () => {
-  const send = jest.fn();
-  return {
-    Resend: jest.fn().mockImplementation(() => ({
-      emails: { send },
-    })),
-    __mockSend: send,
-  };
-});
+type SendArgs = {
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string;
+};
+const sendMail = jest.fn<(opts: SendArgs) => Promise<{ messageId: string }>>();
+const createTransport = jest.fn(() => ({ sendMail }));
 
-type MockSend = jest.Mock<
-  (opts: { to: string; subject: string; html: string; from: string }) => Promise<{ id: string }>
->;
+jest.unstable_mockModule('nodemailer', () => ({
+  default: { createTransport },
+}));
 
-const resendMod = (await import('resend')) as unknown as { __mockSend: MockSend };
 const { sendVerifyEmail, sendPasswordResetEmail } = await import(
   '../../src/services/email.service.js'
 );
 
-beforeEach(() => resendMod.__mockSend.mockReset());
+const savedEnv = { ...process.env };
 
-it('sendVerifyEmail calls Resend with verify link', async () => {
-  resendMod.__mockSend.mockResolvedValue({ id: 'msg_1' });
-  await sendVerifyEmail('user@test.local', 'token-abc');
-  expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
-  const call = resendMod.__mockSend.mock.calls[0]?.[0] as unknown as {
-    to: string; subject: string; html: string;
-  };
-  expect(call.to).toBe('user@test.local');
-  expect(call.subject).toMatch(/verific/i);
-  expect(call.html).toContain('token-abc');
-  expect(call.html).toMatch(/verify-email\?token=token-abc/);
+beforeEach(() => {
+  sendMail.mockReset();
+  process.env = { ...savedEnv };
+});
+afterAll(() => {
+  process.env = savedEnv;
 });
 
-it('sendPasswordResetEmail calls Resend with 6-digit code in HTML', async () => {
-  resendMod.__mockSend.mockResolvedValue({ id: 'msg_2' });
-  await sendPasswordResetEmail('user@test.local', '123456');
-  const call = resendMod.__mockSend.mock.calls[0]?.[0] as unknown as {
-    to: string; subject: string; html: string;
-  };
+function lastCall(): SendArgs {
+  return sendMail.mock.calls.at(-1)![0];
+}
+
+it('sendVerifyEmail sends the verify link from MAIL_FROM in html and text', async () => {
+  sendMail.mockResolvedValue({ messageId: 'msg_1' });
+  await sendVerifyEmail('user@test.local', 'token-abc');
+
+  expect(sendMail).toHaveBeenCalledTimes(1);
+  const call = lastCall();
+  expect(call.from).toBe(process.env.MAIL_FROM);
   expect(call.to).toBe('user@test.local');
+  expect(call.subject).toMatch(/verific/i);
+  expect(call.html).toMatch(/verify-email\?token=token-abc/);
+  expect(call.text).toMatch(/verify-email\?token=token-abc/);
+  expect(call.text).not.toMatch(/<[a-z]/i);
+});
+
+it('sendPasswordResetEmail sends the 6-digit code in html and text', async () => {
+  sendMail.mockResolvedValue({ messageId: 'msg_2' });
+  await sendPasswordResetEmail('user@test.local', '123456');
+
+  const call = lastCall();
   expect(call.subject).toMatch(/código|code/i);
   expect(call.html).toContain('123456');
-  // Should not contain a link (OTP-based, not link-based)
+  expect(call.text).toContain('123456');
   expect(call.html).not.toMatch(/reset-password\?token=/);
 });
 
-it('propagates Resend errors', async () => {
-  resendMod.__mockSend.mockRejectedValue(new Error('resend down'));
-  await expect(sendVerifyEmail('x@y.z', 't')).rejects.toThrow('resend down');
+it('propagates permanent SMTP errors', async () => {
+  sendMail.mockRejectedValue(
+    Object.assign(new Error('Message rejected'), { responseCode: 554 })
+  );
+  await expect(sendVerifyEmail('x@y.z', 't')).rejects.toThrow('Message rejected');
 });
 
-it('throws when Resend returns error object (no rejection)', async () => {
-  resendMod.__mockSend.mockResolvedValue({
-    data: null,
-    error: { name: 'missing_api_key', message: 'API key is missing' },
-  } as unknown as { id: string });
-  await expect(sendVerifyEmail('x@y.z', 't')).rejects.toThrow(/api key/i);
+it('fails the send, not the import, when SMTP is missing in production', async () => {
+  jest.resetModules();
+  process.env.NODE_ENV = 'production';
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
+  const fresh = await import('../../src/services/email.service.js');
+  createTransport.mockClear();
+
+  await expect(fresh.sendVerifyEmail('x@y.z', 't')).rejects.toThrow(
+    /Invalid mail config:[\s\S]*SMTP_HOST/
+  );
+  expect(createTransport).not.toHaveBeenCalled();
+  expect(sendMail).not.toHaveBeenCalled();
 });

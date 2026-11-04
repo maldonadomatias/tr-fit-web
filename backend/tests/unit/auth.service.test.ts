@@ -1,11 +1,9 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('resend', () => {
+jest.unstable_mockModule('nodemailer', () => {
   const send = jest.fn();
   return {
-    Resend: jest.fn().mockImplementation(() => ({
-      emails: { send },
-    })),
+    default: { createTransport: () => ({ sendMail: send }) },
     __mockSend: send,
   };
 });

@@ -2,12 +2,12 @@ import { jest } from '@jest/globals';
 
 process.env.EXTERNAL_EFFECTS_ENABLED = 'false';
 
-const sendEmail = jest.fn<() => Promise<{ data: { id: string }; error: null }>>();
+const sendEmail = jest.fn<() => Promise<{ messageId: string }>>();
 const saveFile = jest.fn<() => Promise<void>>();
 const deleteFile = jest.fn<() => Promise<void>>();
 
-jest.unstable_mockModule('resend', () => ({
-  Resend: jest.fn().mockImplementation(() => ({ emails: { send: sendEmail } })),
+jest.unstable_mockModule('nodemailer', () => ({
+  default: { createTransport: () => ({ sendMail: sendEmail }) },
 }));
 jest.unstable_mockModule('../../config/firebase.js', () => ({
   getFirebaseApp: jest.fn(),

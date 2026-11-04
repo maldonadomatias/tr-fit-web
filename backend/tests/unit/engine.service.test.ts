@@ -5,7 +5,6 @@ process.env.DATABASE_URL ??=
   'postgres://postgres:postgres@localhost:5432/trfit_test';
 process.env.JWT_SECRET ??= 'jwt-test-secret-12345';
 process.env.OPENAI_API_KEY ??= 'sk-test-12345';
-process.env.RESEND_API_KEY ??= 'rk-test-12345';
 
 interface FakeQueryResult {
   rows: unknown[];

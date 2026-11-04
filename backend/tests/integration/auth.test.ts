@@ -1,9 +1,9 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('resend', () => {
+jest.unstable_mockModule('nodemailer', () => {
   const send = jest.fn();
   return {
-    Resend: jest.fn().mockImplementation(() => ({ emails: { send } })),
+    default: { createTransport: () => ({ sendMail: send }) },
     __mockSend: send,
   };
 });
@@ -14,9 +14,9 @@ type MockSend = jest.Mock<
     subject: string;
     html: string;
     from: string;
-  }) => Promise<{ id: string }>
+  }) => Promise<{ messageId: string }>
 >;
-const resendMod = (await import('resend')) as unknown as {
+const mailMod = (await import('nodemailer')) as unknown as {
   __mockSend: MockSend;
 };
 
@@ -35,8 +35,8 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await resetDatabase();
-  resendMod.__mockSend.mockReset();
-  resendMod.__mockSend.mockResolvedValue({ id: 'msg' });
+  mailMod.__mockSend.mockReset();
+  mailMod.__mockSend.mockResolvedValue({ messageId: 'msg' });
 });
 afterAll(async () => {
   await closePool();
@@ -54,7 +54,7 @@ it('signup creates unverified user and triggers verify email', async () => {
   const r = await request(app).post('/api/auth/signup').send(signupBody);
   expect(r.status).toBe(201);
   expect(r.body.verifyRequired).toBe(true);
-  expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
+  expect(mailMod.__mockSend).toHaveBeenCalledTimes(1);
   const { rows } = await pool.query<{
     first_name: string;
     last_name: string;
@@ -320,19 +320,19 @@ it('forgot-password always returns 200 (anti-enum), sends email if user exists',
     .send({ email: 'exists@test.local' });
   expect(r1.status).toBe(200);
   expect(r1.body.message).toBe('if account exists, code sent');
-  expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
+  expect(mailMod.__mockSend).toHaveBeenCalledTimes(1);
   // Email should contain a 6-digit code (not a link)
-  const call = resendMod.__mockSend.mock.calls[0]?.[0] as unknown as {
+  const call = mailMod.__mockSend.mock.calls[0]?.[0] as unknown as {
     html: string;
   };
   expect(call.html).toMatch(/\d{6}/);
 
-  resendMod.__mockSend.mockClear();
+  mailMod.__mockSend.mockClear();
   const r2 = await request(app)
     .post('/api/auth/forgot-password')
     .send({ email: 'nope@test.local' });
   expect(r2.status).toBe(200);
-  expect(resendMod.__mockSend).not.toHaveBeenCalled();
+  expect(mailMod.__mockSend).not.toHaveBeenCalled();
 });
 
 // Helper: seed a known OTP code into password_resets bypassing bcrypt via known code

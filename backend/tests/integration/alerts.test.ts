@@ -1,15 +1,15 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('resend', () => {
+jest.unstable_mockModule('nodemailer', () => {
   const send = jest.fn();
   return {
-    Resend: jest.fn().mockImplementation(() => ({ emails: { send } })),
+    default: { createTransport: () => ({ sendMail: send }) },
     __mockSend: send,
   };
 });
 
-type MockSend = jest.Mock<(opts: { to: string; subject: string; html: string; from: string }) => Promise<{ data: { id: string }; error: null }>>;
-const resendMod = (await import('resend')) as unknown as { __mockSend: MockSend };
+type MockSend = jest.Mock<(opts: { to: string; subject: string; html: string; from: string }) => Promise<{ messageId: string }>>;
+const mailMod = (await import('nodemailer')) as unknown as { __mockSend: MockSend };
 
 const { resetDatabase, ensureMigrated, closePool } = await import('./helpers/test-db.js');
 const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
@@ -23,8 +23,8 @@ const pool = poolMod.default;
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
   await resetDatabase();
-  resendMod.__mockSend.mockReset();
-  resendMod.__mockSend.mockResolvedValue({ data: { id: 'msg' }, error: null });
+  mailMod.__mockSend.mockReset();
+  mailMod.__mockSend.mockResolvedValue({ messageId: 'msg' });
 });
 afterAll(async () => { await closePool(); });
 
@@ -43,7 +43,7 @@ it('createPainAlert inserts row + sends email', async () => {
     athleteId: ath, exerciseId, zone: 'lumbar', intensity: 7,
   });
   expect(out.emailSendFailed).toBe(false);
-  expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
+  expect(mailMod.__mockSend).toHaveBeenCalledTimes(1);
   const alerts = await listAlertsForCoach(coach, true);
   expect(alerts).toHaveLength(1);
 });
@@ -57,7 +57,7 @@ it('createMachineAlert info-severity, no email', async () => {
     athleteId: ath, exerciseId,
     switchedToExerciseId: ex2.rows[0].id,
   });
-  expect(resendMod.__mockSend).not.toHaveBeenCalled();
+  expect(mailMod.__mockSend).not.toHaveBeenCalled();
   const alerts = await listAlertsForCoach(coach, true);
   expect(alerts).toHaveLength(1);
 });

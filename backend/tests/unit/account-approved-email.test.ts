@@ -1,11 +1,9 @@
 import { jest } from '@jest/globals';
 
-jest.unstable_mockModule('resend', () => {
+jest.unstable_mockModule('nodemailer', () => {
   const send = jest.fn();
   return {
-    Resend: jest.fn().mockImplementation(() => ({
-      emails: { send },
-    })),
+    default: { createTransport: () => ({ sendMail: send }) },
     __mockSend: send,
   };
 });
@@ -16,10 +14,10 @@ type MockSend = jest.Mock<
     subject: string;
     html: string;
     from: string;
-  }) => Promise<{ id: string }>
+  }) => Promise<{ messageId: string }>
 >;
 
-const resendMod = (await import('resend')) as unknown as {
+const mailMod = (await import('nodemailer')) as unknown as {
   __mockSend: MockSend;
 };
 const { sendAccountApprovedEmail } =
@@ -27,7 +25,7 @@ const { sendAccountApprovedEmail } =
 const { accountApprovedTemplate } =
   await import('../../src/services/email-templates.js');
 
-beforeEach(() => resendMod.__mockSend.mockReset());
+beforeEach(() => mailMod.__mockSend.mockReset());
 
 it('accountApprovedTemplate greets the athlete and says the account is ready', () => {
   const html = accountApprovedTemplate({ name: 'Mati' });
@@ -37,10 +35,10 @@ it('accountApprovedTemplate greets the athlete and says the account is ready', (
 });
 
 it('sendAccountApprovedEmail sends to the user with an approval subject', async () => {
-  resendMod.__mockSend.mockResolvedValue({ id: 'msg_ok' });
+  mailMod.__mockSend.mockResolvedValue({ messageId: 'msg_ok' });
   await sendAccountApprovedEmail({ email: 'user@test.local', name: 'Mati' });
-  expect(resendMod.__mockSend).toHaveBeenCalledTimes(1);
-  const call = resendMod.__mockSend.mock.calls[0]?.[0] as unknown as {
+  expect(mailMod.__mockSend).toHaveBeenCalledTimes(1);
+  const call = mailMod.__mockSend.mock.calls[0]?.[0] as unknown as {
     to: string;
     subject: string;
     html: string;
@@ -50,12 +48,11 @@ it('sendAccountApprovedEmail sends to the user with an approval subject', async 
   expect(call.html).toContain('Mati');
 });
 
-it('sendAccountApprovedEmail rejects when Resend fails', async () => {
-  resendMod.__mockSend.mockResolvedValue({
-    data: null,
-    error: { message: 'resend down' },
-  } as never);
+it('sendAccountApprovedEmail rejects when SMTP fails', async () => {
+  mailMod.__mockSend.mockRejectedValue(
+    Object.assign(new Error('smtp down'), { responseCode: 554 }) as never
+  );
   await expect(
     sendAccountApprovedEmail({ email: 'x@y.z', name: 'Mati' })
-  ).rejects.toThrow('resend down');
+  ).rejects.toThrow('smtp down');
 });

@@ -155,7 +155,7 @@ describe('approval email', () => {
     const tok = adminToken(await createAdmin());
     const id = await pendingAthlete('mail-down@test.local');
     await setMembership(id, 'infinity', 'active');
-    sendApproved.mockRejectedValue(new Error('resend down') as never);
+    sendApproved.mockRejectedValue(new Error('smtp down') as never);
 
     const res = await request(app)
       .patch(`/api/admin/users/${id}`)
