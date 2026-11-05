@@ -25,7 +25,7 @@ const { createAdmin, createAthlete } = await import('./helpers/fixtures.js');
 const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const { enqueueRegenJob } = await import('../../src/services/skeleton-regen.service.js');
-const { regenTick, MAX_JOB_ATTEMPTS } =
+const { regenTick, MAX_JOB_ATTEMPTS, pinInFlightRegen } =
   await import('../../src/workers/regen-worker.js');
 
 beforeAll(async () => { await ensureMigrated(); });
@@ -114,6 +114,34 @@ describe('regenTick', () => {
     const s = await jobStatus(jobId);
     expect(s.status).toBe('failed');
     expect(s.attempts).toBe(MAX_JOB_ATTEMPTS);
+  });
+
+  it('does not reap a generation this process is still running', async () => {
+    const c = await createAdmin();
+    const a = await createAthlete(c);
+    const { jobId } = await enqueueRegenJob(a);
+    await pool.query(
+      `UPDATE skeleton_regen_jobs
+          SET status = 'running', started_at = now() - interval '6 minutes'
+        WHERE id = $1`,
+      [jobId],
+    );
+    const release = pinInFlightRegen(jobId);
+    try {
+      await regenTick();
+    } finally {
+      release();
+    }
+
+    const s = await jobStatus(jobId);
+    expect(s.status).toBe('running');
+    expect(s.attempts).toBe(0);
+    expect(mockAdjust).not.toHaveBeenCalled();
+    const sk = await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM athlete_skeletons WHERE athlete_id = $1`,
+      [a],
+    );
+    expect(sk.rows[0].n).toBe(0);
   });
 
   it('reaps a stuck running job back to queued', async () => {

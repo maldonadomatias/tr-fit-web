@@ -92,9 +92,9 @@ function ColaPane() {
   const empty = !id && queue.length === 0;
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       {stuck.length > 0 && (
-        <div className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
+        <div className="shrink-0 border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-200">
           <span className="font-semibold">
             {stuck.length === 1
               ? '1 atleta sin rutina generada'
@@ -106,7 +106,7 @@ function ColaPane() {
           Se reintenta solo cada 30 min; si persiste, revisá los logs de generación.
         </div>
       )}
-      <div className="grid h-full grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[340px_1fr] lg:overflow-hidden">
         <ListPane activeId={id} onSelect={goToId} />
         <div className="flex min-h-0 flex-col lg:overflow-hidden">
           {id ? (
@@ -122,7 +122,7 @@ function ColaPane() {
           ) : null}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
