@@ -14,6 +14,17 @@ export const SWEEP_EVERY_MS = 600_000;
 
 let interval: ReturnType<typeof setInterval> | null = null;
 let lastSweepAt = 0;
+// Jobs this process is inside runRegenJob for. The reaper must not treat
+// them as crashed: an AI adjustment can run longer than STUCK_RUNNING_MS,
+// and reclaiming the row starts a second generation that never commits.
+const inFlightJobIds = new Set<string>();
+
+export function pinInFlightRegen(jobId: string): () => void {
+  inFlightJobIds.add(jobId);
+  return () => {
+    inFlightJobIds.delete(jobId);
+  };
+}
 
 // One reaper + claim + run cycle. Never throws (logs and swallows).
 export async function regenTick(): Promise<void> {
@@ -31,8 +42,9 @@ export async function regenTick(): Promise<void> {
       `UPDATE skeleton_regen_jobs
           SET status = 'queued', next_attempt_at = now()
         WHERE status = 'running'
-          AND started_at < now() - ($1::int * interval '1 millisecond')`,
-      [STUCK_RUNNING_MS],
+          AND started_at < now() - ($1::int * interval '1 millisecond')
+          AND NOT (id::text = ANY($2::text[]))`,
+      [STUCK_RUNNING_MS, [...inFlightJobIds]],
     );
 
     // Claim one runnable job atomically.
@@ -51,6 +63,7 @@ export async function regenTick(): Promise<void> {
     const job = claim.rows[0];
     if (!job) return;
 
+    const releaseInFlight = pinInFlightRegen(job.id);
     try {
       await runRegenJob(job.athlete_id);
       await pool.query(
@@ -84,6 +97,8 @@ export async function regenTick(): Promise<void> {
         );
         logger.error({ jobId: job.id, err: msg, stack }, 'regen job failed permanently');
       }
+    } finally {
+      releaseInFlight();
     }
   } catch (e) {
     logger.error({ err: e }, 'regenTick failed');

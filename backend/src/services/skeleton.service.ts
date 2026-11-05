@@ -14,6 +14,65 @@ export interface CreateSkeletonInput {
   rejectionFeedback?: string;
 }
 
+/** Inserts a pending skeleton on the caller's transaction. Does not commit. */
+export async function writePendingSkeleton(
+  client: PoolClient,
+  input: CreateSkeletonInput,
+  aiOutput: AiSkeletonOutput,
+): Promise<{ skeletonId: string }> {
+  const sk = await client.query<AthleteSkeleton>(
+    `INSERT INTO athlete_skeletons
+       (athlete_id, status, generated_by, generation_prompt,
+        generation_rationale, rejection_feedback)
+     VALUES ($1, 'pending_review', 'ai', $2::jsonb, $3, $4)
+     RETURNING id`,
+    [
+      input.athleteId,
+      JSON.stringify(input.generationPrompt),
+      input.generationRationale,
+      input.rejectionFeedback ?? null,
+    ]
+  );
+  const skeletonId = sk.rows[0].id;
+
+  for (const day of aiOutput.days) {
+    for (const slot of day.slots) {
+      // Per-slot prescription only applies to accessories; null it out for
+      // principals/warmups so they keep periodization / warmup defaults even
+      // if the model returned stray values.
+      const isAccessory = slot.role === 'accesorio';
+      await client.query(
+        `INSERT INTO skeleton_slots
+           (skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
+            series, reps, descanso)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          skeletonId,
+          day.day_index,
+          slot.slot_index,
+          slot.exercise_id,
+          slot.role,
+          slot.notes,
+          isAccessory ? (slot.series ?? null) : null,
+          isAccessory ? (slot.reps ?? null) : null,
+          isAccessory ? (slot.descanso ?? null) : null,
+        ]
+      );
+    }
+  }
+
+  for (const day of aiOutput.days) {
+    await client.query(
+      `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (skeleton_id, day_of_week) DO NOTHING`,
+      [skeletonId, day.day_index, day.focus]
+    );
+  }
+
+  return { skeletonId };
+}
+
 export async function createPendingSkeleton(
   input: CreateSkeletonInput,
   aiOutput: AiSkeletonOutput
@@ -21,58 +80,9 @@ export async function createPendingSkeleton(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const sk = await client.query<AthleteSkeleton>(
-      `INSERT INTO athlete_skeletons
-         (athlete_id, status, generated_by, generation_prompt,
-          generation_rationale, rejection_feedback)
-       VALUES ($1, 'pending_review', 'ai', $2::jsonb, $3, $4)
-       RETURNING id`,
-      [
-        input.athleteId,
-        JSON.stringify(input.generationPrompt),
-        input.generationRationale,
-        input.rejectionFeedback ?? null,
-      ]
-    );
-    const skeletonId = sk.rows[0].id;
-
-    for (const day of aiOutput.days) {
-      for (const slot of day.slots) {
-        // Per-slot prescription only applies to accessories; null it out for
-        // principals/warmups so they keep periodization / warmup defaults even
-        // if the model returned stray values.
-        const isAccessory = slot.role === 'accesorio';
-        await client.query(
-          `INSERT INTO skeleton_slots
-             (skeleton_id, day_of_week, slot_index, exercise_id, role, notes,
-              series, reps, descanso)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [
-            skeletonId,
-            day.day_index,
-            slot.slot_index,
-            slot.exercise_id,
-            slot.role,
-            slot.notes,
-            isAccessory ? (slot.series ?? null) : null,
-            isAccessory ? (slot.reps ?? null) : null,
-            isAccessory ? (slot.descanso ?? null) : null,
-          ]
-        );
-      }
-    }
-
-    for (const day of aiOutput.days) {
-      await client.query(
-        `INSERT INTO skeleton_days (skeleton_id, day_of_week, focus)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (skeleton_id, day_of_week) DO NOTHING`,
-        [skeletonId, day.day_index, day.focus]
-      );
-    }
-
+    const result = await writePendingSkeleton(client, input, aiOutput);
     await client.query('COMMIT');
-    return { skeletonId };
+    return result;
   } catch (e) {
     await client.query('ROLLBACK');
     throw e;

@@ -107,6 +107,37 @@ describe('runRegenJob', () => {
     expect(log.rows[0].result).toBe('approved_gen');
   });
 
+  it('does not hold a database transaction open while the routine is generated', async () => {
+    await ensureFirstExercise();
+    const c = await createAdmin();
+    const a = await createAthlete(c, { days_per_week: 2 });
+    let idleInTransaction = -1;
+    mockAdjust.mockImplementation(async () => {
+      const r = await pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n
+           FROM pg_stat_activity
+          WHERE datname = current_database()
+            AND state = 'idle in transaction'
+            AND pid <> pg_backend_pid()`,
+      );
+      idleInTransaction = r.rows[0].n;
+      return {
+        rationale: 'r',
+        days: [{ day_index: 1, focus: 'f',
+          slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null,
+            series: null, reps: null, descanso: null }] },
+        { day_index: 2, focus: 'f',
+          slots: [{ slot_index: 1, exercise_id: 1, role: 'principal' as const, notes: null,
+            series: null, reps: null, descanso: null }] }],
+      };
+    });
+
+    const { skeletonId } = await runRegenJob(a);
+
+    expect(skeletonId).toBeTruthy();
+    expect(idleInTransaction).toBe(0);
+  });
+
   it('profile outside the template matrix goes through the AI adjuster', async () => {
     await ensureFirstExercise();
     const c = await createAdmin();

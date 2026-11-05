@@ -1,6 +1,6 @@
 import pool from '../db/connect.js';
 import { generateRoutine } from './routine-generation.service.js';
-import { createPendingSkeleton } from './skeleton.service.js';
+import { writePendingSkeleton } from './skeleton.service.js';
 import { listExercisesForAthlete, listExercises } from './exercise.service.js';
 import type { AthleteProfile } from '../domain/types.js';
 
@@ -95,16 +95,61 @@ export async function sweepOrphanProfiles(): Promise<{ enqueued: number }> {
   return { enqueued: r.rowCount ?? 0 };
 }
 
-// Run the actual generation for one athlete. Used by the worker. Idempotent:
-// if a pending_review skeleton already exists, returns { skeletonId: null }.
-export async function runRegenJob(
+// Short critical section. Returns null when a pending review already exists.
+// Throws NoAthleteProfileError when the user never finished onboarding.
+// The connection is released before the caller does any slow work.
+async function lockAndLoadProfile(
   athleteId: string,
-): Promise<{ skeletonId: string | null }> {
+): Promise<AthleteProfile | null> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [athleteId]);
+    const pendingR = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM athlete_skeletons
+         WHERE athlete_id = $1 AND status = 'pending_review'
+       ) AS exists`,
+      [athleteId],
+    );
+    if (pendingR.rows[0].exists) {
+      await client.query('COMMIT');
+      return null;
+    }
+    const profileR = await client.query<AthleteProfile>(
+      `SELECT * FROM athlete_profiles WHERE user_id = $1`, [athleteId],
+    );
+    const profile = profileR.rows[0];
+    if (!profile) throw new NoAthleteProfileError(athleteId);
+    await client.query('COMMIT');
+    return profile;
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
 
+// Run the actual generation for one athlete. Used by the worker. Idempotent:
+// if a pending_review skeleton already exists, returns { skeletonId: null }.
+// Generation (template swap or the AI adjuster) runs with no connection
+// checked out. Holding one across that wait exhausted the pool on a batch
+// and the nested insert then deadlocked, so the skeleton was never written.
+export async function runRegenJob(
+  athleteId: string,
+): Promise<{ skeletonId: string | null }> {
+  const profile = await lockAndLoadProfile(athleteId);
+  if (!profile) return { skeletonId: null };
+
+  const exercises = await listExercisesForAthlete(profile, athleteId);
+  const catalog = await listExercises();
+  const gen = await generateRoutine({ profile, exercises, catalog });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [athleteId]);
     const pendingR = await client.query<{ exists: boolean }>(
       `SELECT EXISTS(
          SELECT 1 FROM athlete_skeletons
@@ -116,18 +161,8 @@ export async function runRegenJob(
       await client.query('COMMIT');
       return { skeletonId: null };
     }
-
-    const profileR = await client.query<AthleteProfile>(
-      `SELECT * FROM athlete_profiles WHERE user_id = $1`, [athleteId],
-    );
-    const profile = profileR.rows[0];
-    if (!profile) {
-      throw new NoAthleteProfileError(athleteId);
-    }
-    const exercises = await listExercisesForAthlete(profile, athleteId);
-    const catalog = await listExercises();
-    const gen = await generateRoutine({ profile, exercises, catalog });
-    const { skeletonId } = await createPendingSkeleton(
+    const { skeletonId } = await writePendingSkeleton(
+      client,
       {
         athleteId,
         generationPrompt: {

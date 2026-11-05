@@ -406,10 +406,10 @@ export function DetailPane({
   const modCount = Object.keys(overrides).length;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <DetailHeader data={data} />
 
-      <div className="flex-1 overflow-y-auto px-4 py-5 lg:px-7">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 lg:px-7">
         {hasDraftChanges && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-amber-700 dark:text-amber-400">
             <Pencil size={12} />
