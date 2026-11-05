@@ -165,6 +165,7 @@ export async function getActiveRutina(
       WHERE l.athlete_id = $1
         AND l.program_week = COALESCE(s.current_week, 0)
         AND l.finished_at IS NOT NULL
+        AND l.started_at >= COALESCE(s.program_reset_at, '-infinity')
       ORDER BY l.day_of_week`,
     [athleteId]
   );
