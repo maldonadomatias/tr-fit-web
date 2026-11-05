@@ -13,7 +13,8 @@ export async function resetProgramForGymChange(athleteId: string): Promise<void>
     await client.query('BEGIN');
     await client.query(
       `UPDATE athlete_program_state
-          SET current_week = 1, last_week_advanced_at = NULL, rm_test_blocking = FALSE
+          SET current_week = 1, last_week_advanced_at = NULL, rm_test_blocking = FALSE,
+              program_reset_at = NOW()
         WHERE athlete_id = $1`,
       [athleteId],
     );

@@ -786,8 +786,9 @@ export async function listPendingDays(athleteId: string): Promise<number[]> {
   const stateR = await pool.query<{
     current_week: number | null;
     active_skeleton_id: string | null;
+    program_reset_at: Date | null;
   }>(
-    `SELECT current_week, active_skeleton_id
+    `SELECT current_week, active_skeleton_id, program_reset_at
        FROM athlete_program_state WHERE athlete_id = $1`,
     [athleteId]
   );
@@ -806,8 +807,9 @@ export async function listPendingDays(athleteId: string): Promise<number[]> {
        FROM session_logs
       WHERE athlete_id = $1
         AND program_week = $2
-        AND finished_at IS NOT NULL`,
-    [athleteId, state.current_week ?? 0]
+        AND finished_at IS NOT NULL
+        AND started_at >= COALESCE($3::timestamptz, '-infinity')`,
+    [athleteId, state.current_week ?? 0, state.program_reset_at]
   );
   const done = new Set(doneR.rows.map((r) => r.day_of_week));
 

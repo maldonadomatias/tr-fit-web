@@ -113,7 +113,10 @@ export async function runWeeklyProgressionForAthlete(
     }>(
       `SELECT exercise_id, completed, reps, rpe::float8::text AS rpe, drop_index
          FROM set_logs
-        WHERE athlete_id = $1 AND week = $2`,
+        WHERE athlete_id = $1 AND week = $2
+          AND logged_at >= COALESCE(
+            (SELECT program_reset_at FROM athlete_program_state
+              WHERE athlete_id = $1), '-infinity')`,
       [athleteId, fromWeek]
     );
     // Cada bucket de carga lleva su propia escalera, así que también sus

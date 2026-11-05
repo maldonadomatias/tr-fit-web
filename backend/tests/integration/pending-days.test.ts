@@ -3,6 +3,7 @@ import { createAdmin, createAthlete } from './helpers/fixtures.js';
 import { createPendingSkeleton, approveSkeleton } from '../../src/services/skeleton.service.js';
 import { listPendingDays, computeNextPendingDay } from '../../src/services/engine.service.js';
 import { primaryGroup, dominantGroupByDay } from '../../src/services/day-focus.service.js';
+import { resetProgramForGymChange } from '../../src/services/program-reset.service.js';
 import pool from '../../src/db/connect.js';
 
 beforeAll(async () => { await ensureMigrated(); });
@@ -100,6 +101,31 @@ it('ignores unfinished sessions', async () => {
     [ath, sk, week.rows[0].current_week],
   );
   expect(await listPendingDays(ath)).toEqual([1, 2, 3, 4]);
+});
+
+// Bug 2026-11-05: "Me cambié de gimnasio" vuelve a la semana 1 pero los logs
+// de la semana 1 del ciclo anterior seguían contando como hechos: después del
+// día 1 no quedaba ningún día pendiente.
+it('ignores sessions from before a gym-change reset', async () => {
+  const coach = await createAdmin();
+  const ath = await createAthlete(coach, { days_per_week: 4 });
+  const sk = await setup4DaySkeleton(ath, coach);
+  await pool.query(
+    `INSERT INTO session_logs
+       (athlete_id, skeleton_id, program_week, day_of_week, total_sets_target,
+        total_sets_completed, client_id, started_at, finished_at)
+     SELECT $1, $2, 1, d, 0, 0, gen_random_uuid(),
+            NOW() - INTERVAL '30 days', NOW() - INTERVAL '30 days'
+       FROM generate_series(1, 4) d`,
+    [ath, sk],
+  );
+  expect(await listPendingDays(ath)).toEqual([]);
+
+  await resetProgramForGymChange(ath);
+  expect(await listPendingDays(ath)).toEqual([1, 2, 3, 4]);
+
+  await finishDay(ath, sk, 1);
+  expect(await listPendingDays(ath)).toEqual([2, 3, 4]);
 });
 
 describe('dominantGroupByDay', () => {
