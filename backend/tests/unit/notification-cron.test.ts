@@ -6,7 +6,7 @@ jest.unstable_mockModule('../../src/services/notification.service.js', () => ({
   notifyUser: mockNotify,
 }));
 
-const mockQuery = jest.fn<() => Promise<{ rows: unknown[]; rowCount?: number }>>();
+const mockQuery = jest.fn<(sql: string, params?: unknown[]) => Promise<{ rows: unknown[]; rowCount?: number }>>();
 jest.unstable_mockModule('../../src/db/connect.js', () => ({
   default: { query: mockQuery },
 }));
@@ -41,6 +41,33 @@ describe('runNotificationTick', () => {
     });
     await runNotificationTick(now);
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('does not send session_missed on the scheduled day at 21:00', async () => {
+    const now = DateTime.fromISO('2026-05-12T00:00:00.000Z');
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 'u2', timezone: 'America/Argentina/Buenos_Aires', days_specific: ['lun'] }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await runNotificationTick(now);
+
+    expect(mockNotify).not.toHaveBeenCalledWith('u2', 'session_missed');
+  });
+
+  it('checks the previous local day and sends session_missed at 09:00', async () => {
+    const now = DateTime.fromISO('2026-05-12T12:00:00.000Z');
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [{ id: 'u2', timezone: 'America/Argentina/Buenos_Aires', days_specific: ['lun'] }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await runNotificationTick(now);
+
+    expect(mockQuery.mock.calls[1][0]).toContain('::date - 1');
+    expect(mockNotify).toHaveBeenCalledWith('u2', 'session_missed');
   });
 
   it('fires week_start on Monday 7am local', async () => {

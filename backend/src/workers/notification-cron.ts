@@ -25,6 +25,7 @@ export async function runNotificationTick(now: DateTime = DateTime.now()): Promi
       const dt = now.setZone(u.timezone);
       const localHour = dt.hour;
       const todayKey = WEEKDAY_KEYS[dt.weekday - 1];
+      const yesterdayKey = WEEKDAY_KEYS[dt.minus({ days: 1 }).weekday - 1];
       const weekday = dt.weekday;
 
       // session_reminder — local 8am + today is training day
@@ -32,18 +33,17 @@ export async function runNotificationTick(now: DateTime = DateTime.now()): Promi
         await notifyUser(u.id, 'session_reminder');
       }
 
-      // session_missed — local 21h + today is a training day + no session
-      // started today in the athlete's timezone. An open session counts:
+      // session_missed — local 9am + yesterday was a training day + no session
+      // started yesterday in the athlete's timezone. An open session counts:
       // finished_at is often set hours later, so requiring it pinged people
-      // who had already trained. The UTC day flips at 21:00 ART, so the
-      // calendar day has to be computed in the athlete's zone, same as the
-      // rest guard, using this tick's clock rather than a second now().
-      if (localHour === 21 && u.days_specific?.includes(todayKey)) {
+      // who had already trained. Compare local dates in the athlete's zone
+      // using this tick's clock rather than a second now().
+      if (localHour === 9 && u.days_specific?.includes(yesterdayKey)) {
         const had = await pool.query(
           `SELECT 1 FROM session_logs
             WHERE athlete_id = $1
               AND (started_at AT TIME ZONE $2::text)::date
-                  = ($3::timestamptz AT TIME ZONE $2::text)::date
+                  = ($3::timestamptz AT TIME ZONE $2::text)::date - 1
             LIMIT 1`,
           [u.id, u.timezone, now.toJSDate()],
         );
