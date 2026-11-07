@@ -12,8 +12,9 @@ const poolMod = await import('../../src/db/connect.js');
 const pool = poolMod.default;
 const { runNotificationTick } = await import('../../src/workers/notification-cron.js');
 
-// Monday 2026-05-11 21:00 in America/Argentina/Buenos_Aires.
+// Monday 2026-05-11 21:00 and Tuesday 09:00 in America/Argentina/Buenos_Aires.
 const AT_21 = DateTime.fromISO('2026-05-12T00:00:00.000Z');
+const NEXT_DAY_AT_09 = DateTime.fromISO('2026-05-12T12:00:00.000Z');
 
 beforeAll(async () => { await ensureMigrated(); });
 beforeEach(async () => {
@@ -45,8 +46,7 @@ async function approvedSkeleton(athleteId: string): Promise<string> {
 it('does not send session_missed when today already has an open session', async () => {
   const athleteId = await athleteWhoTrainsMonday();
   const skeletonId = await approvedSkeleton(athleteId);
-  // Started in the afternoon. Athletes often close the session hours later,
-  // so finished_at is still null at 21:00 even though they trained.
+  // Started Monday afternoon. An open session still counts as training.
   await pool.query(
     `INSERT INTO session_logs
        (athlete_id, skeleton_id, program_week, day_of_week, started_at)
@@ -54,15 +54,23 @@ it('does not send session_missed when today already has an open session', async 
     [athleteId, skeletonId, '2026-05-11T18:30:00-03:00'],
   );
 
+  await runNotificationTick(NEXT_DAY_AT_09);
+
+  expect(mockNotify).not.toHaveBeenCalledWith(athleteId, 'session_missed');
+});
+
+it('does not send session_missed on the training day at 21:00', async () => {
+  const athleteId = await athleteWhoTrainsMonday();
+
   await runNotificationTick(AT_21);
 
   expect(mockNotify).not.toHaveBeenCalledWith(athleteId, 'session_missed');
 });
 
-it('sends session_missed at 21:00 on a training day with no session', async () => {
+it('sends session_missed the next morning when the training day had no session', async () => {
   const athleteId = await athleteWhoTrainsMonday();
 
-  await runNotificationTick(AT_21);
+  await runNotificationTick(NEXT_DAY_AT_09);
 
   expect(mockNotify).toHaveBeenCalledWith(athleteId, 'session_missed');
 });
@@ -70,7 +78,7 @@ it('sends session_missed at 21:00 on a training day with no session', async () =
 it('does not treat a session started yesterday evening as today', async () => {
   const athleteId = await athleteWhoTrainsMonday();
   const skeletonId = await approvedSkeleton(athleteId);
-  // Sunday 22:00 ART is Monday 01:00 UTC. A UTC-day window would hide Monday's ping.
+  // Sunday 22:00 ART is Monday 01:00 UTC. It must not count as Monday's session.
   await pool.query(
     `INSERT INTO session_logs
        (athlete_id, skeleton_id, program_week, day_of_week, started_at, finished_at)
@@ -78,7 +86,7 @@ it('does not treat a session started yesterday evening as today', async () => {
     [athleteId, skeletonId, '2026-05-10T22:00:00-03:00', '2026-05-10T23:00:00-03:00'],
   );
 
-  await runNotificationTick(AT_21);
+  await runNotificationTick(NEXT_DAY_AT_09);
 
   expect(mockNotify).toHaveBeenCalledWith(athleteId, 'session_missed');
 });

@@ -8,6 +8,10 @@ describe('notification templates', () => {
     expect(r.route).toBe('/(app)/athlete');
   });
 
+  it('offers recovery today in the next-day missed-session notice', () => {
+    expect(TEMPLATES.session_missed({}).body).toContain('hoy');
+  });
+
   it('renders week_start with week var', () => {
     const r = TEMPLATES.week_start({ week: '11' });
     expect(r.title).toBe('Semana 11 arranca');

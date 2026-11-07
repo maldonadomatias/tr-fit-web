@@ -16,7 +16,7 @@ export const TEMPLATES: Record<NotificationType, Renderer> = {
   }),
   session_missed: () => ({
     title: 'Te perdiste la sesión',
-    body: 'Recuperá mañana — un día no rompe la racha.',
+    body: 'Recuperá hoy — un día no rompe la racha.',
     route: '/(app)/athlete',
   }),
   week_start: ({ week }) => ({
