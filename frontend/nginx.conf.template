@@ -11,6 +11,8 @@ server {
     }
 
     location /api {
+        # nginx defaults to 1 MB; exercise video uploads allow up to 100 MB (multer cap).
+        client_max_body_size 110m;
         proxy_pass $backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
