@@ -17,6 +17,7 @@ import type { RoutineTemplate } from './template.service.js';
 import { seriesRangeFor } from './series-budget.js';
 import { enforceFirstWarmup, normalizeWarmupRoles } from './warmup-rule.js';
 import logger from '../utils/logger.js';
+import { sendOpenAiAccountAlert } from './email.service.js';
 
 // Explicit timeout: the default (10 min per attempt) let a single onboarding
 // request hang across deploys. 120s bounds each attempt; the regen worker
@@ -26,6 +27,28 @@ const client = new OpenAI({
   timeout: 120_000,
   maxRetries: 1,
 });
+
+// ponytail: in-memory throttle, resets on deploy (one extra mail per deploy
+// at worst). Move to a DB row if the API ever runs more than one instance.
+export const ACCOUNT_ALERT_EVERY_MS = 6 * 60 * 60 * 1000;
+let lastAccountAlertAt = 0;
+
+// 401 = key revoked/wrong; 429 insufficient_quota = out of credits. Both need
+// a human, so mail ops (throttled) instead of only logging.
+function alertIfAccountProblem(e: unknown): void {
+  const { status, code } = (e ?? {}) as { status?: number; code?: string };
+  const reason =
+    status === 401
+      ? 'La API key de OpenAI fue rechazada (401). Puede estar revocada o mal cargada.'
+      : status === 429 && code === 'insufficient_quota'
+        ? 'La cuenta de OpenAI se quedó sin crédito (insufficient_quota).'
+        : null;
+  if (!reason || Date.now() - lastAccountAlertAt < ACCOUNT_ALERT_EVERY_MS) return;
+  lastAccountAlertAt = Date.now();
+  sendOpenAiAccountAlert(reason).catch((err) =>
+    logger.error({ err }, 'openai: account alert mail failed'),
+  );
+}
 
 const MAX_ATTEMPTS = 5;
 const PRINCIPAL_MAX = 3;
@@ -132,13 +155,19 @@ export async function adjustSkeleton(
     }
 
     const isGpt5 = env.OPENAI_MODEL.startsWith('gpt-5');
-    const completion = await client.chat.completions.parse({
-      model: env.OPENAI_MODEL,
-      messages,
-      ...(isGpt5 ? {} : { temperature: 0.2 }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      response_format: zodResponseFormat(aiSkeletonOutput as any, 'skeleton'),
-    });
+    let completion;
+    try {
+      completion = await client.chat.completions.parse({
+        model: env.OPENAI_MODEL,
+        messages,
+        ...(isGpt5 ? {} : { temperature: 0.2 }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        response_format: zodResponseFormat(aiSkeletonOutput as any, 'skeleton'),
+      });
+    } catch (e) {
+      alertIfAccountProblem(e);
+      throw e;
+    }
 
     const choice = completion.choices[0];
     if (choice?.message?.refusal) {

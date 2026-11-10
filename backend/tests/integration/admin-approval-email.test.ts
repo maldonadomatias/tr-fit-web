@@ -10,6 +10,7 @@ const noop = () =>
 // alert.service (sendCoachPainAlert). Every export of email.service must be
 // present here or ESM fails the import with "does not provide an export named".
 jest.unstable_mockModule('../../src/services/email.service.js', () => ({
+  sendOpenAiAccountAlert: async () => {},
   sendAccountApprovedEmail: sendApproved,
   sendVerifyEmail: noop(),
   sendPasswordResetEmail: noop(),

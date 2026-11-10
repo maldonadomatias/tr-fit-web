@@ -7,6 +7,7 @@ const sendExpired = jest
   .fn<(o: never) => Promise<void>>()
   .mockResolvedValue(undefined);
 jest.unstable_mockModule('../../src/services/email.service.js', () => ({
+  sendOpenAiAccountAlert: async () => {},
   sendMembershipExpiringEmail: sendExpiring,
   sendMembershipExpiredEmail: sendExpired,
   sendVerifyEmail: async () => {},

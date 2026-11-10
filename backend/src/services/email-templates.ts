@@ -99,6 +99,17 @@ export function membershipExpiredTemplate(opts: { name: string }): string {
     Para renovarlo y volver a entrenar, coordiná el pago con tu coach.</p>`);
 }
 
+export function openAiAccountAlertTemplate(opts: { reason: string }): string {
+  return layout(`
+  <h2 style="margin:0 0 16px 0">OpenAI dejó de responder</h2>
+  <p style="line-height:1.6">${opts.reason}</p>
+  <p style="line-height:1.6">Mientras tanto, las rutinas que necesitan ajuste
+    con IA salen con la rutina base sin ajustar para que el coach la revise.</p>
+  <p style="line-height:1.6">Cargá crédito o generá una key nueva en
+    <a href="https://platform.openai.com/settings/organization/billing">platform.openai.com</a>
+    y actualizá <code>OPENAI_API_KEY</code> en Coolify si cambió.</p>`);
+}
+
 export function accountApprovedTemplate(opts: { name: string }): string {
   return layout(`
   <h2 style="margin:0 0 16px 0">Tu cuenta ya está activa</h2>

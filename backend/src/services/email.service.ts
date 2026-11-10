@@ -9,6 +9,7 @@ import {
   membershipExpiredTemplate,
   accountApprovedTemplate,
   communityRevisionTemplate,
+  openAiAccountAlertTemplate,
 } from './email-templates.js';
 
 // Plain-text part derived from the existing HTML templates, links kept visible.
@@ -74,6 +75,16 @@ export async function sendPasswordResetEmail(
     to: email,
     subject: 'Tu código de recuperación — TR Fit',
     html: resetCodeTemplate(code),
+  });
+}
+
+export const OPS_ALERT_EMAIL = 'info@molpo.ar';
+
+export async function sendOpenAiAccountAlert(reason: string): Promise<void> {
+  await send({
+    to: OPS_ALERT_EMAIL,
+    subject: '⚠️ OpenAI sin crédito o key inválida — TR Fit',
+    html: openAiAccountAlertTemplate({ reason }),
   });
 }
 

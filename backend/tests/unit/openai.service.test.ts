@@ -10,6 +10,10 @@ jest.unstable_mockModule('openai', () => {
     __mockParse: parse,
   };
 });
+const sendOpenAiAccountAlert = jest.fn<(reason: string) => Promise<void>>();
+jest.unstable_mockModule('../../src/services/email.service.js', () => ({
+  sendOpenAiAccountAlert,
+}));
 jest.unstable_mockModule('openai/helpers/zod', () => ({
   zodResponseFormat: jest.fn(() => ({ type: 'json_schema' })),
 }));
@@ -262,4 +266,27 @@ it('throws after MAX_ATTEMPTS invalid responses', async () => {
     adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }),
   ).rejects.toThrow(/invalid after 5 attempts/);
   expect(openaiMod.__mockParse).toHaveBeenCalledTimes(5);
+});
+
+it('mails ops once (throttled) when OpenAI rejects the key or runs out of credit', async () => {
+  sendOpenAiAccountAlert.mockResolvedValue();
+  const quota = Object.assign(new Error('quota'), { status: 429, code: 'insufficient_quota' });
+  const plainRate = Object.assign(new Error('slow down'), { status: 429, code: 'rate_limit_exceeded' });
+
+  openaiMod.__mockParse.mockRejectedValueOnce(plainRate as never);
+  await expect(adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }))
+    .rejects.toThrow('slow down');
+  expect(sendOpenAiAccountAlert).not.toHaveBeenCalled();
+
+  openaiMod.__mockParse.mockRejectedValueOnce(quota as never);
+  await expect(adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }))
+    .rejects.toThrow('quota');
+  expect(sendOpenAiAccountAlert).toHaveBeenCalledTimes(1);
+  expect(sendOpenAiAccountAlert.mock.calls[0]![0]).toMatch(/sin crédito/);
+
+  const badKey = Object.assign(new Error('401 Incorrect API key'), { status: 401 });
+  openaiMod.__mockParse.mockRejectedValueOnce(badKey as never);
+  await expect(adjustSkeleton({ template: TEMPLATE, profile, exercises, reasons: REASONS }))
+    .rejects.toThrow('401');
+  expect(sendOpenAiAccountAlert).toHaveBeenCalledTimes(1);
 });

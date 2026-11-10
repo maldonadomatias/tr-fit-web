@@ -23,6 +23,7 @@ import {
 } from './template.service.js';
 import { substituteUnavailableSlots } from './exercise-substitution.service.js';
 import { seriesRangeFor } from './series-budget.js';
+import logger from '../utils/logger.js';
 
 export interface GenerateRoutineInput {
   profile: AthleteProfile;
@@ -38,7 +39,7 @@ export interface GenerateRoutineInput {
 
 export interface GenerateRoutineResult {
   skeleton: AiSkeletonOutput;
-  source: 'template' | 'template+swap' | 'template+ai';
+  source: 'template' | 'template+swap' | 'template+ai' | 'template+fallback';
   templateSource: string;
   reasons: string[];
   substituted: { from: string; to: string }[];
@@ -111,12 +112,37 @@ export async function generateRoutine(
     };
   }
 
-  const skeleton = await adjustSkeleton({
-    template,
-    profile,
-    exercises,
-    reasons,
-  });
+  let skeleton: AiSkeletonOutput;
+  try {
+    skeleton = await adjustSkeleton({ template, profile, exercises, reasons });
+  } catch (e) {
+    // The coach reviews every routine before the athlete sees it, so an
+    // unadjusted draft beats leaving the athlete with nothing (an OpenAI
+    // outage or bad key used to fail every job for these profiles).
+    const err = e instanceof Error ? e.message : String(e);
+    logger.error({ err, athleteId: profile.user_id }, 'AI adjust failed, falling back to template');
+    const allowedIds = new Set(exercises.map((x) => x.id));
+    const base = buildSkeletonFromTemplate({
+      ...template,
+      days_detail: template.days_detail.map((d) => ({
+        ...d,
+        slots: d.slots.filter((s) => allowedIds.has(s.exercise_id)),
+      })),
+    });
+    const removed = swap.unresolved.length
+      ? ` Se quitaron por no estar disponibles para el atleta: ${swap.unresolved.join(', ')}.`
+      : '';
+    return {
+      skeleton: {
+        ...base,
+        rationale: `No se pudo ajustar con IA; es la rutina base del entrenador (${template.source}) SIN ajustar.${removed} Revisá estos puntos antes de aprobar: ${reasons.join(' ')}`,
+      },
+      source: 'template+fallback',
+      templateSource: template.source,
+      reasons,
+      substituted: swap.substituted,
+    };
+  }
   return {
     skeleton,
     source: 'template+ai',

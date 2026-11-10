@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 const emails: Array<{ email: string; newFee: number; downgraded: boolean }> =
   [];
 jest.unstable_mockModule('../../src/services/email.service.js', () => ({
+  sendOpenAiAccountAlert: async () => {},
   sendCommunityRevisionEmail: async (o: {
     email: string;
     newFee: number;

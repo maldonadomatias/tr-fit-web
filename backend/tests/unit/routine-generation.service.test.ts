@@ -183,3 +183,34 @@ it('coach rejection feedback triggers AI adjustment carrying the feedback', asyn
 it('exposes every coach template', () => {
   expect(ROUTINE_TEMPLATES.length).toBe(12);
 });
+
+it('AI failure falls back to the base template minus unavailable slots', async () => {
+  const ids = templateIds(FEMALE_3D);
+  const missing = ids[0]!;
+  const missingName = FEMALE_3D.days_detail
+    .flatMap((d) => d.slots)
+    .find((s) => s.exercise_id === missing)!.exercise_name;
+  const orig = {
+    ...exercisesFor([missing])[0]!,
+    name: missingName,
+    muscle_group: 'Piernas - Pantorrillas',
+  };
+  const allowed = exercisesFor(ids.slice(1));
+  adjustSkeleton.mockRejectedValue(new Error('401 Incorrect API key provided'));
+
+  const r = await generateRoutine({
+    profile,
+    exercises: allowed,
+    catalog: [orig, ...allowed],
+  });
+
+  expect(r.source).toBe('template+fallback');
+  const slotIds = r.skeleton.days.flatMap((d) => d.slots.map((s) => s.exercise_id));
+  expect(slotIds).not.toContain(missing);
+  expect(slotIds.every((id) => ids.includes(id))).toBe(true);
+  for (const d of r.skeleton.days) {
+    expect(d.slots.map((s) => s.slot_index)).toEqual(d.slots.map((_, i) => i + 1));
+  }
+  expect(r.skeleton.rationale).toContain(missingName);
+  expect(r.skeleton.rationale).toMatch(/IA/);
+});
